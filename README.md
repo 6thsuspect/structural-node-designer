@@ -1,225 +1,69 @@
-# 🏗️ Structural Node Designer
-
-Option 1 : https://019f9e61-9287-7d06-9d9d-f7998db935e1.arena.site/
-
-Option 2 : https://019faf25-16b7-7fda-81b9-afae0a1c21fe.arena.site/
-
-
-> **A Grasshopper-inspired visual programming platform for structural engineering calculations.**
-
-Structural Node Designer (SND) is a modern visual programming application that enables structural engineers to create engineering calculations by connecting graphical nodes instead of writing complex Excel formulas. It combines the flexibility of node-based programming with professional structural engineering design libraries to simplify analysis, design, and documentation.
-
+Changelog
+All notable changes to the Structural Node Designer project will be documented in this file.
 ---
-
-# 🚀 Overview
-
-Structural Node Designer replaces traditional spreadsheet-based calculations with an intuitive node-based workflow. Engineers can visually build calculation logic, create reusable design templates, perform real-time engineering calculations, and automatically generate professional calculation reports.
-
-Inspired by **Rhino Grasshopper**, **Dynamo**, **LabVIEW**, and **Unreal Blueprints**, the software is specifically designed for bridge, steel, RCC, and infrastructure engineering.
-
+[1.1] - 2026
+Added
+🔗 Connection Click Menu
+Click on any connection wire to open context menu with:
+🗑️ Delete Connection
+✕ Cancel
+Connection highlights (thicker/brighter) when selected in menu
+Wide invisible hit-area (16px) ensures easy clicking on wires
+🔄 Circular Reference / Infinite Loop Prevention
+Connections that would create infinite loops are automatically blocked
+BFS cycle detection runs before every new connection
+If `toNodeId` is already reachable from `fromNodeId`, the connection is silently rejected
+Prevents circular dependency chains that would break calculations
+📊 Excel-like Nodes (7 new nodes)
+📌 Cell Reference — Value with cell address label
+Σ SUM — Sum of A + B + C + D
+COUNT — Count of non-zero inputs
+x̄ AVERAGE — Average of values
+IFn IF (Excel) — Conditional value selection
+📊 Lookup Table — Approximate VLOOKUP (3-column table)
+Σf SUMIFS — Conditional sum with fallback
+⚙️ Settings Panel
+⚙️ button in top toolbar
+Three tabs: General, Theme, About
+Keyboard shortcuts reference
+Tips section (connection click, circular prevention, etc.)
+Theme switching with visual descriptions
+About page with version and feature grid
+🎨 Hover Blinking Fix
+Root cause: `transition-all` on SVG elements causes color/opacity animations on hover → visual "blinking"
+Fix: Changed to `transition: transform 0.15s ease` only — only scale animates, not colors
+Node hover: subtle `strokeOpacity` shift (0.6→1), no transform/scale on entire node
+Port circles: scale via `[&:hover]:scale-[1.25]` with `transition-[transform]`
+No re-render triggers on hover (uses CSS only)
+📐 Output Text Overlap Fix
+Root cause: port name AND value both rendered near the output circle with same anchor → overlapping text
+Fix: Complete layout redesign:
+Output ports: Value at x=14 (LEFT, green bold), Name at x=width-10 (RIGHT, small gray)
+Input ports: Name at x=14 (near circle), Value in box at x=78+
+Input values get dedicated rect backgrounds for clarity
+Boolean inputs show clickable ✓ TRUE / ✗ FALSE toggle
+Smart `fmt()` formatter: exponential for large/small numbers, locale formatting for thousands
+🗑️ Excel Preview Panel Removed
+Bottom Excel Preview panel removed entirely
+Canvas takes full center area
+Cleaner, more focused editing experience
 ---
-
-# ✨ Key Features
-
-* 🎯 Visual Drag-and-Drop Node Editor
-* ⚡ Real-Time Calculation Engine
-* 🔄 Automatic Dependency Resolution
-* 🧩 Custom Formula & Custom Node Builder
-* 📊 Excel-Like Data Preview
-* 📑 Automatic Calculation Report Generation
-* 📂 Save & Load Projects
-* 🎨 Multiple Professional UI Themes
-* 🔍 Searchable Engineering Node Library
-* ♻️ Reusable Engineering Templates
-* 🔗 Live Node Connections
-* 📈 Graphs & Engineering Visualizations
-* 🤖 AI-Assisted Engineering Workflow *(Planned)*
-
+[1.0.0] - 2024
+🎉 Initial Release
+Visual node editor with SVG canvas, pan/zoom
+60+ built-in nodes across 12 categories
+Live calculation engine with topological sort
+Quick Formula and Advanced custom node editors
+Formula parser (recursive descent, no eval)
+4 themes (Dark, Light, Grasshopper, AutoCAD)
+Collapsible/resizable panels with hamburger toggle
+Project save/load (.snd.json)
+Markdown report generation
+Demo workflow (steel beam design)
 ---
-
-# 📚 Engineering Libraries
-
-Supports professional engineering calculations including:
-
-### Steel Design
-
-* Section Classification
-* Plastic Moment Capacity
-* Shear Capacity
-* Bolt Design
-* Weld Design
-* Base Plate Design
-* Anchor Bolt Design
-* Connection Design
-
-### Reinforced Concrete (RCC)
-
-* Flexural Design
-* Shear Design
-* Development Length
-* Interaction Curves
-* Crack Width
-* Serviceability Checks
-
-### Bridge Engineering
-
-* IRC Load Combinations
-* Moving Loads
-* Impact Factors
-* Deck Slab Design
-* Bearings
-* Prestressed Members
-* Composite Sections
-
-### Section Properties
-
-* Area
-* Centroid
-* Moment of Inertia
-* Plastic Modulus
-* Radius of Gyration
-* Torsion Constant
-* Warping Constant
-
+Known Issues
+Issue	Workaround	Status
+No multi-select drag	Move nodes individually	Planned
+No clipboard support	Use duplicate function	Planned
 ---
-
-# 🏛 Supported Design Codes
-
-* IS Codes
-* IRC Codes
-* IRS Codes
-* Eurocodes
-* AASHTO
-* British Standards (BS)
-* ACI
-* CSA
-
----
-
-# ⚙️ Core Capabilities
-
-* Node-Based Engineering Workflow
-* Infinite Canvas
-* Live Formula Evaluation
-* Topological Dependency Solver
-* Circular Reference Detection
-* Undo / Redo
-* Unit Management
-* Formula Parser
-* Engineering Validation
-* Automatic Error Detection
-* Project Versioning
-
----
-
-# 📄 Report Generation
-
-Generate professional engineering reports including:
-
-* Calculation Sheets
-* PDF Reports
-* Word Documents
-* HTML Reports
-* Markdown Reports
-
-Reports include:
-
-* Inputs
-* Outputs
-* Equations
-* Intermediate Calculations
-* Design Code References
-* Pass / Fail Checks
-* Revision Information
-
----
-
-# 📂 Project Structure
-
-```
-StructuralNodeDesigner/
-│
-├── src/
-├── components/
-├── engine/
-├── parser/
-├── nodeDefinitions/
-├── hooks/
-├── reports/
-├── themes/
-├── assets/
-├── docs/
-└── public/
-```
-
----
-
-# 🖥 Technology Stack
-
-* React
-* TypeScript
-* Electron
-* Tailwind CSS
-* SVG Rendering
-* Vite
-
----
-
-# 🎯 Target Users
-
-* Structural Engineers
-* Bridge Engineers
-* Steel Designers
-* RCC Designers
-* Consultants
-* Researchers
-* Engineering Students
-
----
-
-# 🌟 Future Roadmap
-
-* AI Calculation Assistant
-* BIM Integration
-* AutoCAD Plugin
-* Revit Integration
-* Excel Add-in
-* Cloud Collaboration
-* Structural Optimization
-* 3D Visualization
-* Finite Element Integration
-* Python Scripting Support
-
----
-
-# 📖 Documentation
-
-Project documentation includes:
-
-* Product Requirements Document (PRD)
-* Technical Design Document
-* Architecture Guide
-* API Reference
-* Development Guide
-* User Guide
-* Changelog
-
----
-
-# 🤝 Contributing
-
-Contributions are welcome! Whether you're improving the UI, adding engineering nodes, fixing bugs, or expanding design code libraries, your support helps make Structural Node Designer a better tool for the engineering community.
-
----
-
-# 📜 License
-
-This project is intended for educational and professional engineering use. Licensing details will be defined in future releases.
-
----
-
-# 👨‍💻 Vision
-
-Our goal is to create the world's most powerful visual programming platform for structural engineering—combining the flexibility of node-based workflows with the accuracy of professional engineering software.
-
-**Design Visually. Calculate Confidently. Engineer Smarter.**
+For feature requests or bug reports, open an issue in the repository.
