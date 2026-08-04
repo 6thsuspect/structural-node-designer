@@ -1,7 +1,7 @@
 Changelog
 All notable changes to the Structural Node Designer project will be documented in this file.
 ---
-[1.1] - 2026
+[1.1.0] - 2024
 Added
 🔗 Connection Click Menu
 Click on any connection wire to open context menu with:
@@ -33,7 +33,7 @@ About page with version and feature grid
 Root cause: `transition-all` on SVG elements causes color/opacity animations on hover → visual "blinking"
 Fix: Changed to `transition: transform 0.15s ease` only — only scale animates, not colors
 Node hover: subtle `strokeOpacity` shift (0.6→1), no transform/scale on entire node
-Port circles: scale via `[&:hover]:scale-[1.25]` with `transition-[transform]`
+Port circles: scale via `\[\&:hover]:scale-\[1.25]` with `transition-\[transform]`
 No re-render triggers on hover (uses CSS only)
 📐 Output Text Overlap Fix
 Root cause: port name AND value both rendered near the output circle with same anchor → overlapping text
