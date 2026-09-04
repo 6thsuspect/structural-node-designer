@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Theme } from '../types';
+import ModalWindow from './ModalWindow';
 
 interface Props {
   isOpen: boolean;
@@ -30,19 +31,29 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md max-h-[80vh] rounded-xl shadow-2xl flex flex-col overflow-hidden" style={{ background: colors.bg, border: `1px solid ${colors.border}` }}>
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${colors.border}` }}>
-          <div className="flex items-center gap-3">
-            <span className="text-xl">⚙️</span>
-            <h2 className="text-lg font-bold" style={{ color: colors.text }}>Settings</h2>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10" style={{ color: colors.text }}>✕</button>
+    <ModalWindow
+      icon="⚙️"
+      title="Settings"
+      overlay="rgba(0,0,0,0.7)"
+      bg={colors.bg}
+      border={colors.border}
+      text={colors.text}
+      onClose={onClose}
+      initialWidth={460}
+      initialHeight={540}
+      minWidth={340}
+      minHeight={320}
+      scrollBody={false}
+      persistKey="snd.window.settings"
+      footer={
+        <div className="px-6 py-3 flex justify-end" style={{ borderTop: `1px solid ${colors.border}` }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: colors.accent, color: '#fff' }}>Close</button>
         </div>
-
+      }
+    >
+      <div className="flex flex-col flex-1 min-h-0">
         {/* Tabs */}
-        <div className="flex px-4 pt-2 gap-1" style={{ borderBottom: `1px solid ${colors.border}` }}>
+        <div className="flex px-4 pt-2 gap-1 flex-shrink-0" style={{ borderBottom: `1px solid ${colors.border}` }}>
           {(['general', 'theme', 'about'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className="px-4 py-2 text-sm font-medium rounded-t-lg"
@@ -53,7 +64,7 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex-1 overflow-y-auto p-6 min-h-0" style={{ scrollbarWidth: 'thin' }}>
           {activeTab === 'general' && (
             <div className="space-y-4">
               <div className="p-4 rounded-lg" style={{ background: colors.card, border: `1px solid ${colors.border}` }}>
@@ -138,11 +149,7 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 flex justify-end" style={{ borderTop: `1px solid ${colors.border}` }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: colors.accent, color: '#fff' }}>Close</button>
-        </div>
       </div>
-    </div>
+    </ModalWindow>
   );
 }

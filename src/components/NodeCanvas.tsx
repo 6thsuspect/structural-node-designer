@@ -5,6 +5,20 @@ const PORT_RADIUS = 7;
 const PORT_HEIGHT = 28;
 const HEADER_HEIGHT = 36;
 
+/* ─── Port row layout constants (node width is fixed at 200) ─── */
+const LABEL_X = 16;             // input label left edge
+const COLON_X = 74;             // fixed ":" position, right before the value box
+const VALUE_BOX_X = 78;         // input value box/region left edge
+const VALUE_TEXT_X = 83;        // input value text left edge
+const LABEL_MAX_CHARS = 9;      // input label truncation
+const INPUT_VALUE_MAX_CHARS = 17;
+const OUT_NAME_MAX_CHARS = 10;
+
+/** Truncate a string with an ellipsis so it can never overlap its neighbours. */
+function truncateText(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
 interface Props {
   nodes: CanvasNode[];
   connections: Connection[];
@@ -22,6 +36,8 @@ interface Props {
   onDeleteNode: (nodeId: string) => void;
   onRemoveConnection: (connId: string) => void;
   onUpdateInput: (nodeId: string, portId: string, value: any) => void;
+  onEditNodeCode: (nodeId: string) => void;
+  onEditFormula: (nodeId: string) => void;
   onZoomChange: (z: number) => void;
   onPanChange: (x: number, y: number) => void;
   onDropNode: (type: string, x: number, y: number) => void;
@@ -52,7 +68,8 @@ const themeColors: Record<Theme, Record<string, string>> = {
 export default function NodeCanvas({
   nodes, connections, zoom, panX, panY, connecting, selectedNodeId, theme,
   onMoveNode, onSelectNode, onStartConnecting, onUpdateConnecting, onFinishConnecting,
-  onDeleteNode, onRemoveConnection, onUpdateInput, onZoomChange, onPanChange, onDropNode,
+  onDeleteNode, onRemoveConnection, onUpdateInput, onEditNodeCode, onEditFormula,
+  onZoomChange, onPanChange, onDropNode,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const colors = themeColors[theme];
@@ -60,7 +77,9 @@ export default function NodeCanvas({
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [dragNode, setDragNode] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const [editingPort, setEditingPort] = useState<{ nodeId: string; portId: string } | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  // Node context menu is anchored to the node (not a fixed screen point), so it
+  // follows the node while the canvas is panned or zoomed.
+  const [contextMenu, setContextMenu] = useState<{ nodeId: string } | null>(null);
   // ─── NEW: connection context menu state ───
   const [connMenu, setConnMenu] = useState<{ x: number; y: number; connId: string } | null>(null);
   // ─── NEW: hovered node for visual feedback (no blink) ───
@@ -153,14 +172,17 @@ export default function NodeCanvas({
   const handleConnectionClick = useCallback((e: React.MouseEvent, connId: string) => {
     e.stopPropagation();
     setContextMenu(null);
-    setConnMenu({ x: e.clientX, y: e.clientY, connId });
+    // Store container-relative coordinates so the menu opens right at the cursor
+    // (clientX/Y are viewport coords and would be offset by the toolbar/toolbox).
+    const rect = svgRef.current?.getBoundingClientRect();
+    setConnMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), connId });
   }, []);
 
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
     e.stopPropagation();
     setConnMenu(null);
-    setContextMenu({ x: e.clientX, y: e.clientY, nodeId });
+    setContextMenu({ nodeId });
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }, []);
@@ -252,9 +274,21 @@ export default function NodeCanvas({
     return v.toLocaleString(undefined, { maximumFractionDigits: 4 });
   };
 
+  // Value + designation (unit). The designation is only appended when it is
+  // actually defined on the port, keeping empty "designations" out of the UI.
+  const portValueText = (port: { value?: any; unit?: string }): string => {
+    let base: string;
+    if (typeof port.value === 'boolean') base = port.value ? 'TRUE' : 'FALSE';
+    else if (port.value === undefined || port.value === null || port.value === '') base = '';
+    else base = fmt(port.value);
+    if (!base) return '';
+    return port.unit ? `${base} ${port.unit}` : base;
+  };
+
   // ─── Port rendering ───
-  // FIX #6: Text overlap — output values on LEFT (x=14), port names RIGHT (near circle)
-  //          input names LEFT (near circle), values in center box
+  // Clean layout: fixed regions so no text can overlap.
+  //   INPUTS  → [●] label : [ value/editor ]
+  //   OUTPUTS → [●] value : name            (value left, name right)
   const renderPort = (node: CanvasNode, port: typeof node.inputs[0], idx: number, isOutput: boolean) => {
     const x = isOutput ? node.width : 0;
     const y = HEADER_HEIGHT + idx * PORT_HEIGHT + PORT_HEIGHT / 2;
@@ -262,6 +296,11 @@ export default function NodeCanvas({
       ? connections.some(c => c.fromNodeId === node.id && c.fromPortId === port.id)
       : connections.some(c => c.toNodeId === node.id && c.toPortId === port.id);
     const portColor = isOutput ? '#60a5fa' : '#f97316';
+
+    const labelText = truncateText(port.name, LABEL_MAX_CHARS);
+    const valueText = portValueText(port);
+    const inputValueText = truncateText(valueText || (connected ? '—' : ''), INPUT_VALUE_MAX_CHARS);
+    const outNameText = truncateText(port.name, OUT_NAME_MAX_CHARS);
 
     return (
       <g
@@ -277,7 +316,7 @@ export default function NodeCanvas({
         <circle cx={x} cy={y} r={PORT_RADIUS}
           fill={connected ? portColor : colors.portBg}
           stroke={portColor} strokeWidth={1.5}
-          className="hover:scale-125"
+          className="hover:scale-110"
           style={{ transformBox: 'fill-box', transformOrigin: 'center', transition: 'transform 0.15s ease' }}
         />
         {connected && <circle cx={x} cy={y} r={3} fill="white" />}
@@ -286,26 +325,32 @@ export default function NodeCanvas({
         {/* ─── INPUT PORTS ─── */}
         {!isOutput && (
           <>
-            {/* Port name near circle */}
-            <text x={14} y={y + 4} textAnchor="start" fill={colors.sub} fontSize={10} fontFamily="system-ui">{port.name}</text>
+            {/* Label (truncated; full name in tooltip) */}
+            <text x={LABEL_X} y={y + 4} textAnchor="start" fill={colors.text} fontSize={10} fontWeight="700" fontFamily="system-ui">
+              {labelText}
+              <title>{port.name}{port.unit ? ` (${port.unit})` : ''}</title>
+            </text>
+            {/* Fixed ":" — always ends before the value box, so it can't overlap */}
+            <text x={COLON_X} y={y + 4} textAnchor="end" fill={colors.sub} fontSize={9} fontFamily="system-ui" opacity={0.55}>:</text>
 
             {/* Editable number value (unconnected) */}
             {!connected && port.type === 'number' && (
               <g>
-                <rect x={78} y={y - 9} width={node.width - 90} height={18} rx={3}
+                <rect x={VALUE_BOX_X} y={y - 9} width={node.width - VALUE_BOX_X - 12} height={18} rx={3}
                   fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} className="cursor-text"
                   onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }} />
                 {editingPort?.nodeId === node.id && editingPort?.portId === port.id ? (
-                  <foreignObject x={80} y={y - 8} width={node.width - 84} height={16}>
+                  <foreignObject x={VALUE_TEXT_X - 3} y={y - 8} width={node.width - VALUE_TEXT_X - 6} height={16}>
                     <input type="number" defaultValue={port.value} autoFocus
                       style={{ width:'100%',height:'100%',background:'transparent',border:'none',color:colors.text,fontSize:'10px',outline:'none',fontFamily:'monospace' }}
                       onBlur={(e) => { onUpdateInput(node.id, port.id, parseFloat(e.target.value) || 0); setEditingPort(null); }}
                       onKeyDown={(e) => { if (e.key==='Enter') { onUpdateInput(node.id, port.id, parseFloat((e.target as HTMLInputElement).value)||0); setEditingPort(null); } }} />
                   </foreignObject>
                 ) : (
-                  <text x={83} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
+                  <text x={VALUE_TEXT_X} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
                     onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }}>
-                    {fmt(port.value)}{port.unit ? ` ${port.unit}` : ''}
+                    {inputValueText}
+                    <title>{valueText}</title>
                   </text>
                 )}
               </g>
@@ -313,19 +358,20 @@ export default function NodeCanvas({
             {/* Editable string value (unconnected) */}
             {!connected && port.type === 'string' && (
               <g>
-                <rect x={78} y={y - 9} width={node.width - 90} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} className="cursor-text"
+                <rect x={VALUE_BOX_X} y={y - 9} width={node.width - VALUE_BOX_X - 12} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} className="cursor-text"
                   onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }} />
                 {editingPort?.nodeId === node.id && editingPort?.portId === port.id ? (
-                  <foreignObject x={80} y={y - 8} width={node.width - 84} height={16}>
+                  <foreignObject x={VALUE_TEXT_X - 3} y={y - 8} width={node.width - VALUE_TEXT_X - 6} height={16}>
                     <input type="text" defaultValue={port.value} autoFocus
                       style={{ width:'100%',height:'100%',background:'transparent',border:'none',color:colors.text,fontSize:'10px',outline:'none',fontFamily:'monospace' }}
                       onBlur={(e) => { onUpdateInput(node.id, port.id, e.target.value); setEditingPort(null); }}
                       onKeyDown={(e) => { if (e.key==='Enter') { onUpdateInput(node.id, port.id, (e.target as HTMLInputElement).value); setEditingPort(null); } }} />
                   </foreignObject>
                 ) : (
-                  <text x={83} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
+                  <text x={VALUE_TEXT_X} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
                     onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }}>
-                    {String(port.value || '')}
+                    {inputValueText}
+                    <title>{valueText}</title>
                   </text>
                 )}
               </g>
@@ -333,32 +379,30 @@ export default function NodeCanvas({
             {/* Boolean toggle (unconnected) */}
             {!connected && port.type === 'boolean' && (
               <g onClick={(e) => { e.stopPropagation(); onUpdateInput(node.id, port.id, !port.value); }} className="cursor-pointer">
-                <rect x={78} y={y - 9} width={node.width - 90} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} />
-                <text x={83} y={y + 2} fill={port.value ? '#10b981' : colors.sub} fontSize={10} fontFamily="monospace">
+                <rect x={VALUE_BOX_X} y={y - 9} width={node.width - VALUE_BOX_X - 12} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} />
+                <text x={VALUE_TEXT_X} y={y + 2} fill={port.value ? '#10b981' : colors.sub} fontSize={10} fontFamily="monospace">
                   {port.value ? '✓ TRUE' : '✗ FALSE'}
                 </text>
               </g>
             )}
-            {/* Connected value */}
+            {/* Connected value (from the upstream output port) */}
             {connected && (
-              <text x={78} y={y + 2} fill="#60a5fa" fontSize={10} fontFamily="monospace" fontStyle="italic">
-                {fmt(port.value)}{port.unit ? ` ${port.unit}` : ''}
+              <text x={VALUE_TEXT_X} y={y + 2} fill="#60a5fa" fontSize={10} fontFamily="monospace" fontStyle="italic">
+                {inputValueText}
+                <title>{valueText}</title>
               </text>
             )}
           </>
         )}
 
         {/* ─── OUTPUT PORTS ─── */}
-        {/* FIX #6: Value on LEFT, Name on RIGHT — no overlap */}
+        {/* Only the output name is shown on the node — the computed value text is
+            hidden to keep the node UI clean (values remain in the Properties panel). */}
         {isOutput && (
-          <>
-            <text x={14} y={y + 4} textAnchor="start" fill="#10b981" fontSize={10} fontFamily="monospace" fontWeight="bold">
-              {fmt(port.value)}{port.unit ? ` ${port.unit}` : ''}
-            </text>
-            <text x={node.width - 10} y={y + 4} textAnchor="end" fill={colors.sub} fontSize={10} fontFamily="system-ui">
-              {port.name}
-            </text>
-          </>
+          <text x={node.width - 10} y={y + 4} textAnchor="end" fill={colors.sub} fontSize={10} fontFamily="system-ui">
+            {outNameText}
+            <title>{port.name}</title>
+          </text>
         )}
       </g>
     );
@@ -391,8 +435,11 @@ export default function NodeCanvas({
         {/* Header */}
         <rect width={node.width} height={HEADER_HEIGHT} rx={8} fill={headerColor} opacity={0.9} />
         <rect y={HEADER_HEIGHT - 8} width={node.width} height={8} fill={headerColor} opacity={0.9} />
-        {/* Title */}
-        <text x={12} y={HEADER_HEIGHT / 2 + 5} fill={colors.header} fontSize={13} fontWeight="600" fontFamily="system-ui">{node.label}</text>
+        {/* Title (truncated so it can't overlap the category badge) */}
+        <text x={12} y={HEADER_HEIGHT / 2 + 5} fill={colors.header} fontSize={13} fontWeight="600" fontFamily="system-ui">
+          {truncateText(node.label, 17)}
+          <title>{node.label}</title>
+        </text>
         {/* Category badge */}
         <text x={node.width - 8} y={HEADER_HEIGHT / 2 + 4} textAnchor="end" fill={colors.header} fontSize={9} opacity={0.6} fontFamily="system-ui">{node.category}</text>
         {/* Error dot */}
@@ -403,6 +450,35 @@ export default function NodeCanvas({
       </g>
     );
   };
+
+  // ─── Context menu anchor ───
+  // Compute where the open node context menu should sit, in container-relative
+  // coordinates. This runs on every render, so the menu tracks the node as the
+  // canvas is panned or zoomed (it never drifts away from its node).
+  const contextMenuAnchor = (() => {
+    if (!contextMenu) return null;
+    const node = nodes.find(n => n.id === contextMenu.nodeId);
+    if (!node) return null;
+    const svg = svgRef.current;
+    const cw = svg?.clientWidth ?? window.innerWidth;
+    const ch = svg?.clientHeight ?? window.innerHeight;
+    const nx = panX + node.x * zoom;
+    const ny = panY + node.y * zoom;
+    const nw = node.width * zoom;
+    const nh = node.height * zoom;
+    const MENU_W = 208;
+    const MENU_H = 176;
+    const GAP = 8;
+    // Prefer to the right of the node; flip to the left when it would overflow.
+    let x = nx + nw + GAP;
+    if (x + MENU_W > cw - 4) x = nx - GAP - MENU_W;
+    x = Math.max(4, Math.min(x, Math.max(4, cw - MENU_W - 4)));
+    // Align with the node top; flip up when it would overflow the bottom.
+    let y = ny;
+    if (y + MENU_H > ch - 4) y = ny + nh - MENU_H;
+    y = Math.max(4, Math.min(y, Math.max(4, ch - MENU_H - 4)));
+    return { x, y };
+  })();
 
   return (
     <div className="relative w-full h-full overflow-hidden" style={{ background: colors.bg }}>
@@ -436,13 +512,18 @@ export default function NodeCanvas({
         </div>
       )}
 
-      {/* Node context menu */}
-      {contextMenu && (
-        <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[160px]"
-          style={{ left: contextMenu.x, top: contextMenu.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
-          <button className="w-full px-4 py-2 text-left text-sm hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
+      {/* Node context menu — anchored to the node and follows it on pan/zoom */}
+      {contextMenu && contextMenuAnchor && (
+        <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[200px]"
+          style={{ left: contextMenuAnchor.x, top: contextMenuAnchor.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
+          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+            onClick={() => { onEditNodeCode(contextMenu.nodeId); setContextMenu(null); }}>🧮 Edit Node Code</button>
+          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+            onClick={() => { onEditFormula(contextMenu.nodeId); setContextMenu(null); }}>⚡ Edit Formula &amp; Inputs</button>
+          <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
+          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
             onClick={() => { onDeleteNode(contextMenu.nodeId); setContextMenu(null); }}>🗑️ Delete Node</button>
-          <button className="w-full px-4 py-2 text-left text-sm hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
+          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
             onClick={() => setContextMenu(null)}>✕ Cancel</button>
         </div>
       )}

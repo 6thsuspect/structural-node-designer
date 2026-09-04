@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Theme } from '../types';
-import { validateFormula, extractVariables, parseFormula } from '../formulaParser';
+import { validateFormula, extractVariables, analyzeFormulaNode, evaluateFormulaNode } from '../formulaParser';
 import { CATEGORY_COLORS } from '../nodeDefinitions';
+import ModalWindow from './ModalWindow';
 
 export interface QuickNodeData {
   id: string;
@@ -58,6 +59,15 @@ const themeStyles: Record<Theme, {
 
 const CATEGORIES = ['Custom', 'Steel', 'RCC', 'Bridge', 'Loads', 'Section', 'Math'];
 
+// Output names may be any word or symbol — letters, numbers, underscores,
+// Greek letters (ε, σ, Δ) and other Unicode symbols. They only can't start with
+// a digit or contain characters reserved for formulas (operators, parens, '=', ',', spaces).
+function isValidOutputName(name: string): boolean {
+  if (!name) return false;
+  if (/[0-9]/.test(name[0])) return false;      // can't start with a digit
+  return !/[\s+\-*/^(),=]/.test(name);           // no reserved formula characters
+}
+
 // Parse equation like "Area = b * h" or "Stress = M / Z"
 function parseEquation(equation: string): ParsedEquation {
   const trimmed = equation.trim();
@@ -80,8 +90,8 @@ function parseEquation(equation: string): ParsedEquation {
     return { outputName: '', formula, variables: [], isValid: false, error: 'Missing output name' };
   }
   
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(outputName)) {
-    return { outputName, formula, variables: [], isValid: false, error: 'Output name must start with letter and contain only letters, numbers, underscore' };
+  if (!isValidOutputName(outputName)) {
+    return { outputName, formula, variables: [], isValid: false, error: 'Output name cannot start with a digit or contain spaces, operators (+, -, *, /, ^), parentheses, commas, or "="' };
   }
   
   if (!formula) {
@@ -143,27 +153,39 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
     }
   }, [editingNode, isOpen]);
 
-  // Parse all equations
+  // Parse all equations (line-level syntax & name checks)
   const parsedEquations = useMemo(() => {
     const lines = equationText.split('\n').filter(line => line.trim());
     return lines.map(line => parseEquation(line));
   }, [equationText]);
 
-  // Get all unique input variables (excluding output names)
-  const allInputVariables = useMemo(() => {
-    const outputNames = new Set(parsedEquations.map(eq => eq.outputName));
-    const allVars = new Set<string>();
-    parsedEquations.forEach(eq => {
-      eq.variables.forEach(v => {
-        if (!outputNames.has(v)) {
-          allVars.add(v);
+  // Cross-equation dependency analysis: auto-detects which variables are external
+  // inputs vs. internal outputs, resolves dependencies between formulas, computes
+  // a dependency-safe evaluation order, and reports cycles / duplicate outputs.
+  const dependencyAnalysis = useMemo(() => {
+    const originalIndices: number[] = [];
+    const equations = parsedEquations
+      .map((eq, i) => {
+        if (eq.isValid && eq.outputName) {
+          originalIndices.push(i);
+          return { output: eq.outputName, formula: eq.formula };
         }
-      });
+        return null;
+      })
+      .filter((eq): eq is { output: string; formula: string } => eq !== null);
+    const plan = analyzeFormulaNode(equations);
+    const lineErrors: Record<number, string> = {};
+    plan.errors.forEach(err => {
+      const line = originalIndices[err.index];
+      if (line !== undefined) lineErrors[line] = err.error;
     });
-    return Array.from(allVars).sort();
+    return { plan, lineErrors };
   }, [parsedEquations]);
 
-  // Get all outputs
+  // External inputs = variables referenced but never calculated by any equation
+  const allInputVariables = dependencyAnalysis.plan.inputs;
+
+  // Outputs = the left-hand-side variable of every valid equation
   const allOutputs = useMemo(() => {
     return parsedEquations
       .filter(eq => eq.isValid && eq.outputName)
@@ -174,10 +196,11 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
   const allValid = useMemo(() => {
     return parsedEquations.length > 0 && 
            parsedEquations.every(eq => eq.isValid) &&
+           dependencyAnalysis.plan.errors.length === 0 &&
            label.trim() !== '';
-  }, [parsedEquations, label]);
+  }, [parsedEquations, dependencyAnalysis, label]);
 
-  // Test calculation
+  // Test calculation — evaluated in dependency order, not written order
   const testResults = useMemo(() => {
     const results: Record<string, number | string> = {};
     const values: Record<string, number> = {};
@@ -187,22 +210,20 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
       values[v] = inputDefaults[v] ?? 1;
     });
     
-    // Calculate each output in order
-    parsedEquations.forEach(eq => {
-      if (eq.isValid) {
-        try {
-          const fn = parseFormula(eq.formula);
-          const result = fn(values);
-          results[eq.outputName] = result;
-          values[eq.outputName] = result; // Allow chained calculations
-        } catch (e) {
-          results[eq.outputName] = 'Error';
-        }
-      }
-    });
+    try {
+      const equations = allOutputs.map(o => ({ output: o.name, formula: o.formula }));
+      const computed = evaluateFormulaNode(equations, values);
+      allOutputs.forEach(o => {
+        results[o.name] = computed[o.name] ?? '—';
+      });
+    } catch {
+      // The detailed error (cycle / undefined variable) is shown on the
+      // equation line itself; keep the preview simple.
+      allOutputs.forEach(o => { results[o.name] = 'Error'; });
+    }
     
     return results;
-  }, [parsedEquations, allInputVariables, inputDefaults]);
+  }, [allOutputs, allInputVariables, inputDefaults]);
 
   const handleSave = () => {
     if (!allValid) return;
@@ -251,39 +272,65 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: colors.overlay }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div 
-        className="w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ background: colors.bg, border: `1px solid ${colors.border}` }}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${colors.border}` }}>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚡</span>
-            <div>
-              <h2 className="text-lg font-bold" style={{ color: colors.text }}>
-                Quick Formula Node
-              </h2>
-              <p className="text-xs" style={{ color: colors.label }}>
-                Just type equations like <code className="px-1 rounded" style={{ background: colors.input }}>Area = b * h</code> — inputs are auto-detected!
-              </p>
-            </div>
+    <ModalWindow
+      icon="⚡"
+      title="Quick Formula Editor"
+      subtitle={
+        <p className="text-xs" style={{ color: colors.label }}>
+          Just type equations like <code className="px-1 rounded" style={{ background: colors.input }}>Area = b * h</code> — inputs are auto-detected!
+        </p>
+      }
+      overlay={colors.overlay}
+      bg={colors.bg}
+      border={colors.border}
+      text={colors.text}
+      onClose={onClose}
+      initialWidth={960}
+      initialHeight={640}
+      minWidth={640}
+      minHeight={420}
+      scrollBody={false}
+      persistKey="snd.window.quick"
+      footer={
+        <div 
+          className="px-6 py-4 flex items-center justify-between"
+          style={{ borderTop: `1px solid ${colors.border}` }}
+        >
+          <div className="text-xs" style={{ color: colors.label }}>
+            {allValid ? (
+              <span style={{ color: colors.success }}>
+                ✓ Ready to {editingNode ? 'save' : 'create'}: {allInputVariables.length} inputs → {allOutputs.length} outputs
+              </span>
+            ) : (
+              <span style={{ color: colors.error }}>
+                {!label.trim() ? '✗ Enter a node name' : 
+                 parsedEquations.length === 0 ? '✗ Enter at least one equation' :
+                 '✗ Fix equation errors to continue'}
+              </span>
+            )}
           </div>
-          <button 
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors"
-            style={{ color: colors.text }}
-          >
-            ✕
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105"
+              style={{ background: 'transparent', color: colors.text, border: `1px solid ${colors.border}` }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!allValid}
+              className="px-6 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: colors.accent, color: '#fff' }}
+            >
+              {editingNode ? '💾 Save Node' : '⚡ Create Node'}
+            </button>
+          </div>
         </div>
-
-        {/* Main Content - Two Column Layout */}
-        <div className="flex-1 flex overflow-hidden">
+      }
+    >
+      {/* Main Content - Two Column Layout */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Left Column - Equation Input */}
           <div className="flex-1 flex flex-col p-4 overflow-y-auto" style={{ borderRight: `1px solid ${colors.border}` }}>
             {/* Node Info */}
@@ -339,7 +386,7 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
                   Equations * <span className="font-normal">(one per line)</span>
                 </label>
                 <span className="text-[10px]" style={{ color: colors.label }}>
-                  {parsedEquations.filter(e => e.isValid).length} valid / {parsedEquations.length} total
+                  {parsedEquations.filter((e, i) => e.isValid && !dependencyAnalysis.lineErrors[i]).length} valid / {parsedEquations.length} total
                 </span>
               </div>
               
@@ -360,25 +407,29 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
               {/* Equation Status */}
               {parsedEquations.length > 0 && (
                 <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                  {parsedEquations.map((eq, idx) => (
-                    <div 
-                      key={idx}
-                      className="flex items-center gap-2 px-2 py-1 rounded text-xs"
-                      style={{ background: eq.isValid ? `${colors.success}15` : `${colors.error}15` }}
-                    >
-                      <span style={{ color: eq.isValid ? colors.success : colors.error }}>
-                        {eq.isValid ? '✓' : '✗'}
-                      </span>
-                      <span className="font-mono" style={{ color: colors.text }}>
-                        {eq.outputName || '?'} = {eq.formula || '...'}
-                      </span>
-                      {!eq.isValid && eq.error && (
-                        <span className="ml-auto" style={{ color: colors.error }}>
-                          {eq.error}
+                  {parsedEquations.map((eq, idx) => {
+                    const depError = dependencyAnalysis.lineErrors[idx];
+                    const hasError = !eq.isValid || !!depError;
+                    return (
+                      <div 
+                        key={idx}
+                        className="flex items-center gap-2 px-2 py-1 rounded text-xs"
+                        style={{ background: hasError ? `${colors.error}15` : `${colors.success}15` }}
+                      >
+                        <span style={{ color: hasError ? colors.error : colors.success }}>
+                          {hasError ? '✗' : '✓'}
                         </span>
-                      )}
-                    </div>
-                  ))}
+                        <span className="font-mono" style={{ color: colors.text }}>
+                          {eq.outputName || '?'} = {eq.formula || '...'}
+                        </span>
+                        {(eq.error || depError) && (
+                          <span className="ml-auto" style={{ color: colors.error }}>
+                            {depError || eq.error}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -586,44 +637,6 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div 
-          className="px-6 py-4 flex items-center justify-between"
-          style={{ borderTop: `1px solid ${colors.border}` }}
-        >
-          <div className="text-xs" style={{ color: colors.label }}>
-            {allValid ? (
-              <span style={{ color: colors.success }}>
-                ✓ Ready to create: {allInputVariables.length} inputs → {allOutputs.length} outputs
-              </span>
-            ) : (
-              <span style={{ color: colors.error }}>
-                {!label.trim() ? '✗ Enter a node name' : 
-                 parsedEquations.length === 0 ? '✗ Enter at least one equation' :
-                 '✗ Fix equation errors to continue'}
-              </span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105"
-              style={{ background: 'transparent', color: colors.text, border: `1px solid ${colors.border}` }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!allValid}
-              className="px-6 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: colors.accent, color: '#fff' }}
-            >
-              ⚡ Create Node
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </ModalWindow>
   );
 }

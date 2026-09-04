@@ -6,11 +6,13 @@ import PropertiesPanel from './components/PropertiesPanel';
 import Toolbar from './components/Toolbar';
 import CustomFormulaModal, { CustomNodeData } from './components/CustomFormulaModal';
 import QuickFormulaModal, { QuickNodeData } from './components/QuickFormulaModal';
+import NodeCodeModal, { CodeNodeData } from './components/NodeCodeModal';
 import SettingsModal from './components/SettingsModal';
 import { createDemoWorkflow } from './demoWorkflow';
-import { registerCustomNode, CATEGORY_COLORS } from './nodeDefinitions';
-import { parseFormula } from './formulaParser';
-import { Theme } from './types';
+import { registerCustomNode, CATEGORY_COLORS, getNodeDefinition } from './nodeDefinitions';
+import { evaluateFormulaNode } from './formulaParser';
+import { generateNodeCode, extractOutputFormulas, buildQuickPrefill, buildCodePrefill } from './nodeCodegen';
+import { Theme, NodeDefinition, CanvasNode } from './types';
 
 /* ─── theme palette helper ─── */
 const panelColors = (theme: Theme) => {
@@ -22,6 +24,42 @@ const panelColors = (theme: Theme) => {
   };
   return map[theme];
 };
+
+/* ─── Build a NodeDefinition from custom node data ─── */
+function buildCustomNodeDef(nodeData: CustomNodeData | QuickNodeData): NodeDefinition {
+  return {
+    type: nodeData.id, category: nodeData.category, label: nodeData.label, description: nodeData.description,
+    inputs: nodeData.inputs.map(i => ({ name: i.name, type: 'number' as const, value: i.defaultValue, unit: i.unit })),
+    outputs: nodeData.outputs.map(o => ({ name: o.name, type: 'number' as const, unit: o.unit })),
+    compute: (inputs: Record<string, number>) => {
+      // Dependency-based evaluation: each output's formula may reference other
+      // outputs in the same node; evaluateFormulaNode resolves those internal
+      // dependencies automatically (in the correct order) and throws a clear
+      // error on undefined variables or circular dependencies.
+      const equations = nodeData.outputs.map(o => ({ output: o.name, formula: o.formula }));
+      return evaluateFormulaNode(equations, inputs);
+    },
+    color: CATEGORY_COLORS[nodeData.category] || '#00BCD4', icon: '✏️',
+  };
+}
+
+/* ─── Build a NodeDefinition from custom code node data ─── */
+function buildCodeNodeDef(data: CodeNodeData): NodeDefinition {
+  return {
+    type: data.id, category: data.category, label: data.label, description: data.description,
+    inputs: data.inputs.map(i => ({ name: i.name, type: i.type, value: i.value, unit: i.unit })),
+    outputs: data.outputs.map(o => ({ name: o.name, type: o.type, unit: o.unit })),
+    compute: (inputs: Record<string, any>) => {
+      try {
+        const fn = new Function('inputs', data.code) as (i: Record<string, any>) => Record<string, any>;
+        return fn(inputs) || {};
+      } catch (e: any) {
+        throw new Error(e?.message || 'Code error');
+      }
+    },
+    color: CATEGORY_COLORS[data.category] || '#00BCD4', icon: '🧮',
+  };
+}
 
 /* ─── Hamburger icon ─── */
 function HamburgerIcon({ color }: { color: string }) {
@@ -98,28 +136,48 @@ export default function App() {
   const [showQuickFormulaModal, setShowQuickFormulaModal]   = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [customNodes, setCustomNodes] = useState<(CustomNodeData|QuickNodeData)[]>([]);
+  const [codeNodes, setCodeNodes] = useState<CodeNodeData[]>([]);
+  const [showNodeCodeModal, setShowNodeCodeModal] = useState(false);
+  const [editNodeId, setEditNodeId] = useState<string | null>(null);
+  const [editingFormulaNode, setEditingFormulaNode] = useState<QuickNodeData | null>(null);
   const [, forceUpdate] = useState(0);
 
   const selectedNode = editor.nodes.find(n => n.id === editor.selectedNodeId) || null;
+  const editNode = editor.nodes.find(n => n.id === editNodeId) || selectedNode;
+
+  /* ── Reconstruct editable code for any node (built-in, formula, or code) ── */
+  const buildInitialCode = (node: CanvasNode): string => {
+    const def = getNodeDefinition(node.type);
+    let formulaMap: Record<string, string> | undefined;
+    const quick = customNodes.find(n => 'equations' in n && n.id === node.type) as QuickNodeData | undefined;
+    const advanced = customNodes.find(n => !('equations' in n) && n.id === node.type) as CustomNodeData | undefined;
+    if (quick) {
+      formulaMap = {};
+      quick.outputs.forEach(o => { formulaMap![o.name] = o.formula; });
+    } else if (advanced) {
+      formulaMap = {};
+      advanced.outputs.forEach(o => { formulaMap![o.name] = o.formula; });
+    } else {
+      formulaMap = extractOutputFormulas(node, def);
+    }
+    return generateNodeCode(node, def, formulaMap);
+  };
 
   /* ── register custom nodes ── */
   useEffect(() => {
     customNodes.forEach(nodeData => {
-      const nodeDef = {
-        type: nodeData.id, category: nodeData.category, label: nodeData.label, description: nodeData.description,
-        inputs: nodeData.inputs.map(i => ({ name:i.name, type:'number' as const, value:i.defaultValue, unit:i.unit })),
-        outputs: nodeData.outputs.map(o => ({ name:o.name, type:'number' as const, unit:o.unit })),
-        compute: (inputs: Record<string, number>) => {
-          const results: Record<string, number> = {};
-          nodeData.outputs.forEach(output => { try { results[output.name] = parseFormula(output.formula)(inputs); } catch { results[output.name] = 0; } });
-          return results;
-        },
-        color: CATEGORY_COLORS[nodeData.category] || '#00BCD4', icon: '✏️',
-      };
-      registerCustomNode(nodeDef);
+      registerCustomNode(buildCustomNodeDef(nodeData));
     });
     forceUpdate(n => n + 1);
   }, [customNodes]);
+
+  /* ── register custom code nodes ── */
+  useEffect(() => {
+    codeNodes.forEach(nodeData => {
+      registerCustomNode(buildCodeNodeDef(nodeData));
+    });
+    forceUpdate(n => n + 1);
+  }, [codeNodes]);
 
   const handleSaveCustomNode = useCallback((nodeData: CustomNodeData|QuickNodeData) => {
     setCustomNodes(prev => {
@@ -127,7 +185,86 @@ export default function App() {
       if (existing >= 0) { const updated = [...prev]; updated[existing] = nodeData; return updated; }
       return [...prev, nodeData];
     });
+    // Register immediately (so it can be used right away) and, when launched from a
+    // node's context menu, convert that node to the new definition.
+    registerCustomNode(buildCustomNodeDef(nodeData));
+    if (editNodeId) editor.replaceNodeType(editNodeId, nodeData.id);
+    setEditNodeId(null);
+    setEditingFormulaNode(null);
+  }, [editNodeId, editor]);
+
+  const handleSaveNodeCode = useCallback((data: CodeNodeData) => {
+    setCodeNodes(prev => {
+      const existing = prev.findIndex(n => n.id === data.id);
+      if (existing >= 0) { const updated = [...prev]; updated[existing] = data; return updated; }
+      return [...prev, data];
+    });
+    registerCustomNode(buildCodeNodeDef(data));
+    if (editNodeId) editor.replaceNodeType(editNodeId, data.id);
+    setEditNodeId(null);
+    setShowNodeCodeModal(false);
+  }, [editNodeId, editor]);
+
+  /* ── context menu: edit a node's code ── */
+  const handleOpenNodeCode = useCallback((nodeId: string) => {
+    setEditNodeId(nodeId);
+    setShowNodeCodeModal(true);
   }, []);
+
+  /* ── context menu: edit formula & inputs ── */
+  const handleOpenFormula = useCallback((nodeId: string) => {
+    const node = editor.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    const quick = customNodes.find(n => 'equations' in n && n.id === node.type) as QuickNodeData | undefined;
+    if (quick) {
+      setEditingFormulaNode(quick);
+    } else {
+      // An "Advanced" custom node has per-output formulas; expose them as equations.
+      const advanced = customNodes.find(n => !('equations' in n) && n.id === node.type) as CustomNodeData | undefined;
+      if (advanced) {
+        setEditingFormulaNode({
+          id: advanced.id,
+          label: advanced.label,
+          description: advanced.description,
+          category: advanced.category,
+          equations: advanced.outputs.map(o => `${o.name} = ${o.formula}`),
+          inputs: advanced.inputs,
+          outputs: advanced.outputs,
+        });
+      } else {
+        // Code node: rebuild the equations from the stored JavaScript so the
+        // dialog shows the same formulas as "Edit Node Code" (not current values).
+        const codeNode = codeNodes.find(c => c.id === node.type);
+        if (codeNode) {
+          const prefill = buildCodePrefill(node, codeNode.code);
+          setEditingFormulaNode({
+            id: `quick_${node.id}`,
+            label: prefill.label,
+            description: prefill.description,
+            category: prefill.category,
+            equations: prefill.equations,
+            inputs: prefill.inputs,
+            outputs: prefill.outputs,
+          });
+        } else {
+          // Built-in node: rebuild inputs + equations from the node itself
+          // (its inputs, description formulas, and current output values).
+          const prefill = buildQuickPrefill(node, getNodeDefinition(node.type));
+          setEditingFormulaNode({
+            id: `quick_${node.id}`,
+            label: prefill.label,
+            description: prefill.description,
+            category: prefill.category,
+            equations: prefill.equations,
+            inputs: prefill.inputs,
+            outputs: prefill.outputs,
+          });
+        }
+      }
+    }
+    setEditNodeId(nodeId);
+    setShowQuickFormulaModal(true);
+  }, [editor.nodes, customNodes, codeNodes]);
 
   /* ── project save ── */
   const handleSaveProject = useCallback(() => {
@@ -135,14 +272,14 @@ export default function App() {
       name: 'Structural Node Designer Project', version: '1.0',
       created: new Date().toISOString(), modified: new Date().toISOString(),
       canvas: { nodes:editor.nodes, connections:editor.connections, zoom:editor.zoom, panX:editor.panX, panY:editor.panY },
-      theme: editor.theme, customNodes,
+      theme: editor.theme, customNodes, codeNodes,
     };
     const blob = new Blob([JSON.stringify(project, null, 2)], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'project.snd.json'; a.click();
     URL.revokeObjectURL(url);
-  }, [editor.nodes, editor.connections, editor.zoom, editor.panX, editor.panY, editor.theme, customNodes]);
+  }, [editor.nodes, editor.connections, editor.zoom, editor.panX, editor.panY, editor.theme, customNodes, codeNodes]);
 
   /* ── keyboard shortcuts ── */
   useEffect(() => {
@@ -184,7 +321,11 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const content = ev.target?.result as string;
-      try { const project = JSON.parse(content); if (project.customNodes && Array.isArray(project.customNodes)) setCustomNodes(project.customNodes); } catch {}
+      try {
+        const project = JSON.parse(content);
+        if (project.customNodes && Array.isArray(project.customNodes)) setCustomNodes(project.customNodes);
+        if (project.codeNodes && Array.isArray(project.codeNodes)) setCodeNodes(project.codeNodes);
+      } catch {}
       editor.loadProject(content);
     };
     reader.readAsText(file);
@@ -291,7 +432,9 @@ export default function App() {
             onMoveNode={editor.moveNode} onSelectNode={editor.selectNode}
             onStartConnecting={editor.startConnecting} onUpdateConnecting={editor.updateConnecting} onFinishConnecting={editor.finishConnecting}
             onDeleteNode={editor.deleteNode} onRemoveConnection={editor.removeConnection}
-            onUpdateInput={editor.updateNodeInput} onZoomChange={editor.setZoom}
+            onUpdateInput={editor.updateNodeInput}
+            onEditNodeCode={handleOpenNodeCode} onEditFormula={handleOpenFormula}
+            onZoomChange={editor.setZoom}
             onPanChange={(x,y) => { editor.setPanX(x); editor.setPanY(y); }} onDropNode={handleDropNode}
           />
         </div>
@@ -317,7 +460,16 @@ export default function App() {
 
       {/* Modals */}
       <CustomFormulaModal isOpen={showCustomFormulaModal} theme={editor.theme} onClose={() => setShowCustomFormulaModal(false)} onSave={handleSaveCustomNode} />
-      <QuickFormulaModal isOpen={showQuickFormulaModal} theme={editor.theme} onClose={() => setShowQuickFormulaModal(false)} onSave={handleSaveCustomNode} />
+      <QuickFormulaModal isOpen={showQuickFormulaModal} theme={editor.theme}
+        editingNode={editingFormulaNode}
+        onClose={() => { setShowQuickFormulaModal(false); setEditingFormulaNode(null); setEditNodeId(null); }}
+        onSave={handleSaveCustomNode} />
+      <NodeCodeModal isOpen={showNodeCodeModal} theme={editor.theme}
+        node={editNode}
+        existingCode={editNode ? (codeNodes.find(c => c.id === editNode.type)?.code ?? null) : null}
+        initialCode={editNode ? buildInitialCode(editNode) : ''}
+        onClose={() => { setShowNodeCodeModal(false); setEditNodeId(null); }}
+        onSave={handleSaveNodeCode} />
       <SettingsModal isOpen={showSettings} theme={editor.theme} onThemeChange={editor.setTheme} onClose={() => setShowSettings(false)} onClearAll={editor.clearAll} />
     </div>
   );

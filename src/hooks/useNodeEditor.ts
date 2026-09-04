@@ -232,6 +232,70 @@ export function useNodeEditor() {
     addNode(orig.type, orig.x + 30, orig.y + 30);
   }, [nodes, addNode]);
 
+  // Update an existing node's definition IN PLACE (same node id, position, size
+  // and state). Ports are rebuilt from the new definition, but each existing
+  // port keeps its id and current value whenever a port with the same name
+  // still exists — so connections survive the update. Only connections that
+  // reference a port which no longer exists are removed.
+  const replaceNodeType = useCallback((nodeId: string, newType: string) => {
+    const def = getNodeDefinition(newType);
+    if (!def) return;
+    const old = nodes.find(n => n.id === nodeId);
+    if (!old) return;
+
+    const usedInIds = new Set(old.inputs.map(p => p.id));
+    const inputs = def.inputs.map((p, i) => {
+      const match = old.inputs.find(op => op.name === p.name);
+      if (match) {
+        return { ...p, id: match.id, connected: false, value: match.value };
+      }
+      let id = `${old.id}-in-${i}`;
+      let k = 1;
+      while (usedInIds.has(id)) { id = `${old.id}-in-${i}-${k++}`; }
+      usedInIds.add(id);
+      return { ...p, id, connected: false, value: p.value };
+    });
+
+    const usedOutIds = new Set(old.outputs.map(p => p.id));
+    const outputs = def.outputs.map((p, i) => {
+      const match = old.outputs.find(op => op.name === p.name);
+      if (match) {
+        return { ...p, id: match.id, connected: false };
+      }
+      let id = `${old.id}-out-${i}`;
+      let k = 1;
+      while (usedOutIds.has(id)) { id = `${old.id}-out-${i}-${k++}`; }
+      usedOutIds.add(id);
+      return { ...p, id, connected: false };
+    });
+
+    // Drop only connections whose referenced port no longer exists on this node.
+    const inputIds = new Set(inputs.map(p => p.id));
+    const outputIds = new Set(outputs.map(p => p.id));
+    const remainingConnections = connections.filter(c => {
+      if (c.fromNodeId === nodeId) return outputIds.has(c.fromPortId);
+      if (c.toNodeId === nodeId) return inputIds.has(c.toPortId);
+      return true;
+    });
+    setConnections(remainingConnections);
+
+    setNodes(prev => {
+      const updated = prev.map(n => n.id === nodeId ? {
+        ...n,
+        type: newType,
+        inputs,
+        outputs,
+        label: def.label,
+        category: def.category,
+        color: CATEGORY_COLORS[def.category] || '#666',
+        height: HEADER_HEIGHT + Math.max(inputs.length, outputs.length) * PORT_HEIGHT + 12,
+        computed: false,
+        error: undefined,
+      } : n);
+      return computeAllNodes(updated, remainingConnections);
+    });
+  }, [nodes, connections]);
+
   const clearAll = useCallback(() => {
     saveUndoState();
     setNodes([]);
@@ -348,6 +412,7 @@ export function useNodeEditor() {
     finishConnecting,
     selectNode,
     duplicateNode,
+    replaceNodeType,
     clearAll,
     saveProject,
     loadProject,
