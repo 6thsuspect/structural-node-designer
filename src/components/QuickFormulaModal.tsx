@@ -299,7 +299,7 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
           <div className="text-xs" style={{ color: colors.label }}>
             {allValid ? (
               <span style={{ color: colors.success }}>
-                ✓ Ready to create: {allInputVariables.length} inputs → {allOutputs.length} outputs
+                ✓ Ready to {editingNode ? 'save' : 'create'}: {allInputVariables.length} inputs → {allOutputs.length} outputs
               </span>
             ) : (
               <span style={{ color: colors.error }}>
@@ -323,7 +323,7 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
               className="px-6 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: colors.accent, color: '#fff' }}
             >
-              ⚡ Create Node
+              {editingNode ? '💾 Save Node' : '⚡ Create Node'}
             </button>
           </div>
         </div>
