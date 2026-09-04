@@ -89,6 +89,148 @@ function buildTemplate(node: CanvasNode): string {
   return lines.join('\n');
 }
 
+/* ─── Analyse the user's code to derive the real input/output port lists ───
+ * The code is the source of truth: inputs are whatever the function reads from
+ * `inputs["name"]`, and outputs are whatever keys it returns. This lets users
+ * add/remove ports simply by editing the code. */
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Remove // line comments and /* block comments, keeping string literals intact. */
+function stripComments(code: string): string {
+  let out = '';
+  let i = 0;
+  while (i < code.length) {
+    const ch = code[i];
+    const next = code[i + 1];
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
+      out += ch;
+      i++;
+      while (i < code.length) {
+        out += code[i];
+        if (code[i] === '\\') { out += code[i + 1] ?? ''; i += 2; continue; }
+        if (code[i] === quote) { i++; break; }
+        i++;
+      }
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      while (i < code.length && code[i] !== '\n') i++;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      i += 2;
+      while (i < code.length && !(code[i] === '*' && code[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
+/** Names referenced via inputs["name"] / inputs['name'], in order of appearance. */
+function extractInputNames(code: string): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  const re = /inputs\s*\[\s*("([^"]*)"|'([^']*)')\s*\]/g;
+  let m: RegExpExecArray | null;
+  const cleaned = stripComments(code);
+  while ((m = re.exec(cleaned)) !== null) {
+    const name = m[2] ?? m[3];
+    if (name && !seen.has(name)) { seen.add(name); names.push(name); }
+  }
+  return names;
+}
+
+/** Fallback number used in `inputs["name"] ?? <num>` (or `|| <num>`). */
+function extractInputDefault(code: string, name: string): number | undefined {
+  const re = new RegExp(`inputs\\s*\\[\\s*["']${escapeRegExp(name)}["']\\s*\\]\\s*(?:\\?\\?|\\|\\|)\\s*(-?\\d+(?:\\.\\d+)?)`);
+  const m = stripComments(code).match(re);
+  return m ? parseFloat(m[1]) : undefined;
+}
+
+function findMatchingBrace(s: string, openIdx: number): number {
+  let depth = 0;
+  let inStr: string | null = null;
+  for (let i = openIdx; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (ch === '\\') { i++; continue; }
+      if (ch === inStr) inStr = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) return i; }
+  }
+  return -1;
+}
+
+function splitTopLevel(body: string): string[] {
+  const parts: string[] = [];
+  let seg = '';
+  let depth = 0;
+  let inStr: string | null = null;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (inStr) {
+      seg += ch;
+      if (ch === '\\') { seg += body[i + 1] ?? ''; i++; continue; }
+      if (ch === inStr) inStr = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; seg += ch; continue; }
+    if (ch === '{' || ch === '[' || ch === '(') { depth++; seg += ch; continue; }
+    if (ch === '}' || ch === ']' || ch === ')') { depth--; seg += ch; continue; }
+    if (ch === ',' && depth === 0) { parts.push(seg); seg = ''; continue; }
+    seg += ch;
+  }
+  if (seg.trim()) parts.push(seg);
+  return parts;
+}
+
+function segmentKey(seg: string): string | null {
+  const s = seg.trim();
+  if (!s) return null;
+  // Find the top-level ':' that separates key from value.
+  let depth = 0;
+  let inStr: string | null = null;
+  let colonIdx = -1;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) { if (ch === '\\') { i++; continue; } if (ch === inStr) inStr = null; continue; }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; continue; }
+    if (ch === '{' || ch === '[' || ch === '(') depth++;
+    else if (ch === '}' || ch === ']' || ch === ')') depth--;
+    else if (ch === ':' && depth === 0) { colonIdx = i; break; }
+  }
+  const raw = colonIdx >= 0 ? s.slice(0, colonIdx).trim() : s;
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1);
+  }
+  if (/^[A-Za-z_$\u00C0-\uFFFF][\w$\u00C0-\uFFFF]*$/.test(raw)) return raw;
+  return null;
+}
+
+/** Keys of the object returned by the code's `return { ... }` statement. */
+function extractReturnKeys(code: string): string[] {
+  const cleaned = stripComments(code);
+  const retIdx = cleaned.lastIndexOf('return');
+  if (retIdx === -1) return [];
+  const openIdx = cleaned.indexOf('{', retIdx);
+  if (openIdx === -1) return [];
+  const closeIdx = findMatchingBrace(cleaned, openIdx);
+  if (closeIdx === -1) return [];
+  return splitTopLevel(cleaned.slice(openIdx + 1, closeIdx))
+    .map(segmentKey)
+    .filter((k): k is string => !!k);
+}
+
 export default function NodeCodeModal({ isOpen, theme, node, existingCode, initialCode, onClose, onSave }: Props) {
   const colors = themeStyles[theme];
   const [label, setLabel] = useState('');
@@ -107,6 +249,34 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, initi
     }
   }, [isOpen, node, existingCode, initialCode]);
 
+  // Derive the real port lists from the code (fall back to the node's current
+  // ports when the code doesn't reference inputs / return an object).
+  const savedInputs = useMemo(() => {
+    if (!node) return [] as { name: string; type: PortType; value: any; unit?: string }[];
+    const detected = extractInputNames(code);
+    if (detected.length === 0) {
+      return node.inputs.map((p) => ({ name: p.name, type: p.type, value: p.value, unit: p.unit }));
+    }
+    return detected.map((name) => {
+      const existing = node.inputs.find((p) => p.name === name);
+      if (existing) return { name, type: existing.type, value: existing.value, unit: existing.unit };
+      return { name, type: 'number' as PortType, value: extractInputDefault(code, name) ?? 0, unit: undefined };
+    });
+  }, [code, node]);
+
+  const savedOutputs = useMemo(() => {
+    if (!node) return [] as { name: string; type: PortType; unit?: string }[];
+    const detected = extractReturnKeys(code);
+    if (detected.length === 0) {
+      return node.outputs.map((p) => ({ name: p.name, type: p.type, unit: p.unit }));
+    }
+    return detected.map((name) => {
+      const existing = node.outputs.find((p) => p.name === name);
+      if (existing) return { name, type: existing.type, unit: existing.unit };
+      return { name, type: 'number' as PortType, unit: undefined };
+    });
+  }, [code, node]);
+
   // Live validation of the user's code
   const validation = useMemo(() => {
     if (!node) return { valid: true, message: '' };
@@ -118,7 +288,7 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, initi
       return { valid: false, message: `Syntax error: ${e.message}` };
     }
     const sample: Record<string, any> = {};
-    node.inputs.forEach((p) => { sample[p.name] = p.value; });
+    savedInputs.forEach((p) => { sample[p.name] = p.value; });
     try {
       const result = fn(sample);
       if (result === null || typeof result !== 'object' || Array.isArray(result)) {
@@ -128,7 +298,7 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, initi
     } catch (e: any) {
       return { valid: false, message: `Runtime error: ${e.message}` };
     }
-  }, [code, node]);
+  }, [code, node, savedInputs]);
 
   if (!isOpen || !node) return null;
 
@@ -166,8 +336,8 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, initi
       label: label.trim() || node.label,
       description: 'Custom code node',
       category: node.category,
-      inputs: node.inputs.map((p) => ({ name: p.name, type: p.type, value: p.value, unit: p.unit })),
-      outputs: node.outputs.map((p) => ({ name: p.name, type: p.type, unit: p.unit })),
+      inputs: savedInputs,
+      outputs: savedOutputs,
       code,
     });
   };
@@ -221,15 +391,15 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, initi
             />
           </div>
 
-          {/* Inputs summary */}
-          {node.inputs.length > 0 && (
+          {/* Inputs summary — derived from the code */}
+          {savedInputs.length > 0 && (
             <div className="p-3 rounded-lg" style={{ background: colors.card, border: `1px solid ${colors.border}` }}>
               <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.accent }}>
-                📥 Inputs — available as <code>inputs["name"]</code>
+                📥 Inputs — detected from code as <code>inputs["name"]</code>
               </h4>
               <div className="flex flex-wrap gap-1.5">
-                {node.inputs.map((p) => (
-                  <span key={p.id} className="px-2 py-0.5 rounded text-[11px] font-mono" style={{ background: colors.input, color: colors.text, border: `1px solid ${colors.border}` }}>
+                {savedInputs.map((p) => (
+                  <span key={p.name} className="px-2 py-0.5 rounded text-[11px] font-mono" style={{ background: colors.input, color: colors.text, border: `1px solid ${colors.border}` }}>
                     {p.name}{p.unit ? ` (${p.unit})` : ''}
                   </span>
                 ))}
@@ -237,15 +407,15 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, initi
             </div>
           )}
 
-          {/* Outputs summary */}
-          {node.outputs.length > 0 && (
+          {/* Outputs summary — derived from the code */}
+          {savedOutputs.length > 0 && (
             <div className="p-3 rounded-lg" style={{ background: colors.card, border: `1px solid ${colors.border}` }}>
               <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.success }}>
-                📤 Outputs — the function must return these keys
+                📤 Outputs — keys returned by the function
               </h4>
               <div className="flex flex-wrap gap-1.5">
-                {node.outputs.map((p) => (
-                  <span key={p.id} className="px-2 py-0.5 rounded text-[11px] font-mono" style={{ background: colors.input, color: colors.text, border: `1px solid ${colors.border}` }}>
+                {savedOutputs.map((p) => (
+                  <span key={p.name} className="px-2 py-0.5 rounded text-[11px] font-mono" style={{ background: colors.input, color: colors.text, border: `1px solid ${colors.border}` }}>
                     {p.name}{p.unit ? ` (${p.unit})` : ''}
                   </span>
                 ))}
