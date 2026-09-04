@@ -63,7 +63,9 @@ export default function NodeCanvas({
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [dragNode, setDragNode] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const [editingPort, setEditingPort] = useState<{ nodeId: string; portId: string } | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  // Node context menu is anchored to the node (not a fixed screen point), so it
+  // follows the node while the canvas is panned or zoomed.
+  const [contextMenu, setContextMenu] = useState<{ nodeId: string } | null>(null);
   // ─── NEW: connection context menu state ───
   const [connMenu, setConnMenu] = useState<{ x: number; y: number; connId: string } | null>(null);
   // ─── NEW: hovered node for visual feedback (no blink) ───
@@ -156,14 +158,17 @@ export default function NodeCanvas({
   const handleConnectionClick = useCallback((e: React.MouseEvent, connId: string) => {
     e.stopPropagation();
     setContextMenu(null);
-    setConnMenu({ x: e.clientX, y: e.clientY, connId });
+    // Store container-relative coordinates so the menu opens right at the cursor
+    // (clientX/Y are viewport coords and would be offset by the toolbar/toolbox).
+    const rect = svgRef.current?.getBoundingClientRect();
+    setConnMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), connId });
   }, []);
 
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
     e.stopPropagation();
     setConnMenu(null);
-    setContextMenu({ x: e.clientX, y: e.clientY, nodeId });
+    setContextMenu({ nodeId });
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }, []);
@@ -409,6 +414,35 @@ export default function NodeCanvas({
     );
   };
 
+  // ─── Context menu anchor ───
+  // Compute where the open node context menu should sit, in container-relative
+  // coordinates. This runs on every render, so the menu tracks the node as the
+  // canvas is panned or zoomed (it never drifts away from its node).
+  const contextMenuAnchor = (() => {
+    if (!contextMenu) return null;
+    const node = nodes.find(n => n.id === contextMenu.nodeId);
+    if (!node) return null;
+    const svg = svgRef.current;
+    const cw = svg?.clientWidth ?? window.innerWidth;
+    const ch = svg?.clientHeight ?? window.innerHeight;
+    const nx = panX + node.x * zoom;
+    const ny = panY + node.y * zoom;
+    const nw = node.width * zoom;
+    const nh = node.height * zoom;
+    const MENU_W = 208;
+    const MENU_H = 176;
+    const GAP = 8;
+    // Prefer to the right of the node; flip to the left when it would overflow.
+    let x = nx + nw + GAP;
+    if (x + MENU_W > cw - 4) x = nx - GAP - MENU_W;
+    x = Math.max(4, Math.min(x, Math.max(4, cw - MENU_W - 4)));
+    // Align with the node top; flip up when it would overflow the bottom.
+    let y = ny;
+    if (y + MENU_H > ch - 4) y = ny + nh - MENU_H;
+    y = Math.max(4, Math.min(y, Math.max(4, ch - MENU_H - 4)));
+    return { x, y };
+  })();
+
   return (
     <div className="relative w-full h-full overflow-hidden" style={{ background: colors.bg }}>
       <svg ref={svgRef} className="w-full h-full"
@@ -441,10 +475,10 @@ export default function NodeCanvas({
         </div>
       )}
 
-      {/* Node context menu */}
-      {contextMenu && (
+      {/* Node context menu — anchored to the node and follows it on pan/zoom */}
+      {contextMenu && contextMenuAnchor && (
         <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[200px]"
-          style={{ left: contextMenu.x, top: contextMenu.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
+          style={{ left: contextMenuAnchor.x, top: contextMenuAnchor.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
           <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
             onClick={() => { onEditNodeCode(contextMenu.nodeId); setContextMenu(null); }}>🧮 Edit Node Code</button>
           <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
