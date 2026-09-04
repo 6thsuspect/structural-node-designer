@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type UIEvent } from 'react';
 import { CanvasNode, PortType, Theme } from '../types';
+import ModalWindow from './ModalWindow';
 
 export interface CodeNodeData {
   id: string;
@@ -165,31 +166,41 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, onClo
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: colors.overlay }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div
-        className="w-full max-w-3xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ background: colors.bg, border: `1px solid ${colors.border}` }}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${colors.border}` }}>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🧮</span>
-            <div>
-              <h2 className="text-lg font-bold" style={{ color: colors.text }}>Edit Node Code</h2>
-              <p className="text-xs" style={{ color: colors.label }}>
-                Modify this node's logic with JavaScript. <code style={{ background: colors.input }}>inputs</code> holds the input values.
-              </p>
-            </div>
+    <ModalWindow
+      icon="🧮"
+      title="Edit Node Code"
+      subtitle={
+        <p className="text-xs" style={{ color: colors.label }}>
+          Modify this node's logic with JavaScript. <code style={{ background: colors.input }}>inputs</code> holds the input values.
+        </p>
+      }
+      overlay={colors.overlay}
+      bg={colors.bg}
+      border={colors.border}
+      text={colors.text}
+      onClose={onClose}
+      initialWidth={760}
+      initialHeight={580}
+      minWidth={420}
+      minHeight={320}
+      footer={
+        <div className="px-6 py-4 flex items-center justify-between" style={{ borderTop: `1px solid ${colors.border}` }}>
+          <div className="text-xs" style={{ color: colors.label }}>
+            The function receives <code>inputs</code> and must <code>return</code> an object of output values.
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors" style={{ color: colors.text }}>✕</button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105" style={{ background: 'transparent', color: colors.text, border: `1px solid ${colors.border}` }}>
+              Cancel
+            </button>
+            <button onClick={handleSave} disabled={!validation.valid} className="px-6 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: colors.accent, color: '#fff' }}>
+              Save Code
+            </button>
+          </div>
         </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ scrollbarWidth: 'thin' }}>
+      }
+    >
+      {/* Body */}
+      <div className="p-6 space-y-4">
           {/* Node name */}
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: colors.label }}>Node Name</label>
@@ -269,23 +280,7 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, onClo
           <div className="text-xs" style={{ color: validation.valid ? colors.success : colors.error }}>
             {validation.message}
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderTop: `1px solid ${colors.border}` }}>
-          <div className="text-xs" style={{ color: colors.label }}>
-            The function receives <code>inputs</code> and must <code>return</code> an object of output values.
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105" style={{ background: 'transparent', color: colors.text, border: `1px solid ${colors.border}` }}>
-              Cancel
-            </button>
-            <button onClick={handleSave} disabled={!validation.valid} className="px-6 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: colors.accent, color: '#fff' }}>
-              Save Code
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </ModalWindow>
   );
 }

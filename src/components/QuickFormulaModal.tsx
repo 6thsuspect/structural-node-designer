@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Theme } from '../types';
 import { validateFormula, extractVariables, parseFormula } from '../formulaParser';
 import { CATEGORY_COLORS } from '../nodeDefinitions';
+import ModalWindow from './ModalWindow';
 
 export interface QuickNodeData {
   id: string;
@@ -251,39 +252,64 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: colors.overlay }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div 
-        className="w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ background: colors.bg, border: `1px solid ${colors.border}` }}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${colors.border}` }}>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚡</span>
-            <div>
-              <h2 className="text-lg font-bold" style={{ color: colors.text }}>
-                Quick Formula Editor
-              </h2>
-              <p className="text-xs" style={{ color: colors.label }}>
-                Just type equations like <code className="px-1 rounded" style={{ background: colors.input }}>Area = b * h</code> — inputs are auto-detected!
-              </p>
-            </div>
+    <ModalWindow
+      icon="⚡"
+      title="Quick Formula Editor"
+      subtitle={
+        <p className="text-xs" style={{ color: colors.label }}>
+          Just type equations like <code className="px-1 rounded" style={{ background: colors.input }}>Area = b * h</code> — inputs are auto-detected!
+        </p>
+      }
+      overlay={colors.overlay}
+      bg={colors.bg}
+      border={colors.border}
+      text={colors.text}
+      onClose={onClose}
+      initialWidth={960}
+      initialHeight={640}
+      minWidth={640}
+      minHeight={420}
+      scrollBody={false}
+      footer={
+        <div 
+          className="px-6 py-4 flex items-center justify-between"
+          style={{ borderTop: `1px solid ${colors.border}` }}
+        >
+          <div className="text-xs" style={{ color: colors.label }}>
+            {allValid ? (
+              <span style={{ color: colors.success }}>
+                ✓ Ready to create: {allInputVariables.length} inputs → {allOutputs.length} outputs
+              </span>
+            ) : (
+              <span style={{ color: colors.error }}>
+                {!label.trim() ? '✗ Enter a node name' : 
+                 parsedEquations.length === 0 ? '✗ Enter at least one equation' :
+                 '✗ Fix equation errors to continue'}
+              </span>
+            )}
           </div>
-          <button 
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors"
-            style={{ color: colors.text }}
-          >
-            ✕
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105"
+              style={{ background: 'transparent', color: colors.text, border: `1px solid ${colors.border}` }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!allValid}
+              className="px-6 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: colors.accent, color: '#fff' }}
+            >
+              ⚡ Create Node
+            </button>
+          </div>
         </div>
-
-        {/* Main Content - Two Column Layout */}
-        <div className="flex-1 flex overflow-hidden">
+      }
+    >
+      {/* Main Content - Two Column Layout */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Left Column - Equation Input */}
           <div className="flex-1 flex flex-col p-4 overflow-y-auto" style={{ borderRight: `1px solid ${colors.border}` }}>
             {/* Node Info */}
@@ -586,44 +612,6 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div 
-          className="px-6 py-4 flex items-center justify-between"
-          style={{ borderTop: `1px solid ${colors.border}` }}
-        >
-          <div className="text-xs" style={{ color: colors.label }}>
-            {allValid ? (
-              <span style={{ color: colors.success }}>
-                ✓ Ready to create: {allInputVariables.length} inputs → {allOutputs.length} outputs
-              </span>
-            ) : (
-              <span style={{ color: colors.error }}>
-                {!label.trim() ? '✗ Enter a node name' : 
-                 parsedEquations.length === 0 ? '✗ Enter at least one equation' :
-                 '✗ Fix equation errors to continue'}
-              </span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105"
-              style={{ background: 'transparent', color: colors.text, border: `1px solid ${colors.border}` }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!allValid}
-              className="px-6 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: colors.accent, color: '#fff' }}
-            >
-              ⚡ Create Node
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </ModalWindow>
   );
 }
