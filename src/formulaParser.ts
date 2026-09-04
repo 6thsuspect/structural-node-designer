@@ -34,9 +34,31 @@ const CONSTANTS: Record<string, number> = {
   'E': Math.E,
 };
 
+// Reserved characters that cannot appear inside a variable/output name.
+// Everything else — letters (incl. Greek/Unicode like ε, σ, Δ), numbers,
+// underscores and other symbols — is a valid identifier character.
+const IDENTIFIER_BREAK = /[\s+\-*/^(),=.]/;
+
+const isIdentifierStart = (c: string) => !!c && !/[0-9]/.test(c) && !IDENTIFIER_BREAK.test(c);
+const isIdentifierPart = (c: string) => !!c && !IDENTIFIER_BREAK.test(c);
+
+// Map common Unicode math symbols to their ASCII equivalents so users can
+// paste symbols (×, ÷, −, ², π, …) directly into formulas and names.
+function normalizeSymbols(formula: string): string {
+  return formula
+    .replace(/[×·∙⋅∗]/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/⁄/g, '/')
+    .replace(/[−–—]/g, '-')
+    .replace(/²/g, '^2')
+    .replace(/³/g, '^3')
+    .replace(/π/g, 'pi');
+}
+
 function tokenize(formula: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
+  formula = normalizeSymbols(formula);
   
   while (i < formula.length) {
     const char = formula[i];
@@ -83,10 +105,11 @@ function tokenize(formula: string): Token[] {
       continue;
     }
     
-    // Identifiers (variables or functions)
-    if (/[a-zA-Z_]/.test(char)) {
+    // Identifiers (variables or functions) — allow letters, digits, and any
+    // Unicode letter/symbol (e.g. Greek ε, σ, Δ), stopping only at reserved chars.
+    if (isIdentifierStart(char)) {
       let ident = '';
-      while (i < formula.length && /[a-zA-Z0-9_]/.test(formula[i])) {
+      while (i < formula.length && isIdentifierPart(formula[i])) {
         ident += formula[i];
         i++;
       }

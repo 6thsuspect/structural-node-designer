@@ -59,6 +59,15 @@ const themeStyles: Record<Theme, {
 
 const CATEGORIES = ['Custom', 'Steel', 'RCC', 'Bridge', 'Loads', 'Section', 'Math'];
 
+// Output names may be any word or symbol — letters, numbers, underscores,
+// Greek letters (ε, σ, Δ) and other Unicode symbols. They only can't start with
+// a digit or contain characters reserved for formulas (operators, parens, '=', ',', spaces).
+function isValidOutputName(name: string): boolean {
+  if (!name) return false;
+  if (/[0-9]/.test(name[0])) return false;      // can't start with a digit
+  return !/[\s+\-*/^(),=]/.test(name);           // no reserved formula characters
+}
+
 // Parse equation like "Area = b * h" or "Stress = M / Z"
 function parseEquation(equation: string): ParsedEquation {
   const trimmed = equation.trim();
@@ -81,8 +90,8 @@ function parseEquation(equation: string): ParsedEquation {
     return { outputName: '', formula, variables: [], isValid: false, error: 'Missing output name' };
   }
   
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(outputName)) {
-    return { outputName, formula, variables: [], isValid: false, error: 'Output name must start with letter and contain only letters, numbers, underscore' };
+  if (!isValidOutputName(outputName)) {
+    return { outputName, formula, variables: [], isValid: false, error: 'Output name cannot start with a digit or contain spaces, operators (+, -, *, /, ^), parentheses, commas, or "="' };
   }
   
   if (!formula) {
