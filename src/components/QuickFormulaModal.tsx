@@ -266,7 +266,7 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
             <span className="text-2xl">⚡</span>
             <div>
               <h2 className="text-lg font-bold" style={{ color: colors.text }}>
-                Quick Formula Node
+                Quick Formula Editor
               </h2>
               <p className="text-xs" style={{ color: colors.label }}>
                 Just type equations like <code className="px-1 rounded" style={{ background: colors.input }}>Area = b * h</code> — inputs are auto-detected!

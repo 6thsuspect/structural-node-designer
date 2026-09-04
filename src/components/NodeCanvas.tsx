@@ -22,6 +22,8 @@ interface Props {
   onDeleteNode: (nodeId: string) => void;
   onRemoveConnection: (connId: string) => void;
   onUpdateInput: (nodeId: string, portId: string, value: any) => void;
+  onEditNodeCode: (nodeId: string) => void;
+  onEditFormula: (nodeId: string) => void;
   onZoomChange: (z: number) => void;
   onPanChange: (x: number, y: number) => void;
   onDropNode: (type: string, x: number, y: number) => void;
@@ -52,7 +54,8 @@ const themeColors: Record<Theme, Record<string, string>> = {
 export default function NodeCanvas({
   nodes, connections, zoom, panX, panY, connecting, selectedNodeId, theme,
   onMoveNode, onSelectNode, onStartConnecting, onUpdateConnecting, onFinishConnecting,
-  onDeleteNode, onRemoveConnection, onUpdateInput, onZoomChange, onPanChange, onDropNode,
+  onDeleteNode, onRemoveConnection, onUpdateInput, onEditNodeCode, onEditFormula,
+  onZoomChange, onPanChange, onDropNode,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const colors = themeColors[theme];
@@ -277,7 +280,7 @@ export default function NodeCanvas({
         <circle cx={x} cy={y} r={PORT_RADIUS}
           fill={connected ? portColor : colors.portBg}
           stroke={portColor} strokeWidth={1.5}
-          className="hover:scale-125"
+          className="hover:scale-110"
           style={{ transformBox: 'fill-box', transformOrigin: 'center', transition: 'transform 0.15s ease' }}
         />
         {connected && <circle cx={x} cy={y} r={3} fill="white" />}
@@ -286,8 +289,9 @@ export default function NodeCanvas({
         {/* ─── INPUT PORTS ─── */}
         {!isOutput && (
           <>
-            {/* Port name near circle */}
-            <text x={14} y={y + 4} textAnchor="start" fill={colors.sub} fontSize={10} fontFamily="system-ui">{port.name}</text>
+            {/* Port name and value pushed inward, away from the port circle */}
+            <text x={26} y={y + 4} textAnchor="start" fill={colors.text} fontSize={10} fontWeight="700" fontFamily="system-ui">{port.name}</text>
+            <text x={26 + Math.max(0, String(port.name || '').length) * 6 + 6} y={y + 4} textAnchor="start" fill={colors.sub} fontSize={9} fontFamily="system-ui" opacity={0.55}>:</text>
 
             {/* Editable number value (unconnected) */}
             {!connected && port.type === 'number' && (
@@ -355,6 +359,7 @@ export default function NodeCanvas({
             <text x={14} y={y + 4} textAnchor="start" fill="#10b981" fontSize={10} fontFamily="monospace" fontWeight="bold">
               {fmt(port.value)}{port.unit ? ` ${port.unit}` : ''}
             </text>
+            <text x={14 + Math.max(0, String(fmt(port.value)).length) * 6 + (port.unit ? Math.max(0, String(port.unit).length) * 6 + 6 : 0) + 8} y={y + 4} textAnchor="start" fill={colors.sub} fontSize={9} fontFamily="system-ui" opacity={0.55}>:</text>
             <text x={node.width - 10} y={y + 4} textAnchor="end" fill={colors.sub} fontSize={10} fontFamily="system-ui">
               {port.name}
             </text>
@@ -438,11 +443,16 @@ export default function NodeCanvas({
 
       {/* Node context menu */}
       {contextMenu && (
-        <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[160px]"
+        <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[200px]"
           style={{ left: contextMenu.x, top: contextMenu.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
-          <button className="w-full px-4 py-2 text-left text-sm hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
+          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+            onClick={() => { onEditNodeCode(contextMenu.nodeId); setContextMenu(null); }}>🧮 Edit Node Code</button>
+          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+            onClick={() => { onEditFormula(contextMenu.nodeId); setContextMenu(null); }}>⚡ Edit Formula &amp; Inputs</button>
+          <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
+          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
             onClick={() => { onDeleteNode(contextMenu.nodeId); setContextMenu(null); }}>🗑️ Delete Node</button>
-          <button className="w-full px-4 py-2 text-left text-sm hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
+          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
             onClick={() => setContextMenu(null)}>✕ Cancel</button>
         </div>
       )}

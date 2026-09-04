@@ -232,6 +232,55 @@ export function useNodeEditor() {
     addNode(orig.type, orig.x + 30, orig.y + 30);
   }, [nodes, addNode]);
 
+  // Convert an existing node to a new (typically custom) node definition while
+  // preserving its position and any input values whose names still match.
+  const replaceNodeType = useCallback((nodeId: string, newType: string) => {
+    const def = getNodeDefinition(newType);
+    if (!def) return;
+    const old = nodes.find(n => n.id === nodeId);
+    if (!old) return;
+
+    const inputs = def.inputs.map((p, i) => ({
+      ...p,
+      id: `${old.id}-in-${i}`,
+      connected: false,
+      value: old.inputs.find(op => op.name === p.name)?.value ?? p.value,
+    }));
+    const outputs = def.outputs.map((p, i) => ({
+      ...p,
+      id: `${old.id}-out-${i}`,
+      connected: false,
+    }));
+
+    // If the port structure changed, drop any now-invalid connections to/from this node.
+    const portsUnchanged =
+      inputs.length === old.inputs.length &&
+      inputs.every((p, i) => p.name === old.inputs[i].name) &&
+      outputs.length === old.outputs.length &&
+      outputs.every((p, i) => p.name === old.outputs[i].name);
+
+    const remainingConnections = portsUnchanged
+      ? connections
+      : connections.filter(c => c.fromNodeId !== nodeId && c.toNodeId !== nodeId);
+    if (!portsUnchanged) setConnections(remainingConnections);
+
+    setNodes(prev => {
+      const updated = prev.map(n => n.id === nodeId ? {
+        ...n,
+        type: newType,
+        inputs,
+        outputs,
+        label: def.label,
+        category: def.category,
+        color: CATEGORY_COLORS[def.category] || '#666',
+        height: HEADER_HEIGHT + Math.max(inputs.length, outputs.length) * PORT_HEIGHT + 12,
+        computed: false,
+        error: undefined,
+      } : n);
+      return computeAllNodes(updated, remainingConnections);
+    });
+  }, [nodes, connections]);
+
   const clearAll = useCallback(() => {
     saveUndoState();
     setNodes([]);
@@ -348,6 +397,7 @@ export function useNodeEditor() {
     finishConnecting,
     selectNode,
     duplicateNode,
+    replaceNodeType,
     clearAll,
     saveProject,
     loadProject,
