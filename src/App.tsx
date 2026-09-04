@@ -413,6 +413,7 @@ export default function App() {
             onMoveNode={editor.moveNode} onSelectNode={editor.selectNode}
             onStartConnecting={editor.startConnecting} onUpdateConnecting={editor.updateConnecting} onFinishConnecting={editor.finishConnecting}
             onDeleteNode={editor.deleteNode} onRemoveConnection={editor.removeConnection}
+            onUpdateInput={editor.updateNodeInput}
             onEditNodeCode={handleOpenNodeCode} onEditFormula={handleOpenFormula}
             onZoomChange={editor.setZoom}
             onPanChange={(x,y) => { editor.setPanX(x); editor.setPanY(y); }} onDropNode={handleDropNode}
