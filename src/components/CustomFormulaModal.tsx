@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Theme } from '../types';
 import { validateFormula, extractVariables } from '../formulaParser';
 import { CATEGORY_COLORS } from '../nodeDefinitions';
+import ModalWindow from './ModalWindow';
 
 interface CustomInput {
   name: string;
@@ -198,39 +199,60 @@ export default function CustomFormulaModal({ isOpen, theme, onClose, onSave, edi
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: colors.overlay }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div 
-        className="w-full max-w-3xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ background: colors.bg, border: `1px solid ${colors.border}` }}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${colors.border}` }}>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">✏️</span>
-            <div>
-              <h2 className="text-lg font-bold" style={{ color: colors.text }}>
-                {editingNode ? 'Edit Custom Node' : 'Create Custom Node'}
-              </h2>
-              <p className="text-xs" style={{ color: colors.label }}>
-                Define your own calculation node with custom formulas
-              </p>
-            </div>
+    <ModalWindow
+      icon="✏️"
+      title={editingNode ? 'Edit Custom Node' : 'Create Custom Node'}
+      subtitle={
+        <p className="text-xs" style={{ color: colors.label }}>
+          Define your own calculation node with custom formulas
+        </p>
+      }
+      overlay={colors.overlay}
+      bg={colors.bg}
+      border={colors.border}
+      text={colors.text}
+      onClose={onClose}
+      initialWidth={820}
+      initialHeight={640}
+      minWidth={480}
+      minHeight={360}
+      scrollBody={false}
+      persistKey="snd.window.custom"
+      footer={
+        <div 
+          className="px-6 py-4 flex items-center justify-between"
+          style={{ borderTop: `1px solid ${colors.border}` }}
+        >
+          <div className="text-xs" style={{ color: colors.label }}>
+            {allValid ? (
+              <span style={{ color: colors.success }}>✓ All formulas valid</span>
+            ) : (
+              <span style={{ color: colors.error }}>✗ Please fix errors before saving</span>
+            )}
           </div>
-          <button 
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors"
-            style={{ color: colors.text }}
-          >
-            ✕
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105"
+              style={{ background: 'transparent', color: colors.text, border: `1px solid ${colors.border}` }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!allValid}
+              className="px-6 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: colors.accent, color: '#fff' }}
+            >
+              {editingNode ? 'Update Node' : 'Create Node'}
+            </button>
+          </div>
         </div>
-
+      }
+    >
+      <div className="flex flex-col flex-1 min-h-0">
         {/* Tabs */}
-        <div className="flex px-6 pt-3 gap-1" style={{ borderBottom: `1px solid ${colors.border}` }}>
+        <div className="flex px-6 pt-3 gap-1 flex-shrink-0" style={{ borderBottom: `1px solid ${colors.border}` }}>
           {(['basic', 'inputs', 'outputs', 'preview'] as const).map(tab => (
             <button
               key={tab}
@@ -251,7 +273,7 @@ export default function CustomFormulaModal({ isOpen, theme, onClose, onSave, edi
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex-1 overflow-y-auto p-6 min-h-0" style={{ scrollbarWidth: 'thin' }}>
           {/* Basic Info Tab */}
           {activeTab === 'basic' && (
             <div className="space-y-4">
@@ -608,37 +630,7 @@ export default function CustomFormulaModal({ isOpen, theme, onClose, onSave, edi
           )}
         </div>
 
-        {/* Footer */}
-        <div 
-          className="px-6 py-4 flex items-center justify-between"
-          style={{ borderTop: `1px solid ${colors.border}` }}
-        >
-          <div className="text-xs" style={{ color: colors.label }}>
-            {allValid ? (
-              <span style={{ color: colors.success }}>✓ All formulas valid</span>
-            ) : (
-              <span style={{ color: colors.error }}>✗ Please fix errors before saving</span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105"
-              style={{ background: 'transparent', color: colors.text, border: `1px solid ${colors.border}` }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!allValid}
-              className="px-6 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: colors.accent, color: '#fff' }}
-            >
-              {editingNode ? 'Update Node' : 'Create Node'}
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </ModalWindow>
   );
 }

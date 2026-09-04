@@ -37,6 +37,8 @@ interface ModalWindowProps {
   minHeight?: number;
   scrollBody?: boolean;
   zIndex?: number;
+  /** When set, the window's size and position are remembered between opens. */
+  persistKey?: string;
   children: ReactNode;
   footer?: ReactNode;
 }
@@ -50,6 +52,37 @@ function computeInitialRect(w: number, h: number): Rect {
     w: Math.min(w, vw - 16),
     h: Math.min(h, vh - 16),
   };
+}
+
+// Keep a rect at least partially visible inside the current viewport.
+function clampToViewport(r: Rect): Rect {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  return {
+    x: Math.min(Math.max(r.x, -r.w + 120), vw - 120),
+    y: Math.min(Math.max(r.y, 0), vh - 56),
+    w: Math.min(r.w, vw - 16),
+    h: Math.min(r.h, vh - 16),
+  };
+}
+
+function loadPersisted(key: string): Rect | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (
+      p &&
+      Number.isFinite(p.x) && Number.isFinite(p.y) &&
+      Number.isFinite(p.w) && Number.isFinite(p.h) &&
+      p.w > 100 && p.h > 100
+    ) {
+      return { x: p.x, y: p.y, w: p.w, h: p.h };
+    }
+  } catch {
+    /* ignore corrupt/absent data */
+  }
+  return null;
 }
 
 const HANDLE_DIRS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
@@ -85,6 +118,7 @@ function cursorFor(dir?: string): string {
  * - Drag the title bar to move it anywhere within the window.
  * - Drag any edge or corner to reshape it to any size.
  * - The window is clamped so it can never be lost off-screen.
+ * - When `persistKey` is provided, size/position are saved and restored.
  */
 export default function ModalWindow({
   icon,
@@ -101,23 +135,39 @@ export default function ModalWindow({
   minHeight = 240,
   scrollBody = true,
   zIndex = 50,
+  persistKey,
   children,
   footer,
 }: ModalWindowProps) {
-  const [rect, setRect] = useState<Rect>(() => computeInitialRect(initialWidth, initialHeight));
+  const [rect, setRect] = useState<Rect>(() => {
+    if (persistKey) {
+      const saved = loadPersisted(persistKey);
+      if (saved) return clampToViewport(saved);
+    }
+    return computeInitialRect(initialWidth, initialHeight);
+  });
   const dragRef = useRef<DragState | null>(null);
   const lastInteractRef = useRef(0);
+  const rectRef = useRef(rect);
+  useEffect(() => { rectRef.current = rect; }, [rect]);
 
-  const clampRect = (r: Rect): Rect => {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    return {
-      x: Math.min(Math.max(r.x, -r.w + 120), vw - 120),
-      y: Math.min(Math.max(r.y, 0), vh - 56),
-      w: Math.min(r.w, vw - 16),
-      h: Math.min(r.h, vh - 16),
+  // Debounced persistence while the window is being moved/resized.
+  useEffect(() => {
+    if (!persistKey) return;
+    const t = setTimeout(() => {
+      try { localStorage.setItem(persistKey, JSON.stringify(rect)); } catch { /* ignore */ }
+    }, 150);
+    return () => clearTimeout(t);
+  }, [rect, persistKey]);
+
+  // Authoritative save on unmount (window closed).
+  useEffect(() => {
+    return () => {
+      if (persistKey) {
+        try { localStorage.setItem(persistKey, JSON.stringify(rectRef.current)); } catch { /* ignore */ }
+      }
     };
-  };
+  }, [persistKey]);
 
   const resizeRect = (d: DragState, dx: number, dy: number): Rect => {
     const s = d.startRect;
@@ -148,7 +198,7 @@ export default function ModalWindow({
       const dx = e.clientX - d.startX;
       const dy = e.clientY - d.startY;
       if (d.type === 'move') {
-        setRect(clampRect({ x: d.startRect.x + dx, y: d.startRect.y + dy, w: d.startRect.w, h: d.startRect.h }));
+        setRect(clampToViewport({ x: d.startRect.x + dx, y: d.startRect.y + dy, w: d.startRect.w, h: d.startRect.h }));
       } else {
         setRect(resizeRect(d, dx, dy));
       }
@@ -172,10 +222,9 @@ export default function ModalWindow({
 
   // Keep the window on-screen if the browser viewport changes.
   useEffect(() => {
-    const onResize = () => setRect((r) => clampRect(r));
+    const onResize = () => setRect((r) => clampToViewport(r));
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const begin = (e: ReactMouseEvent, type: 'move' | 'resize', dir?: string) => {

@@ -183,6 +183,7 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, onClo
       initialHeight={580}
       minWidth={420}
       minHeight={320}
+      persistKey="snd.window.code"
       footer={
         <div className="px-6 py-4 flex items-center justify-between" style={{ borderTop: `1px solid ${colors.border}` }}>
           <div className="text-xs" style={{ color: colors.label }}>

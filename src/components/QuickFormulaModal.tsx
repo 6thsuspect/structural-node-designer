@@ -270,6 +270,7 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
       minWidth={640}
       minHeight={420}
       scrollBody={false}
+      persistKey="snd.window.quick"
       footer={
         <div 
           className="px-6 py-4 flex items-center justify-between"
