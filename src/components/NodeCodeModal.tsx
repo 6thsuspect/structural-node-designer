@@ -16,7 +16,10 @@ interface Props {
   isOpen: boolean;
   theme: Theme;
   node: CanvasNode | null;
+  /** The code stored for an existing code node (controls the save identity). */
   existingCode?: string | null;
+  /** Code to prefill when there is no existing code node (e.g. generated). */
+  initialCode?: string;
   onClose: () => void;
   onSave: (data: CodeNodeData) => void;
 }
@@ -86,7 +89,7 @@ function buildTemplate(node: CanvasNode): string {
   return lines.join('\n');
 }
 
-export default function NodeCodeModal({ isOpen, theme, node, existingCode, onClose, onSave }: Props) {
+export default function NodeCodeModal({ isOpen, theme, node, existingCode, initialCode, onClose, onSave }: Props) {
   const colors = themeStyles[theme];
   const [label, setLabel] = useState('');
   const [code, setCode] = useState('');
@@ -96,9 +99,13 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, onClo
   useEffect(() => {
     if (isOpen && node) {
       setLabel(node.label);
-      setCode(existingCode && existingCode.trim() ? existingCode : buildTemplate(node));
+      const prefilled =
+        existingCode && existingCode.trim() ? existingCode
+          : initialCode && initialCode.trim() ? initialCode
+            : buildTemplate(node);
+      setCode(prefilled);
     }
-  }, [isOpen, node, existingCode]);
+  }, [isOpen, node, existingCode, initialCode]);
 
   // Live validation of the user's code
   const validation = useMemo(() => {

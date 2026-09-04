@@ -9,9 +9,10 @@ import QuickFormulaModal, { QuickNodeData } from './components/QuickFormulaModal
 import NodeCodeModal, { CodeNodeData } from './components/NodeCodeModal';
 import SettingsModal from './components/SettingsModal';
 import { createDemoWorkflow } from './demoWorkflow';
-import { registerCustomNode, CATEGORY_COLORS } from './nodeDefinitions';
+import { registerCustomNode, CATEGORY_COLORS, getNodeDefinition } from './nodeDefinitions';
 import { parseFormula } from './formulaParser';
-import { Theme, NodeDefinition } from './types';
+import { generateNodeCode, extractOutputFormulas, buildQuickPrefill } from './nodeCodegen';
+import { Theme, NodeDefinition, CanvasNode } from './types';
 
 /* ─── theme palette helper ─── */
 const panelColors = (theme: Theme) => {
@@ -141,6 +142,24 @@ export default function App() {
   const selectedNode = editor.nodes.find(n => n.id === editor.selectedNodeId) || null;
   const editNode = editor.nodes.find(n => n.id === editNodeId) || selectedNode;
 
+  /* ── Reconstruct editable code for any node (built-in, formula, or code) ── */
+  const buildInitialCode = (node: CanvasNode): string => {
+    const def = getNodeDefinition(node.type);
+    let formulaMap: Record<string, string> | undefined;
+    const quick = customNodes.find(n => 'equations' in n && n.id === node.type) as QuickNodeData | undefined;
+    const advanced = customNodes.find(n => !('equations' in n) && n.id === node.type) as CustomNodeData | undefined;
+    if (quick) {
+      formulaMap = {};
+      quick.outputs.forEach(o => { formulaMap![o.name] = o.formula; });
+    } else if (advanced) {
+      formulaMap = {};
+      advanced.outputs.forEach(o => { formulaMap![o.name] = o.formula; });
+    } else {
+      formulaMap = extractOutputFormulas(node, def);
+    }
+    return generateNodeCode(node, def, formulaMap);
+  };
+
   /* ── register custom nodes ── */
   useEffect(() => {
     customNodes.forEach(nodeData => {
@@ -210,7 +229,18 @@ export default function App() {
           outputs: advanced.outputs,
         });
       } else {
-        setEditingFormulaNode(null);
+        // Built-in or code node: rebuild inputs + equations from the node itself
+        // (its inputs, description formulas, and current output values).
+        const prefill = buildQuickPrefill(node, getNodeDefinition(node.type));
+        setEditingFormulaNode({
+          id: `quick_${node.id}`,
+          label: prefill.label,
+          description: prefill.description,
+          category: prefill.category,
+          equations: prefill.equations,
+          inputs: prefill.inputs,
+          outputs: prefill.outputs,
+        });
       }
     }
     setEditNodeId(nodeId);
@@ -418,6 +448,7 @@ export default function App() {
       <NodeCodeModal isOpen={showNodeCodeModal} theme={editor.theme}
         node={editNode}
         existingCode={editNode ? (codeNodes.find(c => c.id === editNode.type)?.code ?? null) : null}
+        initialCode={editNode ? buildInitialCode(editNode) : ''}
         onClose={() => { setShowNodeCodeModal(false); setEditNodeId(null); }}
         onSave={handleSaveNodeCode} />
       <SettingsModal isOpen={showSettings} theme={editor.theme} onThemeChange={editor.setTheme} onClose={() => setShowSettings(false)} onClearAll={editor.clearAll} />
