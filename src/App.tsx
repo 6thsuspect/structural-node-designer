@@ -11,7 +11,7 @@ import SettingsModal from './components/SettingsModal';
 import { createDemoWorkflow } from './demoWorkflow';
 import { registerCustomNode, CATEGORY_COLORS, getNodeDefinition } from './nodeDefinitions';
 import { evaluateFormulaNode } from './formulaParser';
-import { generateNodeCode, extractOutputFormulas, buildQuickPrefill } from './nodeCodegen';
+import { generateNodeCode, extractOutputFormulas, buildQuickPrefill, buildCodePrefill } from './nodeCodegen';
 import { Theme, NodeDefinition, CanvasNode } from './types';
 
 /* ─── theme palette helper ─── */
@@ -232,23 +232,39 @@ export default function App() {
           outputs: advanced.outputs,
         });
       } else {
-        // Built-in or code node: rebuild inputs + equations from the node itself
-        // (its inputs, description formulas, and current output values).
-        const prefill = buildQuickPrefill(node, getNodeDefinition(node.type));
-        setEditingFormulaNode({
-          id: `quick_${node.id}`,
-          label: prefill.label,
-          description: prefill.description,
-          category: prefill.category,
-          equations: prefill.equations,
-          inputs: prefill.inputs,
-          outputs: prefill.outputs,
-        });
+        // Code node: rebuild the equations from the stored JavaScript so the
+        // dialog shows the same formulas as "Edit Node Code" (not current values).
+        const codeNode = codeNodes.find(c => c.id === node.type);
+        if (codeNode) {
+          const prefill = buildCodePrefill(node, codeNode.code);
+          setEditingFormulaNode({
+            id: `quick_${node.id}`,
+            label: prefill.label,
+            description: prefill.description,
+            category: prefill.category,
+            equations: prefill.equations,
+            inputs: prefill.inputs,
+            outputs: prefill.outputs,
+          });
+        } else {
+          // Built-in node: rebuild inputs + equations from the node itself
+          // (its inputs, description formulas, and current output values).
+          const prefill = buildQuickPrefill(node, getNodeDefinition(node.type));
+          setEditingFormulaNode({
+            id: `quick_${node.id}`,
+            label: prefill.label,
+            description: prefill.description,
+            category: prefill.category,
+            equations: prefill.equations,
+            inputs: prefill.inputs,
+            outputs: prefill.outputs,
+          });
+        }
       }
     }
     setEditNodeId(nodeId);
     setShowQuickFormulaModal(true);
-  }, [editor.nodes, customNodes]);
+  }, [editor.nodes, customNodes, codeNodes]);
 
   /* ── project save ── */
   const handleSaveProject = useCallback(() => {

@@ -379,3 +379,218 @@ export function buildQuickPrefill(node: CanvasNode, def?: NodeDefinition): {
     outputs,
   };
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Reconstruct Quick-Formula equations from a CODE node's JavaScript.
+ * This keeps the "Edit Formula & Input" dialog in sync with the "Edit Node
+ * Code" editor: instead of showing current output values, it shows the actual
+ * formulas from the code (const assignments + returned keys).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Remove // line comments and block comments, keeping string literals intact. */
+function stripCodeComments(code: string): string {
+  let out = '';
+  let i = 0;
+  while (i < code.length) {
+    const ch = code[i];
+    const next = code[i + 1];
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
+      out += ch;
+      i++;
+      while (i < code.length) {
+        out += code[i];
+        if (code[i] === '\\') { out += code[i + 1] ?? ''; i += 2; continue; }
+        if (code[i] === quote) { i++; break; }
+        i++;
+      }
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      while (i < code.length && code[i] !== '\n') i++;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      i += 2;
+      while (i < code.length && !(code[i] === '*' && code[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
+function findClosingBrace(s: string, openIdx: number): number {
+  let depth = 0;
+  let inStr: string | null = null;
+  for (let i = openIdx; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) { if (ch === '\\') { i++; continue; } if (ch === inStr) inStr = null; continue; }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) return i; }
+  }
+  return -1;
+}
+
+function splitTopLevelArgs(body: string): string[] {
+  const parts: string[] = [];
+  let seg = '';
+  let depth = 0;
+  let inStr: string | null = null;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (inStr) {
+      seg += ch;
+      if (ch === '\\') { seg += body[i + 1] ?? ''; i++; continue; }
+      if (ch === inStr) inStr = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; seg += ch; continue; }
+    if (ch === '{' || ch === '[' || ch === '(') { depth++; seg += ch; continue; }
+    if (ch === '}' || ch === ']' || ch === ')') { depth--; seg += ch; continue; }
+    if (ch === ',' && depth === 0) { parts.push(seg); seg = ''; continue; }
+    seg += ch;
+  }
+  if (seg.trim()) parts.push(seg);
+  return parts;
+}
+
+/** Extract `key` and `value` from one `"key": value` / `key: value` segment. */
+function returnEntry(seg: string): { key: string; value: string } | null {
+  const s = seg.trim();
+  if (!s) return null;
+  let depth = 0;
+  let inStr: string | null = null;
+  let colonIdx = -1;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) { if (ch === '\\') { i++; continue; } if (ch === inStr) inStr = null; continue; }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; continue; }
+    if (ch === '{' || ch === '[' || ch === '(') depth++;
+    else if (ch === '}' || ch === ']' || ch === ')') depth--;
+    else if (ch === ':' && depth === 0) { colonIdx = i; break; }
+  }
+  if (colonIdx < 0) return null;
+  const rawKey = s.slice(0, colonIdx).trim();
+  let key: string | null = null;
+  if ((rawKey.startsWith('"') && rawKey.endsWith('"')) || (rawKey.startsWith("'") && rawKey.endsWith("'"))) {
+    key = rawKey.slice(1, -1);
+  } else if (/^[A-Za-z_$][\w$]*$/.test(rawKey)) {
+    key = rawKey;
+  }
+  if (!key) return null;
+  return { key, value: s.slice(colonIdx + 1).trim() };
+}
+
+/** Convert a JS expression (from the generated code) back to formula syntax. */
+function jsToFormula(expr: string): string {
+  let s = expr.trim();
+  if (!s) return s;
+  // inputs["x"] / inputs['x'] → x
+  s = s
+    .replace(/inputs\s*\[\s*"([^"]*)"\s*\]/g, '$1')
+    .replace(/inputs\s*\[\s*'([^']*)'\s*\]/g, '$1');
+  // constants
+  s = s.replace(/Math\.PI/g, 'pi').replace(/Math\.E\b/g, 'e');
+  // exponent operator
+  s = s.replace(/\*\*/g, '^');
+  // Math functions → formula functions
+  s = s
+    .replace(/Math\.pow\(/g, 'pow(')
+    .replace(/Math\.sqrt\(/g, 'sqrt(')
+    .replace(/Math\.abs\(/g, 'abs(')
+    .replace(/Math\.sin\(/g, 'sin(')
+    .replace(/Math\.cos\(/g, 'cos(')
+    .replace(/Math\.tan\(/g, 'tan(')
+    .replace(/Math\.asin\(/g, 'asin(')
+    .replace(/Math\.acos\(/g, 'acos(')
+    .replace(/Math\.atan\(/g, 'atan(')
+    .replace(/Math\.log10\(/g, 'log10(')
+    .replace(/Math\.log\(/g, 'log(')
+    .replace(/Math\.exp\(/g, 'exp(')
+    .replace(/Math\.min\(/g, 'min(')
+    .replace(/Math\.max\(/g, 'max(')
+    .replace(/Math\.round\(/g, 'round(')
+    .replace(/Math\.floor\(/g, 'floor(')
+    .replace(/Math\.ceil\(/g, 'ceil(')
+    .replace(/Math\.sign\(/g, 'sign(');
+  // pow(a, b) → (a)^(b) — best-effort for two simple arguments
+  s = s.replace(/pow\(\s*([^,()]+)\s*,\s*([^,()]+)\s*\)/g, '($1)^($2)');
+  return s.trim();
+}
+
+/** Reconstruct `output = formula` equations from a code node's JavaScript. */
+export function extractCodeEquations(code: string): string[] {
+  const cleaned = stripCodeComments(code);
+
+  // Collect `const/let/var NAME = EXPR;` assignments (one per line in generated code).
+  const constMap = new Map<string, string>();
+  const declRe = /^\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([\s\S]+?)\s*;?\s*$/;
+  for (const line of cleaned.split('\n')) {
+    const m = line.match(declRe);
+    if (m) constMap.set(m[1], m[2].trim());
+  }
+
+  // Find the returned object literal.
+  const retIdx = cleaned.lastIndexOf('return');
+  if (retIdx === -1) return [];
+  const openIdx = cleaned.indexOf('{', retIdx);
+  if (openIdx === -1) return [];
+  const closeIdx = findClosingBrace(cleaned, openIdx);
+  if (closeIdx === -1) return [];
+
+  const equations: string[] = [];
+  for (const seg of splitTopLevelArgs(cleaned.slice(openIdx + 1, closeIdx))) {
+    const entry = returnEntry(seg);
+    if (!entry) continue;
+    let expr = entry.value;
+    if (constMap.has(expr)) expr = constMap.get(expr)!; // resolve `"Md1": Md1` → const expression
+    const formula = jsToFormula(expr);
+    if (formula) equations.push(`${entry.key} = ${formula}`);
+  }
+  return equations;
+}
+
+/** Build a Quick-Formula prefill from a code node so the equation body shows
+ *  the same formulas as the "Edit Node Code" editor (not current values). */
+export function buildCodePrefill(
+  node: CanvasNode,
+  code: string,
+): {
+  label: string;
+  description: string;
+  category: string;
+  equations: string[];
+  inputs: { name: string; defaultValue: number; unit: string }[];
+  outputs: { name: string; formula: string; unit: string }[];
+} {
+  const equations = extractCodeEquations(code);
+  const formulaByName = new Map<string, string>();
+  equations.forEach((eq) => {
+    const idx = eq.indexOf('=');
+    if (idx > 0) formulaByName.set(eq.slice(0, idx).trim(), eq.slice(idx + 1).trim());
+  });
+
+  const inputs = node.inputs
+    .filter((p) => p.type === 'number')
+    .map((p) => ({ name: p.name, defaultValue: Number(p.value) || 0, unit: p.unit || '' }));
+  const outputs = node.outputs
+    .filter((o) => o.type === 'number')
+    .map((o) => ({
+      name: o.name,
+      formula: formulaByName.get(o.name) ?? String(Number(o.value) || 0),
+      unit: o.unit || '',
+    }));
+
+  return {
+    label: node.label,
+    description: 'Custom code node',
+    category: node.category,
+    equations,
+    inputs,
+    outputs,
+  };
+}
