@@ -10,7 +10,7 @@ import NodeCodeModal, { CodeNodeData } from './components/NodeCodeModal';
 import SettingsModal from './components/SettingsModal';
 import { createDemoWorkflow } from './demoWorkflow';
 import { registerCustomNode, CATEGORY_COLORS, getNodeDefinition } from './nodeDefinitions';
-import { parseFormula } from './formulaParser';
+import { evaluateFormulaNode } from './formulaParser';
 import { generateNodeCode, extractOutputFormulas, buildQuickPrefill } from './nodeCodegen';
 import { Theme, NodeDefinition, CanvasNode } from './types';
 
@@ -32,9 +32,12 @@ function buildCustomNodeDef(nodeData: CustomNodeData | QuickNodeData): NodeDefin
     inputs: nodeData.inputs.map(i => ({ name: i.name, type: 'number' as const, value: i.defaultValue, unit: i.unit })),
     outputs: nodeData.outputs.map(o => ({ name: o.name, type: 'number' as const, unit: o.unit })),
     compute: (inputs: Record<string, number>) => {
-      const results: Record<string, number> = {};
-      nodeData.outputs.forEach(output => { try { results[output.name] = parseFormula(output.formula)(inputs); } catch { results[output.name] = 0; } });
-      return results;
+      // Dependency-based evaluation: each output's formula may reference other
+      // outputs in the same node; evaluateFormulaNode resolves those internal
+      // dependencies automatically (in the correct order) and throws a clear
+      // error on undefined variables or circular dependencies.
+      const equations = nodeData.outputs.map(o => ({ output: o.name, formula: o.formula }));
+      return evaluateFormulaNode(equations, inputs);
     },
     color: CATEGORY_COLORS[nodeData.category] || '#00BCD4', icon: '✏️',
   };

@@ -359,12 +359,146 @@ export function validateFormula(formula: string, inputNames: string[]): { valid:
 export function extractVariables(formula: string): string[] {
   const tokens = tokenize(formula);
   const variables = new Set<string>();
-  
+
   tokens.forEach(token => {
     if (token.type === 'variable' && CONSTANTS[token.value] === undefined) {
       variables.add(token.value);
     }
   });
-  
+
   return Array.from(variables);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Dependency-based formula-node engine
+ *
+ * Treats a set of "output = formula" equations as a small calculation graph:
+ *   • the left-hand side is the variable being calculated (an output);
+ *   • a right-hand-side variable that is never calculated by any equation is
+ *     an external input (auto-detected — the user never marks it);
+ *   • a right-hand-side variable that IS calculated by another equation in the
+ *     same node is an internal dependency, resolved automatically.
+ *
+ * Equations are evaluated in dependency order, regardless of the order in
+ * which they were written. Circular dependencies and undefined variables are
+ * reported as errors.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export interface FormulaEquation {
+  output: string;   // left-hand side name, e.g. "Mp"
+  formula: string;  // right-hand side expression, e.g. "Fy * Zp"
+}
+
+export interface FormulaNodePlan {
+  inputs: string[];  // external inputs (referenced but never calculated)
+  outputs: string[]; // left-hand-side names, in written order
+  order: number[];   // equation indices in dependency-safe evaluation order
+  errors: { index: number; output: string; error: string }[];
+}
+
+/** Analyze a set of equations: auto-detect inputs, resolve dependencies and
+ *  produce a dependency-safe evaluation order (or errors for broken graphs). */
+export function analyzeFormulaNode(equations: FormulaEquation[]): FormulaNodePlan {
+  const errors: FormulaNodePlan['errors'] = [];
+  const outputs: string[] = [];
+  const outputSet = new Set<string>();
+  const indexByName = new Map<string, number>();
+  const broken = new Array(equations.length).fill(false); // lines excluded from the graph
+
+  // 1. Collect left-hand sides; flag empty and duplicate definitions.
+  equations.forEach((eq, i) => {
+    const name = eq.output.trim();
+    if (!name) {
+      errors.push({ index: i, output: '', error: 'Missing output name before "="' });
+      broken[i] = true;
+      return;
+    }
+    if (outputSet.has(name)) {
+      errors.push({ index: i, output: name, error: `Output "${name}" is defined more than once` });
+      broken[i] = true;
+      return;
+    }
+    outputSet.add(name);
+    outputs.push(name);
+    indexByName.set(name, i);
+  });
+
+  // 2. Build the dependency graph between equations. A referenced variable is
+  //    either an internal output (edge) or an external input (auto-detected).
+  const inputSet = new Set<string>();
+  const inDegree = new Array(equations.length).fill(0);
+  const dependents: number[][] = equations.map(() => []);
+
+  equations.forEach((eq, i) => {
+    if (broken[i]) return;
+    let vars: string[] = [];
+    try { vars = extractVariables(eq.formula); } catch { return; }
+    vars.forEach(v => {
+      const j = indexByName.get(v);
+      if (j !== undefined) {
+        // equation i depends on equation j (j === i is a self-reference cycle)
+        inDegree[i]++;
+        dependents[j].push(i);
+      } else {
+        inputSet.add(v);
+      }
+    });
+  });
+
+  // 3. Topological sort (Kahn's algorithm).
+  const queue: number[] = [];
+  equations.forEach((_, i) => { if (!broken[i] && inDegree[i] === 0) queue.push(i); });
+  const order: number[] = [];
+  while (queue.length) {
+    const i = queue.shift()!;
+    order.push(i);
+    dependents[i].forEach(j => { if (--inDegree[j] === 0) queue.push(j); });
+  }
+
+  // 4. Anything not reached is part of a circular dependency.
+  const activeCount = broken.filter(b => !b).length;
+  if (order.length < activeCount) {
+    const remaining = equations.filter((_, i) => !broken[i] && !order.includes(i));
+    const names = remaining.map(eq => eq.output.trim());
+    remaining.forEach(eq => {
+      errors.push({
+        index: equations.indexOf(eq),
+        output: eq.output.trim(),
+        error: `Circular dependency${names.length > 1 ? `: ${names.join(' → ')}` : ' (a variable depends on itself)'}`,
+      });
+    });
+  }
+
+  return { inputs: Array.from(inputSet).sort(), outputs, order, errors };
+}
+
+/**
+ * Evaluate a set of equations in dependency order.
+ * `inputs` supplies the external inputs' values; internally calculated
+ * variables are resolved from earlier equations automatically.
+ * Throws an Error on circular dependencies or undefined variables.
+ */
+export function evaluateFormulaNode(
+  equations: FormulaEquation[],
+  inputs: Record<string, number>,
+): Record<string, number> {
+  const plan = analyzeFormulaNode(equations);
+  if (plan.errors.length > 0) throw new Error(plan.errors[0].error);
+
+  const values: Record<string, number> = { ...inputs };
+  const results: Record<string, number> = {};
+
+  plan.order.forEach(i => {
+    const eq = equations[i];
+    const vars = extractVariables(eq.formula);
+    const missing = vars.find(v => !(v in values));
+    if (missing !== undefined) {
+      throw new Error(`"${eq.output}" references undefined variable "${missing}"`);
+    }
+    const value = parseFormula(eq.formula)(values);
+    values[eq.output] = value;
+    results[eq.output] = value;
+  });
+
+  return results;
 }

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Theme } from '../types';
-import { validateFormula, extractVariables, parseFormula } from '../formulaParser';
+import { validateFormula, extractVariables, analyzeFormulaNode, evaluateFormulaNode } from '../formulaParser';
 import { CATEGORY_COLORS } from '../nodeDefinitions';
 import ModalWindow from './ModalWindow';
 
@@ -153,27 +153,39 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
     }
   }, [editingNode, isOpen]);
 
-  // Parse all equations
+  // Parse all equations (line-level syntax & name checks)
   const parsedEquations = useMemo(() => {
     const lines = equationText.split('\n').filter(line => line.trim());
     return lines.map(line => parseEquation(line));
   }, [equationText]);
 
-  // Get all unique input variables (excluding output names)
-  const allInputVariables = useMemo(() => {
-    const outputNames = new Set(parsedEquations.map(eq => eq.outputName));
-    const allVars = new Set<string>();
-    parsedEquations.forEach(eq => {
-      eq.variables.forEach(v => {
-        if (!outputNames.has(v)) {
-          allVars.add(v);
+  // Cross-equation dependency analysis: auto-detects which variables are external
+  // inputs vs. internal outputs, resolves dependencies between formulas, computes
+  // a dependency-safe evaluation order, and reports cycles / duplicate outputs.
+  const dependencyAnalysis = useMemo(() => {
+    const originalIndices: number[] = [];
+    const equations = parsedEquations
+      .map((eq, i) => {
+        if (eq.isValid && eq.outputName) {
+          originalIndices.push(i);
+          return { output: eq.outputName, formula: eq.formula };
         }
-      });
+        return null;
+      })
+      .filter((eq): eq is { output: string; formula: string } => eq !== null);
+    const plan = analyzeFormulaNode(equations);
+    const lineErrors: Record<number, string> = {};
+    plan.errors.forEach(err => {
+      const line = originalIndices[err.index];
+      if (line !== undefined) lineErrors[line] = err.error;
     });
-    return Array.from(allVars).sort();
+    return { plan, lineErrors };
   }, [parsedEquations]);
 
-  // Get all outputs
+  // External inputs = variables referenced but never calculated by any equation
+  const allInputVariables = dependencyAnalysis.plan.inputs;
+
+  // Outputs = the left-hand-side variable of every valid equation
   const allOutputs = useMemo(() => {
     return parsedEquations
       .filter(eq => eq.isValid && eq.outputName)
@@ -184,10 +196,11 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
   const allValid = useMemo(() => {
     return parsedEquations.length > 0 && 
            parsedEquations.every(eq => eq.isValid) &&
+           dependencyAnalysis.plan.errors.length === 0 &&
            label.trim() !== '';
-  }, [parsedEquations, label]);
+  }, [parsedEquations, dependencyAnalysis, label]);
 
-  // Test calculation
+  // Test calculation — evaluated in dependency order, not written order
   const testResults = useMemo(() => {
     const results: Record<string, number | string> = {};
     const values: Record<string, number> = {};
@@ -197,22 +210,20 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
       values[v] = inputDefaults[v] ?? 1;
     });
     
-    // Calculate each output in order
-    parsedEquations.forEach(eq => {
-      if (eq.isValid) {
-        try {
-          const fn = parseFormula(eq.formula);
-          const result = fn(values);
-          results[eq.outputName] = result;
-          values[eq.outputName] = result; // Allow chained calculations
-        } catch (e) {
-          results[eq.outputName] = 'Error';
-        }
-      }
-    });
+    try {
+      const equations = allOutputs.map(o => ({ output: o.name, formula: o.formula }));
+      const computed = evaluateFormulaNode(equations, values);
+      allOutputs.forEach(o => {
+        results[o.name] = computed[o.name] ?? '—';
+      });
+    } catch {
+      // The detailed error (cycle / undefined variable) is shown on the
+      // equation line itself; keep the preview simple.
+      allOutputs.forEach(o => { results[o.name] = 'Error'; });
+    }
     
     return results;
-  }, [parsedEquations, allInputVariables, inputDefaults]);
+  }, [allOutputs, allInputVariables, inputDefaults]);
 
   const handleSave = () => {
     if (!allValid) return;
@@ -375,7 +386,7 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
                   Equations * <span className="font-normal">(one per line)</span>
                 </label>
                 <span className="text-[10px]" style={{ color: colors.label }}>
-                  {parsedEquations.filter(e => e.isValid).length} valid / {parsedEquations.length} total
+                  {parsedEquations.filter((e, i) => e.isValid && !dependencyAnalysis.lineErrors[i]).length} valid / {parsedEquations.length} total
                 </span>
               </div>
               
@@ -396,25 +407,29 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
               {/* Equation Status */}
               {parsedEquations.length > 0 && (
                 <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                  {parsedEquations.map((eq, idx) => (
-                    <div 
-                      key={idx}
-                      className="flex items-center gap-2 px-2 py-1 rounded text-xs"
-                      style={{ background: eq.isValid ? `${colors.success}15` : `${colors.error}15` }}
-                    >
-                      <span style={{ color: eq.isValid ? colors.success : colors.error }}>
-                        {eq.isValid ? '✓' : '✗'}
-                      </span>
-                      <span className="font-mono" style={{ color: colors.text }}>
-                        {eq.outputName || '?'} = {eq.formula || '...'}
-                      </span>
-                      {!eq.isValid && eq.error && (
-                        <span className="ml-auto" style={{ color: colors.error }}>
-                          {eq.error}
+                  {parsedEquations.map((eq, idx) => {
+                    const depError = dependencyAnalysis.lineErrors[idx];
+                    const hasError = !eq.isValid || !!depError;
+                    return (
+                      <div 
+                        key={idx}
+                        className="flex items-center gap-2 px-2 py-1 rounded text-xs"
+                        style={{ background: hasError ? `${colors.error}15` : `${colors.success}15` }}
+                      >
+                        <span style={{ color: hasError ? colors.error : colors.success }}>
+                          {hasError ? '✗' : '✓'}
                         </span>
-                      )}
-                    </div>
-                  ))}
+                        <span className="font-mono" style={{ color: colors.text }}>
+                          {eq.outputName || '?'} = {eq.formula || '...'}
+                        </span>
+                        {(eq.error || depError) && (
+                          <span className="ml-auto" style={{ color: colors.error }}>
+                            {depError || eq.error}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
