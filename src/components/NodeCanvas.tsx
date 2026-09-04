@@ -5,6 +5,22 @@ const PORT_RADIUS = 7;
 const PORT_HEIGHT = 28;
 const HEADER_HEIGHT = 36;
 
+/* ─── Port row layout constants (node width is fixed at 200) ─── */
+const LABEL_X = 16;             // input label left edge
+const COLON_X = 74;             // fixed ":" position, right before the value box
+const VALUE_BOX_X = 78;         // input value box/region left edge
+const VALUE_TEXT_X = 83;        // input value text left edge
+const OUT_VALUE_X = 14;         // output value left edge
+const LABEL_MAX_CHARS = 9;      // input label truncation
+const INPUT_VALUE_MAX_CHARS = 17;
+const OUT_VALUE_MAX_CHARS = 20;
+const OUT_NAME_MAX_CHARS = 10;
+
+/** Truncate a string with an ellipsis so it can never overlap its neighbours. */
+function truncateText(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
 interface Props {
   nodes: CanvasNode[];
   connections: Connection[];
@@ -260,9 +276,21 @@ export default function NodeCanvas({
     return v.toLocaleString(undefined, { maximumFractionDigits: 4 });
   };
 
+  // Value + designation (unit). The designation is only appended when it is
+  // actually defined on the port, keeping empty "designations" out of the UI.
+  const portValueText = (port: { value?: any; unit?: string }): string => {
+    let base: string;
+    if (typeof port.value === 'boolean') base = port.value ? 'TRUE' : 'FALSE';
+    else if (port.value === undefined || port.value === null || port.value === '') base = '';
+    else base = fmt(port.value);
+    if (!base) return '';
+    return port.unit ? `${base} ${port.unit}` : base;
+  };
+
   // ─── Port rendering ───
-  // FIX #6: Text overlap — output values on LEFT (x=14), port names RIGHT (near circle)
-  //          input names LEFT (near circle), values in center box
+  // Clean layout: fixed regions so no text can overlap.
+  //   INPUTS  → [●] label : [ value/editor ]
+  //   OUTPUTS → [●] value : name            (value left, name right)
   const renderPort = (node: CanvasNode, port: typeof node.inputs[0], idx: number, isOutput: boolean) => {
     const x = isOutput ? node.width : 0;
     const y = HEADER_HEIGHT + idx * PORT_HEIGHT + PORT_HEIGHT / 2;
@@ -270,6 +298,12 @@ export default function NodeCanvas({
       ? connections.some(c => c.fromNodeId === node.id && c.fromPortId === port.id)
       : connections.some(c => c.toNodeId === node.id && c.toPortId === port.id);
     const portColor = isOutput ? '#60a5fa' : '#f97316';
+
+    const labelText = truncateText(port.name, LABEL_MAX_CHARS);
+    const valueText = portValueText(port);
+    const inputValueText = truncateText(valueText || (connected ? '—' : ''), INPUT_VALUE_MAX_CHARS);
+    const outValueText = truncateText(valueText || '—', OUT_VALUE_MAX_CHARS);
+    const outNameText = truncateText(port.name, OUT_NAME_MAX_CHARS);
 
     return (
       <g
@@ -294,27 +328,32 @@ export default function NodeCanvas({
         {/* ─── INPUT PORTS ─── */}
         {!isOutput && (
           <>
-            {/* Port name and value pushed inward, away from the port circle */}
-            <text x={26} y={y + 4} textAnchor="start" fill={colors.text} fontSize={10} fontWeight="700" fontFamily="system-ui">{port.name}</text>
-            <text x={26 + Math.max(0, String(port.name || '').length) * 6 + 6} y={y + 4} textAnchor="start" fill={colors.sub} fontSize={9} fontFamily="system-ui" opacity={0.55}>:</text>
+            {/* Label (truncated; full name in tooltip) */}
+            <text x={LABEL_X} y={y + 4} textAnchor="start" fill={colors.text} fontSize={10} fontWeight="700" fontFamily="system-ui">
+              {labelText}
+              <title>{port.name}{port.unit ? ` (${port.unit})` : ''}</title>
+            </text>
+            {/* Fixed ":" — always ends before the value box, so it can't overlap */}
+            <text x={COLON_X} y={y + 4} textAnchor="end" fill={colors.sub} fontSize={9} fontFamily="system-ui" opacity={0.55}>:</text>
 
             {/* Editable number value (unconnected) */}
             {!connected && port.type === 'number' && (
               <g>
-                <rect x={78} y={y - 9} width={node.width - 90} height={18} rx={3}
+                <rect x={VALUE_BOX_X} y={y - 9} width={node.width - VALUE_BOX_X - 12} height={18} rx={3}
                   fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} className="cursor-text"
                   onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }} />
                 {editingPort?.nodeId === node.id && editingPort?.portId === port.id ? (
-                  <foreignObject x={80} y={y - 8} width={node.width - 84} height={16}>
+                  <foreignObject x={VALUE_TEXT_X - 3} y={y - 8} width={node.width - VALUE_TEXT_X - 6} height={16}>
                     <input type="number" defaultValue={port.value} autoFocus
                       style={{ width:'100%',height:'100%',background:'transparent',border:'none',color:colors.text,fontSize:'10px',outline:'none',fontFamily:'monospace' }}
                       onBlur={(e) => { onUpdateInput(node.id, port.id, parseFloat(e.target.value) || 0); setEditingPort(null); }}
                       onKeyDown={(e) => { if (e.key==='Enter') { onUpdateInput(node.id, port.id, parseFloat((e.target as HTMLInputElement).value)||0); setEditingPort(null); } }} />
                   </foreignObject>
                 ) : (
-                  <text x={83} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
+                  <text x={VALUE_TEXT_X} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
                     onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }}>
-                    {fmt(port.value)}{port.unit ? ` ${port.unit}` : ''}
+                    {inputValueText}
+                    <title>{valueText}</title>
                   </text>
                 )}
               </g>
@@ -322,19 +361,20 @@ export default function NodeCanvas({
             {/* Editable string value (unconnected) */}
             {!connected && port.type === 'string' && (
               <g>
-                <rect x={78} y={y - 9} width={node.width - 90} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} className="cursor-text"
+                <rect x={VALUE_BOX_X} y={y - 9} width={node.width - VALUE_BOX_X - 12} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} className="cursor-text"
                   onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }} />
                 {editingPort?.nodeId === node.id && editingPort?.portId === port.id ? (
-                  <foreignObject x={80} y={y - 8} width={node.width - 84} height={16}>
+                  <foreignObject x={VALUE_TEXT_X - 3} y={y - 8} width={node.width - VALUE_TEXT_X - 6} height={16}>
                     <input type="text" defaultValue={port.value} autoFocus
                       style={{ width:'100%',height:'100%',background:'transparent',border:'none',color:colors.text,fontSize:'10px',outline:'none',fontFamily:'monospace' }}
                       onBlur={(e) => { onUpdateInput(node.id, port.id, e.target.value); setEditingPort(null); }}
                       onKeyDown={(e) => { if (e.key==='Enter') { onUpdateInput(node.id, port.id, (e.target as HTMLInputElement).value); setEditingPort(null); } }} />
                   </foreignObject>
                 ) : (
-                  <text x={83} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
+                  <text x={VALUE_TEXT_X} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
                     onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }}>
-                    {String(port.value || '')}
+                    {inputValueText}
+                    <title>{valueText}</title>
                   </text>
                 )}
               </g>
@@ -342,31 +382,34 @@ export default function NodeCanvas({
             {/* Boolean toggle (unconnected) */}
             {!connected && port.type === 'boolean' && (
               <g onClick={(e) => { e.stopPropagation(); onUpdateInput(node.id, port.id, !port.value); }} className="cursor-pointer">
-                <rect x={78} y={y - 9} width={node.width - 90} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} />
-                <text x={83} y={y + 2} fill={port.value ? '#10b981' : colors.sub} fontSize={10} fontFamily="monospace">
+                <rect x={VALUE_BOX_X} y={y - 9} width={node.width - VALUE_BOX_X - 12} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} />
+                <text x={VALUE_TEXT_X} y={y + 2} fill={port.value ? '#10b981' : colors.sub} fontSize={10} fontFamily="monospace">
                   {port.value ? '✓ TRUE' : '✗ FALSE'}
                 </text>
               </g>
             )}
-            {/* Connected value */}
+            {/* Connected value (from the upstream output port) */}
             {connected && (
-              <text x={78} y={y + 2} fill="#60a5fa" fontSize={10} fontFamily="monospace" fontStyle="italic">
-                {fmt(port.value)}{port.unit ? ` ${port.unit}` : ''}
+              <text x={VALUE_TEXT_X} y={y + 2} fill="#60a5fa" fontSize={10} fontFamily="monospace" fontStyle="italic">
+                {inputValueText}
+                <title>{valueText}</title>
               </text>
             )}
           </>
         )}
 
         {/* ─── OUTPUT PORTS ─── */}
-        {/* FIX #6: Value on LEFT, Name on RIGHT — no overlap */}
+        {/* Value on the left, name on the right — both truncated so they can't meet */}
         {isOutput && (
           <>
-            <text x={14} y={y + 4} textAnchor="start" fill="#10b981" fontSize={10} fontFamily="monospace" fontWeight="bold">
-              {fmt(port.value)}{port.unit ? ` ${port.unit}` : ''}
+            <text x={OUT_VALUE_X} y={y + 4} textAnchor="start" fill="#10b981" fontSize={10} fontFamily="monospace" fontWeight="bold">
+              {outValueText}
+              <title>{valueText}</title>
             </text>
-            <text x={14 + Math.max(0, String(fmt(port.value)).length) * 6 + (port.unit ? Math.max(0, String(port.unit).length) * 6 + 6 : 0) + 8} y={y + 4} textAnchor="start" fill={colors.sub} fontSize={9} fontFamily="system-ui" opacity={0.55}>:</text>
+            <text x={OUT_VALUE_X + outValueText.length * 6 + 6} y={y + 4} textAnchor="start" fill={colors.sub} fontSize={9} fontFamily="system-ui" opacity={0.55}>:</text>
             <text x={node.width - 10} y={y + 4} textAnchor="end" fill={colors.sub} fontSize={10} fontFamily="system-ui">
-              {port.name}
+              {outNameText}
+              <title>{port.name}</title>
             </text>
           </>
         )}
@@ -401,8 +444,11 @@ export default function NodeCanvas({
         {/* Header */}
         <rect width={node.width} height={HEADER_HEIGHT} rx={8} fill={headerColor} opacity={0.9} />
         <rect y={HEADER_HEIGHT - 8} width={node.width} height={8} fill={headerColor} opacity={0.9} />
-        {/* Title */}
-        <text x={12} y={HEADER_HEIGHT / 2 + 5} fill={colors.header} fontSize={13} fontWeight="600" fontFamily="system-ui">{node.label}</text>
+        {/* Title (truncated so it can't overlap the category badge) */}
+        <text x={12} y={HEADER_HEIGHT / 2 + 5} fill={colors.header} fontSize={13} fontWeight="600" fontFamily="system-ui">
+          {truncateText(node.label, 17)}
+          <title>{node.label}</title>
+        </text>
         {/* Category badge */}
         <text x={node.width - 8} y={HEADER_HEIGHT / 2 + 4} textAnchor="end" fill={colors.header} fontSize={9} opacity={0.6} fontFamily="system-ui">{node.category}</text>
         {/* Error dot */}
