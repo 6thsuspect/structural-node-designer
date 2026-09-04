@@ -10,10 +10,8 @@ const LABEL_X = 16;             // input label left edge
 const COLON_X = 74;             // fixed ":" position, right before the value box
 const VALUE_BOX_X = 78;         // input value box/region left edge
 const VALUE_TEXT_X = 83;        // input value text left edge
-const OUT_VALUE_X = 14;         // output value left edge
 const LABEL_MAX_CHARS = 9;      // input label truncation
 const INPUT_VALUE_MAX_CHARS = 17;
-const OUT_VALUE_MAX_CHARS = 20;
 const OUT_NAME_MAX_CHARS = 10;
 
 /** Truncate a string with an ellipsis so it can never overlap its neighbours. */
@@ -302,7 +300,6 @@ export default function NodeCanvas({
     const labelText = truncateText(port.name, LABEL_MAX_CHARS);
     const valueText = portValueText(port);
     const inputValueText = truncateText(valueText || (connected ? '—' : ''), INPUT_VALUE_MAX_CHARS);
-    const outValueText = truncateText(valueText || '—', OUT_VALUE_MAX_CHARS);
     const outNameText = truncateText(port.name, OUT_NAME_MAX_CHARS);
 
     return (
@@ -399,19 +396,13 @@ export default function NodeCanvas({
         )}
 
         {/* ─── OUTPUT PORTS ─── */}
-        {/* Value on the left, name on the right — both truncated so they can't meet */}
+        {/* Only the output name is shown on the node — the computed value text is
+            hidden to keep the node UI clean (values remain in the Properties panel). */}
         {isOutput && (
-          <>
-            <text x={OUT_VALUE_X} y={y + 4} textAnchor="start" fill="#10b981" fontSize={10} fontFamily="monospace" fontWeight="bold">
-              {outValueText}
-              <title>{valueText}</title>
-            </text>
-            <text x={OUT_VALUE_X + outValueText.length * 6 + 6} y={y + 4} textAnchor="start" fill={colors.sub} fontSize={9} fontFamily="system-ui" opacity={0.55}>:</text>
-            <text x={node.width - 10} y={y + 4} textAnchor="end" fill={colors.sub} fontSize={10} fontFamily="system-ui">
-              {outNameText}
-              <title>{port.name}</title>
-            </text>
-          </>
+          <text x={node.width - 10} y={y + 4} textAnchor="end" fill={colors.sub} fontSize={10} fontFamily="system-ui">
+            {outNameText}
+            <title>{port.name}</title>
+          </text>
         )}
       </g>
     );
