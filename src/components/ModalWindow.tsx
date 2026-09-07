@@ -39,6 +39,10 @@ interface ModalWindowProps {
   zIndex?: number;
   /** When set, the window's size and position are remembered between opens. */
   persistKey?: string;
+  /** When false, the window keeps a fixed size (no resize handles). Defaults to true. */
+  resizable?: boolean;
+  /** When true, the window height fits its content (up to the viewport height). Defaults to false. */
+  autoHeight?: boolean;
   children: ReactNode;
   footer?: ReactNode;
 }
@@ -136,6 +140,8 @@ export default function ModalWindow({
   scrollBody = true,
   zIndex = 50,
   persistKey,
+  resizable = true,
+  autoHeight = false,
   children,
   footer,
 }: ModalWindowProps) {
@@ -246,13 +252,13 @@ export default function ModalWindow({
     <div className="fixed inset-0" style={{ background: overlay, zIndex }} onClick={handleOverlayClick}>
       <div
         className="fixed rounded-xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h, background: bg, border: `1px solid ${border}` }}
+        style={{ left: rect.x, top: rect.y, width: rect.w, ...(autoHeight ? { maxHeight: 'calc(100vh - 32px)' } : { height: rect.h }), background: bg, border: `1px solid ${border}` }}
       >
         {/* Title bar — drag handle */}
         <div
           className="flex items-center gap-3 px-6 py-4 flex-shrink-0 select-none"
           style={{ borderBottom: `1px solid ${border}`, cursor: 'move' }}
-          title="Drag to move • drag edges to resize"
+          title={resizable ? 'Drag to move • drag edges to resize' : 'Drag to move'}
           onMouseDown={(e) => begin(e, 'move')}
         >
           {icon && <span className="text-2xl">{icon}</span>}
@@ -282,8 +288,8 @@ export default function ModalWindow({
         {/* Footer */}
         {footer && <div className="flex-shrink-0">{footer}</div>}
 
-        {/* Resize handles */}
-        {HANDLE_DIRS.map((dir) => (
+        {/* Resize handles (fixed-size dialogs render none) */}
+        {resizable && HANDLE_DIRS.map((dir) => (
           <div key={dir} onMouseDown={(e) => begin(e, 'resize', dir)} style={handleStyle(dir)} />
         ))}
       </div>

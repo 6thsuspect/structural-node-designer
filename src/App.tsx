@@ -8,8 +8,10 @@ import CustomFormulaModal, { CustomNodeData } from './components/CustomFormulaMo
 import QuickFormulaModal, { QuickNodeData } from './components/QuickFormulaModal';
 import NodeCodeModal, { CodeNodeData } from './components/NodeCodeModal';
 import SettingsModal from './components/SettingsModal';
+import AboutAuthorModal from './components/AboutAuthorModal';
+import AppLogo from './components/AppLogo';
 import { CalculationTracePanel, type FormulaProvider } from './features/calculation-trace';
-import { createDemoWorkflow } from './demoWorkflow';
+import { DEMO_PROJECTS, type DemoProject } from './demoProjects';
 import { registerCustomNode, CATEGORY_COLORS, getNodeDefinition } from './nodeDefinitions';
 import { evaluateFormulaNode } from './formulaParser';
 import { generateNodeCode, extractOutputFormulas, buildQuickPrefill, buildCodePrefill } from './nodeCodegen';
@@ -136,6 +138,10 @@ export default function App() {
   const [showCustomFormulaModal, setShowCustomFormulaModal] = useState(false);
   const [showQuickFormulaModal, setShowQuickFormulaModal]   = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
+
+  /* ── Alignment snap (smart guides while dragging nodes) ── */
+  const [snapEnabled, setSnapEnabled] = useState(false);
   const [customNodes, setCustomNodes] = useState<(CustomNodeData|QuickNodeData)[]>([]);
   const [codeNodes, setCodeNodes] = useState<CodeNodeData[]>([]);
   const [showNodeCodeModal, setShowNodeCodeModal] = useState(false);
@@ -330,6 +336,9 @@ export default function App() {
   /* ── keyboard shortcuts ── */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Text fields keep native behavior (typing, Ctrl+Z inside text, …).
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
       if ((e.ctrlKey||e.metaKey) && e.key==='z') { e.preventDefault(); editor.undo(); }
       if ((e.ctrlKey||e.metaKey) && e.key==='y') { e.preventDefault(); editor.redo(); }
       if ((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); handleSaveProject(); }
@@ -385,10 +394,14 @@ export default function App() {
     e.target.value = '';
   }, [editor]);
 
-  const handleLoadDemo = useCallback(() => {
-    const { nodes, connections } = createDemoWorkflow();
-    editor.setNodes(nodes);
-    editor.loadProject(JSON.stringify({ canvas:{ nodes, connections, zoom:0.85, panX:80, panY:40 }, theme:editor.theme }));
+  /* ── Load a bundled demo project (listed by file name) ── */
+  const handleLoadDemo = useCallback((demo: DemoProject) => {
+    try {
+      const project = JSON.parse(demo.json);
+      if (project.customNodes && Array.isArray(project.customNodes)) setCustomNodes(project.customNodes);
+      if (project.codeNodes && Array.isArray(project.codeNodes)) setCodeNodes(project.codeNodes);
+    } catch { /* fall through to a plain load */ }
+    editor.loadProject(demo.json);
     setShowSplash(false);
   }, [editor]);
 
@@ -405,16 +418,18 @@ export default function App() {
     const accentColor = editor.theme==='grasshopper'?'#68d391':editor.theme==='autocad'?'#00ff00':'#3b82f6';
 
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center" style={{ background:bgColor }}>
+      <div className="h-screen w-screen flex flex-col items-center justify-center relative" style={{ background:bgColor }}>
         <div className="text-center space-y-6 max-w-lg">
-          <div className="text-6xl mb-4">🏗️</div>
+          <div className="mb-4 flex justify-center"><AppLogo size={72} /></div>
           <h1 className="text-3xl font-bold tracking-tight" style={{ color:textColor }}>Structural Node Designer</h1>
           <p className="text-sm leading-relaxed" style={{ color:subColor }}>
             A Grasshopper-inspired visual programming environment for structural engineering calculations.
             Create workflows by connecting nodes. Supports IS 800, IS 456, IRC codes, and custom formulas.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
-            <button onClick={handleLoadDemo} className="px-6 py-3 rounded-lg text-sm font-bold transition-all hover:scale-105 active:scale-95 text-white" style={{ background:accentColor }}>🚀 Load Demo</button>
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 justify-center items-center pt-4">
+            {DEMO_PROJECTS.map(d => (
+              <button key={d.fileName} onClick={() => handleLoadDemo(d)} title={d.fileName} className="px-6 py-3 rounded-lg text-sm font-bold transition-all hover:scale-105 active:scale-95 text-white" style={{ background:accentColor }}>🚀 {d.name}</button>
+            ))}
             <button onClick={() => { setShowSplash(false); setShowQuickFormulaModal(true); }} className="px-6 py-3 rounded-lg text-sm font-bold transition-all hover:scale-105 active:scale-95 text-white" style={{ background:'#10b981' }}>⚡ Quick Formula</button>
             <button onClick={() => setShowSplash(false)} className="px-6 py-3 rounded-lg text-sm font-medium transition-all hover:scale-105" style={{ background:'transparent', color:textColor, border:`1px solid ${subColor}44` }}>✨ Empty Canvas</button>
             <button onClick={handleLoadFile} className="px-6 py-3 rounded-lg text-sm font-medium transition-all hover:scale-105" style={{ background:'transparent', color:textColor, border:`1px solid ${subColor}44` }}>📂 Open Project</button>
@@ -445,6 +460,9 @@ export default function App() {
             ))}
           </div>
         </div>
+        <div className="absolute bottom-3 left-0 right-0 text-center text-[11px]" style={{ color:subColor }}>
+          © 2026 Arvind Singh Rawat. All Rights Reserved.
+        </div>
         <input ref={fileInputRef} type="file" accept=".json,.snd" className="hidden" onChange={handleFileChange} />
       </div>
     );
@@ -452,7 +470,7 @@ export default function App() {
 
   /* ═══ MAIN LAYOUT ═══ */
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden select-none">
+    <div className="h-screen w-screen flex flex-col overflow-hidden select-none relative">
       <input ref={fileInputRef} type="file" accept=".json,.snd" className="hidden" onChange={handleFileChange} />
 
       <Toolbar theme={editor.theme} onThemeChange={editor.setTheme} onSave={handleSaveProject} onLoad={handleLoadFile} onClear={editor.clearAll}
@@ -460,7 +478,8 @@ export default function App() {
         onZoomIn={() => editor.setZoom(Math.min(5, editor.zoom*1.2))} onZoomOut={() => editor.setZoom(Math.max(0.1, editor.zoom*0.8))}
         onZoomFit={() => setFitSignal(t => t + 1)}
         onLoadDemo={handleLoadDemo} onCreateCustomNode={() => setShowCustomFormulaModal(true)}
-        onQuickFormula={() => setShowQuickFormulaModal(true)} onSettings={() => setShowSettings(true)} />
+        onQuickFormula={() => setShowQuickFormulaModal(true)} onSettings={() => setShowSettings(true)}
+        onAbout={() => setShowAbout(true)} snapEnabled={snapEnabled} onToggleSnap={() => setSnapEnabled(v => !v)} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT: Toolbox */}
@@ -487,12 +506,12 @@ export default function App() {
             connecting={editor.connecting} selectedNodeId={editor.selectedNodeId} theme={editor.theme}
             onMoveNode={editor.moveNode} onSelectNode={editor.selectNode}
             onStartConnecting={editor.startConnecting} onUpdateConnecting={editor.updateConnecting} onFinishConnecting={editor.finishConnecting}
-            onDeleteNode={editor.deleteNode} onRemoveConnection={editor.removeConnection}
+            onDeleteNode={editor.deleteNode} onRemoveConnection={editor.removeConnection} onUpdateConnectionColor={editor.updateConnectionColor}
             onUpdateInput={editor.updateNodeInput}
             onEditNodeCode={handleOpenNodeCode} onEditFormula={handleOpenFormula}
             onZoomChange={editor.setZoom}
             onPanChange={(x,y) => { editor.setPanX(x); editor.setPanY(y); }} onDropNode={handleDropNode}
-            onViewTrace={handleViewTrace} focusTarget={traceFocus} fitSignal={fitSignal}
+            onViewTrace={handleViewTrace} focusTarget={traceFocus} fitSignal={fitSignal} snapEnabled={snapEnabled}
             selectedNodeIds={editor.selectedNodeIds} groups={editor.groups}
             onSelectNodes={editor.selectNodes} onMoveNodes={editor.moveNodesBy}
             onGroupSelection={editor.groupSelection} onUngroupSelection={editor.ungroupSelection}
@@ -528,6 +547,23 @@ export default function App() {
         )}
       </div>
 
+      {/* Floating copyright — fully transparent overlay, bottom center.
+          No background, no border; pointer-events-none so it never blocks canvas/panel interaction. */}
+      <div className="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none" style={{ zIndex: 5 }}>
+        <span
+          className="text-[11px]"
+          style={{
+            color: panelColors(editor.theme).text,
+            opacity: 0.55,
+            textShadow: editor.theme === 'light'
+              ? '0 1px 2px rgba(255,255,255,0.9)'
+              : '0 1px 3px rgba(0,0,0,0.8)',
+          }}
+        >
+          © 2026 Arvind Singh Rawat. All Rights Reserved.
+        </span>
+      </div>
+
       {/* Modals */}
       <CustomFormulaModal isOpen={showCustomFormulaModal} theme={editor.theme} onClose={() => setShowCustomFormulaModal(false)} onSave={handleSaveCustomNode} />
       <QuickFormulaModal isOpen={showQuickFormulaModal} theme={editor.theme}
@@ -541,6 +577,7 @@ export default function App() {
         onClose={() => { setShowNodeCodeModal(false); setEditNodeId(null); }}
         onSave={handleSaveNodeCode} />
       <SettingsModal isOpen={showSettings} theme={editor.theme} onThemeChange={editor.setTheme} onClose={() => setShowSettings(false)} onClearAll={editor.clearAll} />
+      <AboutAuthorModal isOpen={showAbout} theme={editor.theme} onClose={() => setShowAbout(false)} />
 
       {/* Calculation Trace (additive feature — read-only, on demand) */}
       <CalculationTracePanel

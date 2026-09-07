@@ -17,6 +17,22 @@ export const MIN_SHAPE_SIZE = 20;
 export const DEFAULT_SHAPE_COLOR = '#60a5fa';
 /** Default fill opacity for new shapes (0–1). */
 export const DEFAULT_SHAPE_FILL_OPACITY = 0.15;
+/** Default content for a new text annotation. */
+export const DEFAULT_TEXT_CONTENT = 'Text';
+/** Default font size (canvas units) for a new text annotation. */
+export const DEFAULT_TEXT_FONT_SIZE = 16;
+/** Min/max font size allowed for text annotations. */
+export const TEXT_FONT_SIZE_MIN = 6;
+export const TEXT_FONT_SIZE_MAX = 200;
+/** Max characters kept for a text annotation (save-file guard). */
+export const TEXT_CONTENT_MAX_LENGTH = 5000;
+/** Font families offered for text annotations. */
+export const TEXT_FONT_FAMILIES: { label: string; value: string }[] = [
+  { label: 'System', value: 'system-ui, sans-serif' },
+  { label: 'Arial', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Courier New', value: '"Courier New", monospace' },
+];
 
 export interface ShapeCatalogEntry {
   type: ShapeType;
@@ -35,6 +51,7 @@ export const SHAPE_CATALOG: ShapeCatalogEntry[] = [
   { type: 'triangle', label: 'Triangle', icon: '◬', description: 'Triangle — drag a corner to resize', defaultWidth: 180, defaultHeight: 150 },
   { type: 'diamond', label: 'Diamond', icon: '◈', description: 'Diamond — drag a corner to resize', defaultWidth: 150, defaultHeight: 150 },
   { type: 'hexagon', label: 'Hexagon', icon: '⬡', description: 'Hexagon — drag a corner to resize', defaultWidth: 200, defaultHeight: 150 },
+  { type: 'text', label: 'Text', icon: 'T', description: 'Text — double-click to edit; drag corners to resize the box', defaultWidth: 220, defaultHeight: 60 },
 ];
 
 export const SHAPE_TYPES: ShapeType[] = SHAPE_CATALOG.map(s => s.type);
@@ -62,6 +79,17 @@ export function createShape(type: ShapeType, x: number, y: number, id?: string):
     color: DEFAULT_SHAPE_COLOR,
     fillOpacity: DEFAULT_SHAPE_FILL_OPACITY,
     front: false,
+    // Text annotations carry content + formatting (other shapes omit these).
+    ...(type === 'text'
+      ? {
+          text: DEFAULT_TEXT_CONTENT,
+          fontSize: DEFAULT_TEXT_FONT_SIZE,
+          textAlign: 'left' as const,
+          fontWeight: 'normal' as const,
+          fontStyle: 'normal' as const,
+          underline: false,
+        }
+      : {}),
   };
 }
 
@@ -149,7 +177,7 @@ export function shapePolygonPoints(
         `${x},${cy}`,
       ].join(' ');
     default:
-      return null; // rectangle / square / circle are not polygons
+      return null; // rectangle / square / circle / text are not polygons
   }
 }
 
@@ -178,7 +206,7 @@ export function sanitizeShapes(raw: unknown): CanvasShape[] {
     const fillOpacity = Number.isFinite(fillOpacityRaw)
       ? Math.min(1, Math.max(0, fillOpacityRaw))
       : DEFAULT_SHAPE_FILL_OPACITY;
-    out.push({
+    const base = {
       id: typeof o.id === 'string' && o.id ? o.id : newShapeId(),
       type: o.type as ShapeType,
       x,
@@ -189,7 +217,32 @@ export function sanitizeShapes(raw: unknown): CanvasShape[] {
       color,
       fillOpacity,
       front: Boolean(o.front),
-    });
+    };
+    // Text annotations: validate + preserve content and formatting.
+    if (o.type === 'text') {
+      const fontSizeRaw = Number(o.fontSize);
+      const fontColor = typeof o.fontColor === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(o.fontColor)
+        ? o.fontColor
+        : undefined;
+      const fontFamily = typeof o.fontFamily === 'string' && o.fontFamily.length <= 200
+        ? o.fontFamily
+        : undefined;
+      out.push({
+        ...base,
+        text: typeof o.text === 'string' ? o.text.slice(0, TEXT_CONTENT_MAX_LENGTH) : DEFAULT_TEXT_CONTENT,
+        fontSize: Number.isFinite(fontSizeRaw)
+          ? Math.min(TEXT_FONT_SIZE_MAX, Math.max(TEXT_FONT_SIZE_MIN, fontSizeRaw))
+          : DEFAULT_TEXT_FONT_SIZE,
+        fontColor,
+        fontFamily,
+        fontWeight: o.fontWeight === 'bold' ? 'bold' : 'normal',
+        fontStyle: o.fontStyle === 'italic' ? 'italic' : 'normal',
+        underline: Boolean(o.underline),
+        textAlign: o.textAlign === 'center' || o.textAlign === 'right' ? o.textAlign : 'left',
+      });
+    } else {
+      out.push(base);
+    }
   }
   return out;
 }

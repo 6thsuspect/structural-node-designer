@@ -11,6 +11,9 @@ import {
   MIN_SHAPE_SIZE,
   DEFAULT_SHAPE_COLOR,
   DEFAULT_SHAPE_FILL_OPACITY,
+  DEFAULT_TEXT_CONTENT,
+  DEFAULT_TEXT_FONT_SIZE,
+  TEXT_FONT_SIZE_MAX,
   getShapeDefinition,
   createShape,
   shapeResizeBox,
@@ -21,11 +24,11 @@ import {
 
 const box = { x: 100, y: 50, width: 200, height: 100 }; // right=300, bottom=150
 
-test('catalog: six typical shapes with valid defaults', () => {
-  assert.equal(SHAPE_CATALOG.length, 6);
+test('catalog: seven typical shapes with valid defaults', () => {
+  assert.equal(SHAPE_CATALOG.length, 7);
   assert.deepEqual(
     SHAPE_TYPES,
-    ['rectangle', 'square', 'circle', 'triangle', 'diamond', 'hexagon'],
+    ['rectangle', 'square', 'circle', 'triangle', 'diamond', 'hexagon', 'text'],
   );
   for (const entry of SHAPE_CATALOG) {
     assert.ok(entry.defaultWidth >= MIN_SHAPE_SIZE, `${entry.type} default width`);
@@ -122,6 +125,7 @@ test('shapePolygonPoints: triangle / diamond / hexagon geometry', () => {
   // Non-polygon shapes have no points.
   assert.equal(shapePolygonPoints('rectangle', 0, 0, 10, 10), null);
   assert.equal(shapePolygonPoints('circle', 0, 0, 10, 10), null);
+  assert.equal(shapePolygonPoints('text', 0, 0, 10, 10), null);
 });
 
 test('sanitizeShapes: drops invalid entries, coerces valid ones', () => {
@@ -147,4 +151,38 @@ test('sanitizeShapes: drops invalid entries, coerces valid ones', () => {
   assert.ok(clean[2].id.startsWith('shape-'));
   assert.equal(sanitizeShapes(undefined).length, 0);
   assert.equal(sanitizeShapes('nope').length, 0);
+});
+
+test('createShape: text annotations carry content + format defaults', () => {
+  const s = createShape('text', 5, 6, 'text-id')!;
+  assert.equal(s.text, DEFAULT_TEXT_CONTENT);
+  assert.equal(s.fontSize, DEFAULT_TEXT_FONT_SIZE);
+  assert.equal(s.textAlign, 'left');
+  assert.equal(s.fontWeight, 'normal');
+  assert.equal(s.fontStyle, 'normal');
+  assert.equal(s.underline, false);
+  assert.equal(getShapeDefinition('text')?.label, 'Text');
+  // Geometric shapes omit the text fields entirely.
+  const r = createShape('rectangle', 0, 0)!;
+  assert.equal('text' in r, false);
+});
+
+test('sanitizeShapes: text fields are preserved and validated', () => {
+  const clean = sanitizeShapes([
+    { id: 't1', type: 'text', x: 0, y: 0, width: 200, height: 60, text: 'Hello', fontSize: 24, fontColor: '#ff0000', fontFamily: 'Georgia, serif', fontWeight: 'bold', fontStyle: 'italic', underline: true, textAlign: 'center' },
+    { id: 't2', type: 'text', x: 0, y: 0, width: 200, height: 60, text: 123, fontSize: 9999, fontColor: 'nope', textAlign: 'justify', fontWeight: 'heavy' },
+  ]);
+  assert.equal(clean[0].text, 'Hello');
+  assert.equal(clean[0].fontSize, 24);
+  assert.equal(clean[0].fontColor, '#ff0000');
+  assert.equal(clean[0].fontFamily, 'Georgia, serif');
+  assert.equal(clean[0].fontWeight, 'bold');
+  assert.equal(clean[0].underline, true);
+  assert.equal(clean[0].textAlign, 'center');
+  // Invalid values fall back to defaults (bad color → undefined = theme text).
+  assert.equal(clean[1].text, DEFAULT_TEXT_CONTENT);
+  assert.equal(clean[1].fontSize, TEXT_FONT_SIZE_MAX);
+  assert.equal(clean[1].fontColor, undefined);
+  assert.equal(clean[1].textAlign, 'left');
+  assert.equal(clean[1].fontWeight, 'normal');
 });

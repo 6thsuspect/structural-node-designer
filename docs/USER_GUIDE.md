@@ -25,7 +25,7 @@
 
 | Option | Description |
 |--------|-------------|
-| 🚀 **Load Demo** | Steel beam design example |
+| 🚀 **Demo** | Load a bundled demo project, listed by file name: Circular RC Section, I-Setion_LTB |
 | ⚡ **Quick Formula** | Create custom node from equations |
 | ✨ **Empty Canvas** | Start fresh |
 | 📂 **Open Project** | Load saved project |
@@ -81,12 +81,18 @@
 2. Drag to **input port** (orange circle, left side)
 3. Release when port highlights
 
-### ⭐ Clicking a Connection Wire (NEW!)
-1. Click on any **blue bezier curve** between nodes
-2. Context menu appears:
-   - 🗑️ **Delete Connection** — Remove the wire
-   - ✕ **Cancel**
-3. The selected wire highlights (thicker/brighter)
+### ⭐ Selecting a Connection Wire
+1. **Left-click** any wire (bezier curve) between nodes — only the wire is selected (nodes are deselected)
+2. The selected wire turns **red** (thicker/brighter) while selected
+3. Press **Delete** to remove the selected wire; click empty canvas or press **Esc** to deselect
+
+### 🖱️ Wire Options Menu (right-click)
+With a wire selected, **right-click** (on the wire itself, or anywhere on the canvas) to open the wire menu:
+- 🎨 **Wire color** — preset swatches, a custom color picker (previews live), or reset to the theme default
+- 🗑️ **Delete Connection** — Remove the wire
+- ✕ **Cancel**
+
+Wire colors are saved with the project (`.snd.json`)
 
 ### 🔄 Circular Reference Prevention (NEW!)
 - If connecting two nodes would create an **infinite loop**, the connection is **automatically blocked**
@@ -189,7 +195,7 @@ Display, Pass/Fail
 
 ## 9. Tips
 
-- ✅ Click connection wires to delete/reconnect
+- ✅ Left-click a wire to select it (red); right-click for color + delete options
 - ✅ Circular connections are auto-blocked
 - ✅ Use ⚡ Quick Formula for fastest custom nodes
 - ✅ Output values appear **green on LEFT**, names **gray on RIGHT**

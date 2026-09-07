@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Theme } from '../types';
 import ModalWindow from './ModalWindow';
+import AppLogo from './AppLogo';
 
 interface Props {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
     <ModalWindow
       icon="⚙️"
       title="Settings"
+      resizable={false}
       overlay="rgba(0,0,0,0.7)"
       bg={colors.bg}
       border={colors.border}
@@ -44,12 +46,8 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
       minWidth={340}
       minHeight={320}
       scrollBody={false}
+      autoHeight
       persistKey="snd.window.settings"
-      footer={
-        <div className="px-6 py-3 flex justify-end" style={{ borderTop: `1px solid ${colors.border}` }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: colors.accent, color: '#fff' }}>Close</button>
-        </div>
-      }
     >
       <div className="flex flex-col flex-1 min-h-0">
         {/* Tabs */}
@@ -87,6 +85,7 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
                   <div><strong>Scroll</strong> — Zoom</div>
                   <div><strong>Esc</strong> — Close menus</div>
                   <div><strong>Right-click</strong> — Context menu</div>
+                  <div><strong>Ctrl+Drag</strong> — Move selection</div>
                 </div>
               </div>
               <div className="p-4 rounded-lg" style={{ background: colors.card, border: `1px solid ${colors.border}` }}>
@@ -126,7 +125,8 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
 
           {activeTab === 'about' && (
             <div className="space-y-4 text-center">
-              <div className="text-5xl">🏗️</div>
+              <p aria-hidden="true" className="text-[13px] leading-relaxed select-none">&nbsp;</p>
+              <div className="flex justify-center"><AppLogo size={56} /></div>
               <h3 className="text-xl font-bold" style={{ color: colors.text }}>Structural Node Designer</h3>
               <p className="text-xs" style={{ color: colors.label }}>Version 1.0</p>
               <p className="text-sm" style={{ color: colors.label }}>
@@ -142,8 +142,9 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
                 <div className="p-2 rounded" style={{ background: colors.card }}>4 Themes</div>
                 <div className="p-2 rounded" style={{ background: colors.card }}>Connection Menu</div>
               </div>
+              <p aria-hidden="true" className="text-[13px] leading-relaxed select-none">&nbsp;</p>
               <div className="text-[10px] pt-2" style={{ color: colors.label, opacity: 0.5 }}>
-                Built with React + TypeScript + Tailwind CSS
+                © 2026 Arvind Singh Rawat. All Rights Reserved.
               </div>
             </div>
           )}

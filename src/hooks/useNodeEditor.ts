@@ -72,7 +72,7 @@ export function useNodeEditor() {
   const [groups, setGroups] = useState<NodeGroup[]>([]);
   /* ── Shapes feature: canvas shapes + selection (additive) ──
      selectedShapeId = the primary shape (resize handles, properties panel);
-     selectedShapeIds = the full shape selection (marquee / ctrl+right-click),
+     selectedShapeIds = the full shape selection (marquee),
      which may also include whole groups together with nodes. */
   const [shapes, setShapes] = useState<CanvasShape[]>([]);
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
@@ -224,6 +224,19 @@ export function useNodeEditor() {
     });
   }, [saveUndoState]);
 
+  /** Recolor a wire (cosmetic — no undo entry, like other cosmetic updates).
+   *  Pass undefined to drop the override and reset to the theme default. */
+  const updateConnectionColor = useCallback((connId: string, color: string | undefined) => {
+    setConnections(prev => prev.map(c => {
+      if (c.id !== connId) return c;
+      if (color === undefined) {
+        const { color: _drop, ...rest } = c;
+        return rest;
+      }
+      return { ...c, color };
+    }));
+  }, []);
+
   const startConnecting = useCallback((fromNodeId: string, fromPortId: string, isOutput: boolean, mouseX: number, mouseY: number) => {
     setConnecting({
       isConnecting: true,
@@ -360,7 +373,7 @@ export function useNodeEditor() {
     );
   }, [groups]);
 
-  /** Set the exact shape selection (marquee / ctrl+right-click toggling).
+  /** Set the exact shape selection (marquee).
    *  clearNodes=false keeps the node selection untouched (combined selection). */
   const setShapeSelection = useCallback((shapeIds: string[], clearNodes: boolean, primaryId?: string) => {
     setSelectedShapeIds(shapeIds);
@@ -619,6 +632,7 @@ export function useNodeEditor() {
     updateNodeInput,
     addConnection,
     removeConnection,
+    updateConnectionColor,
     startConnecting,
     updateConnecting,
     finishConnecting,

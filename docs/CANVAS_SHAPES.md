@@ -9,7 +9,7 @@
 Adds freeform **drawing shapes** to the canvas, separate from the calculation nodes:
 
 1. A **"Shapes" category in the Toolbox node list** with typical shapes
-   (Rectangle, Square, Circle, Triangle, Diamond, Hexagon) that you
+   (Rectangle, Square, Circle, Triangle, Diamond, Hexagon, Text) that you
    **drag and drop** onto the canvas at the drop point (respects zoom/pan).
    Search also matches shapes.
 2. **Resize** — drag any corner handle of the selected shape, type exact
@@ -34,8 +34,17 @@ Adds freeform **drawing shapes** to the canvas, separate from the calculation no
 8. **Multi-selection of nodes AND shapes**:
    - **Marquee** (drag on empty canvas) selects every node and shape it
      touches; **all selected items are highlighted** (Shift adds to the selection).
-   - **Ctrl+right-click** on individual nodes/shapes toggles each one in/out
-     of the current selection one by one.
+   - **Shift+click** a node toggles it in/out of the selection one by one.
+   - **Ctrl+left-drag** a selected node moves the whole node selection
+     together (the selection itself is unchanged).
+9. **Text annotations** — drag the **Text** item onto the canvas and write
+   freely inside its resizable box: **double-click** the box to edit inline
+   (Ctrl+Enter or click outside to finish, Esc to cancel), or edit content in
+   the Properties panel. Formatting per text box: **font size, color
+   (+ Auto theme color), font family, left/center/right alignment, bold,
+   italic and underline**. Selected text shows a dashed outline; text
+   participates in marquee selection, groups, draw order, undo and save/load
+   like any other shape.
 
 Shapes are visual annotations: they do not participate in calculation,
 connections, or node port wiring. Everything else (engine, formulas, save/load,
@@ -65,22 +74,23 @@ useNodeEditor.addShape(type, x, y)   ← selected automatically, undoable
 | Drag a shape | Moves it; a grouped shape moves its **whole group** (nodes + shapes) |
 | Drag a corner handle | Resizes (min 20×20). **Ctrl held → fixed aspect ratio** |
 | Right-click a shape | Menu: **Freeze/Unfreeze size**, **Edit dimensions** (popover with Width/Height), **Bring to front / Send to back**, **Group/Ungroup Selection**, **Delete Shape** |
-| **Ctrl+right-click** a shape | Toggles it in/out of the current multi-selection (no menu) |
+| Double-click a Text box | Edits the text inline (Ctrl+Enter / click outside to finish, Esc to cancel) |
 | Marquee box | Selects all nodes **and shapes** inside; every selected item is highlighted (Shift = additive) |
-| **Ctrl+right-click** a node | Toggles it (group-aware) in/out of the multi-selection |
+| **Shift+click** a node | Toggles it (group-aware) in/out of the multi-selection |
+| **Ctrl+left-drag** a selected node | Moves the whole node selection together (selection unchanged) |
 | Delete key | Deletes the selected shape(s'/node(s)) |
-| Properties panel | X/Y/Width/Height, **Fill color + opacity**, **Freeze** button, **Draw order** checkbox |
+| Properties panel | X/Y/Width/Height, **Fill color + opacity** (geometric shapes) or **Text content + Format** (size, color, font, align, B/I/U), **Freeze** button, **Draw order** checkbox |
 | Right-click empty canvas | Selection menu for the current combined selection (Group ≥2 / Ungroup / Clear) |
 
 ### Selection model
 
 - `selectedNodeIds` (nodes) and `selectedShapeIds` (shapes) coexist — a selection
-  may contain both (marquee / ctrl+right-click / whole-group selection).
+  may contain both (marquee / whole-group selection).
 - Selecting a **group member** (node or shape) selects the whole group.
 - `selectedShapeId` = the **primary** shape (resize handles + panel); all shapes
   in `selectedShapeIds` get the selection highlight.
 - Node click/marquee clears shape selection only when the action is a plain
-  single selection; building a combined selection (ctrl+right-click, marquee)
+  single selection; building a combined selection (marquee)
   keeps both parts.
 
 ### Draw order (per item)
@@ -114,19 +124,19 @@ Shapes are canvas items — **⊞ Fit** fits nodes **and** shapes.
 
 | File | Purpose |
 |------|---------|
-| `src/features/canvas-shapes/shapes.ts` | Pure logic: `SHAPE_CATALOG` (six typical shapes + defaults), `createShape`, `shapeResizeBox` (corner-resize math + min-size clamp), `shapeRatioResizeBox` (Ctrl fixed-ratio resize), `shapePolygonPoints` (triangle/diamond/hexagon), `sanitizeShapes` (save-file validation incl. color/opacity/front), `MIN_SHAPE_SIZE`, `DEFAULT_SHAPE_COLOR`, `DEFAULT_SHAPE_FILL_OPACITY` |
+| `src/features/canvas-shapes/shapes.ts` | Pure logic: `SHAPE_CATALOG` (seven typical shapes incl. Text + defaults), `createShape`, `shapeResizeBox` (corner-resize math + min-size clamp), `shapeRatioResizeBox` (Ctrl fixed-ratio resize), `shapePolygonPoints` (triangle/diamond/hexagon), `sanitizeShapes` (save-file validation incl. color/opacity/front/text fields), `MIN_SHAPE_SIZE`, `DEFAULT_SHAPE_COLOR`, `DEFAULT_SHAPE_FILL_OPACITY`, text defaults/limits/font families |
 | `src/features/canvas-shapes/index.ts` | Barrel export |
-| `src/features/canvas-shapes/tests/shapes.test.ts` | 9 node:test cases (catalog, creation defaults, all four resize handles, min-size clamping, **fixed-ratio resize**, degenerate ratio, polygon geometry, save-file sanitization incl. color/opacity) |
+| `src/features/canvas-shapes/tests/shapes.test.ts` | 11 node:test cases (catalog, creation defaults, text defaults, all four resize handles, min-size clamping, **fixed-ratio resize**, degenerate ratio, polygon geometry, save-file sanitization incl. color/opacity/text fields) |
 
 ### Modified files (minimal, additive)
 
 | File | Change | Reason | Risk |
 |------|--------|--------|------|
-| `src/types.ts` | `CanvasShape` + `color?`, `fillOpacity?`, `front?`; `CanvasNode.front?`; `NodeGroup.shapeIds?`; `UndoAction.shapes?` | Shared feature types | Additive/optional fields only |
+| `src/types.ts` | `CanvasShape` + `color?`, `fillOpacity?`, `front?`, text annotation fields (`text`/`fontSize`/`fontColor`/`fontFamily`/`fontWeight`/`fontStyle`/`underline`/`textAlign`); `CanvasNode.front?`; `NodeGroup.shapeIds?`; `UndoAction.shapes?` | Shared feature types | Additive/optional fields only |
 | `src/hooks/useNodeEditor.ts` | Shape state incl. `selectedShapeIds`; ops `selectShape` (group-aware), `setShapeSelection`, `addShape`, `moveShape`, `updateShape`, `toggleShapeFrozen`, `deleteShape` (prunes groups), `setNodeFront`; **`groupSelection`/`ungroupSelection`** (mixed); `moveNodesBy` + shape ids; `selectNode` brings in group shapes; shapes in undo/redo, `clearAll`, save/load (old `shapesOnTop: true` files migrate to per-shape `front`) | State home | Old files load unchanged (no shapes → none) |
-| `src/components/NodeCanvas.tsx` | Shape layers by per-item `front`; select/move/resize (Ctrl ratio)/edit-dimensions/freeze/context-menu interactions; **marquee + Ctrl+right-click multi-selection of nodes and shapes with full highlight**; **hover-only group outlines**; grouped-shape drags move the group; per-node draw-order menu item; Zoom-to-Fit includes shapes | Canvas owns rendering + interaction | All props optional — canvas identical without them |
+| `src/components/NodeCanvas.tsx` | Shape layers by per-item `front`; select/move/resize (Ctrl ratio)/edit-dimensions/freeze/context-menu/text-annotations (inline double-click editing) interactions; **marquee multi-selection of nodes and shapes with full highlight; Ctrl+left-drag moves the node selection**; **hover-only group outlines**; grouped-shape drags move the group; per-node draw-order menu item; Zoom-to-Fit includes shapes | Canvas owns rendering + interaction | All props optional — canvas identical without them |
 | `src/components/Toolbox.tsx` | **"Shapes" category** inside the node category list (draggable items); search matches shapes | The requested toolbox location | Node categories/list unchanged |
-| `src/components/PropertiesPanel.tsx` | Shape inspector: position/size, **Fill color + opacity**, Freeze, **per-item Draw order**; node view gained the **Draw order** checkbox | Editing surface | Optional props — panel identical without them |
+| `src/components/PropertiesPanel.tsx` | Shape inspector: position/size, **Fill color + opacity** (or **Text content + Format** for Text), Freeze, **per-item Draw order**; node view gained the **Draw order** checkbox | Editing surface | Optional props — panel identical without them |
 | `src/App.tsx` | Wires the new state; Ctrl+G/Ctrl+Shift+G use the combined selection; shapes + per-item `front` persist in the project file | Connection layer | Additive props/callbacks |
 | `tsconfig.feature-tests.json` / `package.json` | Test suites registered | Test execution | Test-only |
 

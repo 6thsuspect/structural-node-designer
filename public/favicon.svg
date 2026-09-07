@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="sndFavBg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C81E1E"/>
+      <stop offset="1" stop-color="#7F1D1D"/>
+    </linearGradient>
+  </defs>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="14" fill="url(#sndFavBg)" stroke="#ffffff" stroke-opacity="0.28" stroke-width="1.5"/>
+  <!-- connectors: stretched lead-in wires to the right upper and lower nodes -->
+  <path d="M21 32 H32 C32 22 35 22 38 22 H44 M21 32 H32 C32 42 35 42 38 42 H44" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+  <!-- left node: circular ring -->
+  <circle cx="16" cy="32" r="5.5" fill="none" stroke="#FFFFFF" stroke-width="5"/>
+  <!-- upper node: solid white with a very thin outer ring -->
+  <circle cx="50" cy="22" r="5" fill="#FFFFFF"/>
+  <circle cx="50" cy="22" r="8" fill="none" stroke="#FFFFFF" stroke-width="1.2" opacity="0.9"/>
+  <!-- lower node: hollow ring -->
+  <circle cx="50" cy="42" r="5.5" fill="none" stroke="#FFFFFF" stroke-width="5"/>
+</svg>

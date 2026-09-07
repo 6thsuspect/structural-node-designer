@@ -28,8 +28,8 @@ Selected nodes keep the existing amber selection outline.
 
 ## 3. How to group / ungroup
 
-1. Select two or more items — nodes and/or shapes (marquee box, shift-click,
-   or **Ctrl+right-click** items one by one).
+1. Select two or more items — nodes and/or shapes (marquee box or Shift+click
+   items one by one).
 2. **Right-click** — either on one of the selected nodes/shapes (context menu)
    or on the empty canvas (selection context menu):
    * **📦 Group Selection (Ctrl+G)** — creates `Group 1`, `Group 2`, … around the selection

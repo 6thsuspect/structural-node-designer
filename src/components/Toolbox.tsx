@@ -214,7 +214,7 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
                 {SHAPE_CATALOG.map(renderShapeItem)}
                 <p className="px-3 pt-2 pb-1 text-[10px] leading-relaxed" style={{ color: colors.text, opacity: 0.45 }}>
                   Drag onto canvas • click to select • drag corners to resize (Ctrl = fixed ratio)
-                  • right-click to freeze, edit size, or set draw order
+                  • right-click to freeze, edit size, or set draw order • double-click Text to edit
                 </p>
               </div>
             )}
