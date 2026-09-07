@@ -38,6 +38,8 @@ export interface CanvasNode {
   selected: boolean;
   computed: boolean;
   error?: string;
+  /** Draw order (shapes feature): true = render in front of wires and default items. */
+  front?: boolean;
 }
 
 export interface Connection {
@@ -96,4 +98,40 @@ export interface SelectionBox {
 export interface UndoAction {
   nodes: CanvasNode[];
   connections: Connection[];
+  /** Shapes feature: present on every new undo entry (old files lack it). */
+  shapes?: CanvasShape[];
+}
+
+/** A named set of node ids that move together (canvas grouping feature).
+ *  `shapeIds` (shapes feature) extends a group with canvas shapes. */
+export interface NodeGroup {
+  id: string;
+  name: string;
+  nodeIds: string[];
+  /** Shapes that belong to this group (mixed node+shape groups). */
+  shapeIds?: string[];
+}
+
+/* ── Shapes feature (additive) ── */
+
+/** Shape types available in the Toolbox "Shapes" tab. */
+export type ShapeType = 'rectangle' | 'square' | 'circle' | 'triangle' | 'diamond' | 'hexagon';
+
+/** A freeform drawing shape on the canvas (independent of calculation nodes). */
+export interface CanvasShape {
+  id: string;
+  type: ShapeType;
+  /** Top-left of the bounding box, in canvas coordinates. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Frozen = the shape's SIZE is locked (resize handles/inputs disabled; moving is still allowed). */
+  frozen: boolean;
+  /** Fill color (hex). Defaults to DEFAULT_SHAPE_COLOR. */
+  color?: string;
+  /** Fill opacity 0–1. Defaults to DEFAULT_SHAPE_FILL_OPACITY. */
+  fillOpacity?: number;
+  /** Draw order: true = render in front of wires and default items. */
+  front?: boolean;
 }

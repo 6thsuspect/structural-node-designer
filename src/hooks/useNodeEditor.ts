@@ -1,8 +1,17 @@
 import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { CanvasNode, Connection, ConnectingState, UndoAction, Theme } from '../types';
+import { CanvasNode, Connection, ConnectingState, UndoAction, Theme, NodeGroup, CanvasShape, ShapeType } from '../types';
 import { getNodeDefinition, CATEGORY_COLORS, getAllNodes } from '../nodeDefinitions';
 import { computeAllNodes } from '../engine';
+import {
+  getGroupOfShape,
+  groupMemberIds,
+  groupShapeIds,
+  nextGroupName,
+  pruneGroups,
+  removeGroupsContaining,
+} from '../features/node-groups';
+import { createShape, sanitizeShapes } from '../features/canvas-shapes';
 
 const NODE_WIDTH = 200;
 const PORT_HEIGHT = 28;
@@ -58,6 +67,16 @@ export function useNodeEditor() {
     offsetY: 0,
   } as any);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  /* ── Node Groups feature: multi-selection + grouping (additive) ── */
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [groups, setGroups] = useState<NodeGroup[]>([]);
+  /* ── Shapes feature: canvas shapes + selection (additive) ──
+     selectedShapeId = the primary shape (resize handles, properties panel);
+     selectedShapeIds = the full shape selection (marquee / ctrl+right-click),
+     which may also include whole groups together with nodes. */
+  const [shapes, setShapes] = useState<CanvasShape[]>([]);
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+  const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   const [theme, setTheme] = useState<Theme>('dark');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -68,10 +87,11 @@ export function useNodeEditor() {
     undoStack.current.push({
       nodes: JSON.parse(JSON.stringify(nodes)),
       connections: JSON.parse(JSON.stringify(connections)),
+      shapes: JSON.parse(JSON.stringify(shapes)),
     });
     redoStack.current = [];
     if (undoStack.current.length > 100) undoStack.current.shift();
-  }, [nodes, connections]);
+  }, [nodes, connections, shapes]);
 
   const undo = useCallback(() => {
     if (undoStack.current.length === 0) return;
@@ -79,10 +99,13 @@ export function useNodeEditor() {
     redoStack.current.push({
       nodes: JSON.parse(JSON.stringify(nodes)),
       connections: JSON.parse(JSON.stringify(connections)),
+      shapes: JSON.parse(JSON.stringify(shapes)),
     });
     setNodes(state.nodes);
     setConnections(state.connections);
-  }, [nodes, connections]);
+    // Shapes only exist in entries created after the shapes feature; skip for old ones.
+    if (state.shapes) setShapes(state.shapes);
+  }, [nodes, connections, shapes]);
 
   const redo = useCallback(() => {
     if (redoStack.current.length === 0) return;
@@ -90,10 +113,12 @@ export function useNodeEditor() {
     undoStack.current.push({
       nodes: JSON.parse(JSON.stringify(nodes)),
       connections: JSON.parse(JSON.stringify(connections)),
+      shapes: JSON.parse(JSON.stringify(shapes)),
     });
     setNodes(state.nodes);
     setConnections(state.connections);
-  }, [nodes, connections]);
+    if (state.shapes) setShapes(state.shapes);
+  }, [nodes, connections, shapes]);
 
   const addNode = useCallback((type: string, x: number, y: number) => {
     const node = createNode(type, x, y);
@@ -104,12 +129,16 @@ export function useNodeEditor() {
       return computeAllNodes(updated, connections);
     });
     setSelectedNodeId(node.id);
+    setSelectedNodeIds([node.id]);
   }, [connections, saveUndoState]);
 
   const deleteNode = useCallback((nodeId: string) => {
     saveUndoState();
     setConnections(prev => prev.filter(c => c.fromNodeId !== nodeId && c.toNodeId !== nodeId));
     setNodes(prev => prev.filter(n => n.id !== nodeId));
+    // Groups consistency: never keep references to deleted nodes.
+    setGroups(prev => pruneGroups(prev, [nodeId]));
+    setSelectedNodeIds(prev => prev.filter(id => id !== nodeId));
     if (selectedNodeId === nodeId) setSelectedNodeId(null);
   }, [saveUndoState, selectedNodeId]);
 
@@ -222,9 +251,155 @@ export function useNodeEditor() {
   }, [connecting, addConnection]);
 
   const selectNode = useCallback((nodeId: string | null) => {
+    if (nodeId === null) {
+      setSelectedNodeId(null);
+      setSelectedNodeIds([]);
+      setSelectedShapeId(null);
+      setSelectedShapeIds([]);
+      setNodes(prev => prev.some(n => n.selected) ? prev.map(n => ({ ...n, selected: false })) : prev);
+      return;
+    }
+    // Grouping feature: selecting a grouped node selects its whole group.
+    // Ungrouped nodes behave exactly as before (single selection).
+    const ids = Array.from(new Set(groupMemberIds(groups, nodeId)));
+    // Mixed groups: the group's shapes join the selection too (highlight + group actions).
+    const shapeIds = groupShapeIds(groups, nodeId);
     setSelectedNodeId(nodeId);
-    setNodes(prev => prev.map(n => ({ ...n, selected: n.id === nodeId })));
+    setSelectedNodeIds(ids);
+    setSelectedShapeIds(shapeIds);
+    setNodes(prev => prev.map(n => ({ ...n, selected: ids.includes(n.id) })));
+  }, [groups]);
+
+  /** Set an explicit multi-selection (marquee). Expands to full group membership. */
+  const selectNodes = useCallback((nodeIds: string[]) => {
+    const expanded = new Set<string>();
+    nodeIds.forEach(id => groupMemberIds(groups, id).forEach(m => expanded.add(m)));
+    const ids = Array.from(expanded);
+    setSelectedNodeId(ids.length > 0 ? ids[0] : null);
+    setSelectedNodeIds(ids);
+    setNodes(prev => prev.map(n => ({ ...n, selected: ids.includes(n.id) })));
+  }, [groups]);
+
+  /** Create a group around the given nodes AND shapes (≥2 members total).
+   *  Returns the new group id. */
+  const groupSelection = useCallback((nodeIds: string[], shapeIds: string[]): string | null => {
+    const nodes = Array.from(new Set(nodeIds));
+    const shapes = Array.from(new Set(shapeIds));
+    if (nodes.length + shapes.length < 2) return null;
+    const id = uuidv4();
+    const group: NodeGroup = {
+      id,
+      name: nextGroupName(groups),
+      nodeIds: nodes,
+      shapeIds: shapes.length > 0 ? shapes : undefined,
+    };
+    setGroups(prev => [...prev, group]);
+    return id;
+  }, [groups]);
+
+  /** Delete every group containing any of the given nodes or shapes. */
+  const ungroupSelection = useCallback((nodeIds: string[], shapeIds: string[]) => {
+    if (nodeIds.length === 0 && shapeIds.length === 0) return;
+    setGroups(prev => removeGroupsContaining(prev, nodeIds, shapeIds));
   }, []);
+
+  /** Move several nodes (and shapes, for mixed groups) by a delta. */
+  const moveNodesBy = useCallback((memberIds: string[], dx: number, dy: number, shapeIds: string[] = []) => {
+    if ((memberIds.length === 0 && shapeIds.length === 0) || (dx === 0 && dy === 0)) return;
+    if (memberIds.length > 0) {
+      const idSet = new Set(memberIds);
+      setNodes(prev => prev.map(n => idSet.has(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n));
+    }
+    if (shapeIds.length > 0) {
+      const shapeSet = new Set(shapeIds);
+      setShapes(prev => prev.map(s => shapeSet.has(s.id) ? { ...s, x: s.x + dx, y: s.y + dy } : s));
+    }
+  }, []);
+
+  /** Per-item draw order for a node (front layer toggle). */
+  const setNodeFront = useCallback((nodeId: string, front: boolean) => {
+    setNodes(prev => prev.map(n => (n.id === nodeId ? { ...n, front } : n)));
+  }, []);
+
+  /** Delete several nodes at once (single undo step), pruning groups. */
+  const deleteNodes = useCallback((nodeIds: string[]) => {
+    if (nodeIds.length === 0) return;
+    saveUndoState();
+    const idSet = new Set(nodeIds);
+    setConnections(prev => prev.filter(c => !idSet.has(c.fromNodeId) && !idSet.has(c.toNodeId)));
+    setNodes(prev => prev.filter(n => !idSet.has(n.id)));
+    setGroups(prev => pruneGroups(prev, nodeIds));
+    setSelectedNodeIds(prev => prev.filter(id => !idSet.has(id)));
+    if (selectedNodeId && idSet.has(selectedNodeId)) setSelectedNodeId(null);
+  }, [saveUndoState, selectedNodeId]);
+
+  /* ── Shapes feature operations (additive) ──
+     Shapes are selection-mutually-exclusive with nodes: selecting a shape
+     clears the node selection and vice versa. */
+
+  const selectShape = useCallback((shapeId: string | null) => {
+    if (shapeId === null) {
+      setSelectedShapeId(null);
+      setSelectedShapeIds([]);
+      return;
+    }
+    // A grouped shape selects its whole group (nodes + shapes), mirroring how
+    // selecting a grouped node works. Ungrouped shapes stay single-selection.
+    const g = getGroupOfShape(groups, shapeId);
+    const nodeIds = g ? [...g.nodeIds] : [];
+    const shapeIds = g ? [...(g.shapeIds ?? [shapeId])] : [shapeId];
+    setSelectedShapeId(shapeId);
+    setSelectedShapeIds(shapeIds);
+    // Mutually exclusive with the node selection (existing convention).
+    setSelectedNodeId(null);
+    setSelectedNodeIds([]);
+    setNodes(prev =>
+      nodeIds.length > 0
+        ? prev.map(n => ({ ...n, selected: nodeIds.includes(n.id) }))
+        : prev.some(n => n.selected) ? prev.map(n => ({ ...n, selected: false })) : prev,
+    );
+  }, [groups]);
+
+  /** Set the exact shape selection (marquee / ctrl+right-click toggling).
+   *  clearNodes=false keeps the node selection untouched (combined selection). */
+  const setShapeSelection = useCallback((shapeIds: string[], clearNodes: boolean, primaryId?: string) => {
+    setSelectedShapeIds(shapeIds);
+    setSelectedShapeId(primaryId ?? shapeIds[0] ?? null);
+    if (clearNodes) {
+      setSelectedNodeId(null);
+      setSelectedNodeIds([]);
+      setNodes(prev => prev.some(n => n.selected) ? prev.map(n => ({ ...n, selected: false })) : prev);
+    }
+  }, []);
+
+  const addShape = useCallback((type: ShapeType, x: number, y: number) => {
+    const shape = createShape(type, x, y, uuidv4());
+    if (!shape) return;
+    saveUndoState();
+    setShapes(prev => [...prev, shape]);
+    selectShape(shape.id);
+  }, [saveUndoState, selectShape]);
+
+  const moveShape = useCallback((shapeId: string, x: number, y: number) => {
+    setShapes(prev => prev.map(s => (s.id === shapeId ? { ...s, x, y } : s)));
+  }, []);
+
+  const updateShape = useCallback((shapeId: string, patch: Partial<CanvasShape>) => {
+    setShapes(prev => prev.map(s => (s.id === shapeId ? { ...s, ...patch } : s)));
+  }, []);
+
+  const toggleShapeFrozen = useCallback((shapeId: string) => {
+    setShapes(prev => prev.map(s => (s.id === shapeId ? { ...s, frozen: !s.frozen } : s)));
+  }, []);
+
+  const deleteShape = useCallback((shapeId: string) => {
+    saveUndoState();
+    setShapes(prev => prev.filter(s => s.id !== shapeId));
+    // Groups consistency: never keep references to deleted shapes.
+    setGroups(prev => pruneGroups(prev, [], [shapeId]));
+    setSelectedShapeId(prev => (prev === shapeId ? null : prev));
+    setSelectedShapeIds(prev => prev.filter(id => id !== shapeId));
+  }, [saveUndoState]);
 
   const duplicateNode = useCallback((nodeId: string) => {
     const orig = nodes.find(n => n.id === nodeId);
@@ -301,6 +476,11 @@ export function useNodeEditor() {
     setNodes([]);
     setConnections([]);
     setSelectedNodeId(null);
+    setSelectedNodeIds([]);
+    setGroups([]);
+    setShapes([]);
+    setSelectedShapeId(null);
+    setSelectedShapeIds([]);
   }, [saveUndoState]);
 
   const saveProject = useCallback(() => {
@@ -311,6 +491,8 @@ export function useNodeEditor() {
       modified: new Date().toISOString(),
       canvas: { nodes, connections, zoom, panX, panY },
       theme,
+      groups,
+      shapes,
     };
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -319,7 +501,7 @@ export function useNodeEditor() {
     a.download = 'project.snd.json';
     a.click();
     URL.revokeObjectURL(url);
-  }, [nodes, connections, zoom, panX, panY, theme]);
+  }, [nodes, connections, zoom, panX, panY, theme, groups, shapes]);
 
   const loadProject = useCallback((json: string) => {
     try {
@@ -330,6 +512,17 @@ export function useNodeEditor() {
       setPanX(project.canvas.panX || 0);
       setPanY(project.canvas.panY || 0);
       if (project.theme) setTheme(project.theme);
+      // Groups persist as a top-level, optional field (old files simply lack it).
+      setGroups(Array.isArray(project.groups) ? project.groups : []);
+      // Shapes persist the same way (validated; old files simply lack them).
+      // Migration: files saved with the old GLOBAL "shapes on top" switch keep
+      // the same look — every loaded shape is marked as front-layer.
+      const loadedShapes = sanitizeShapes(project.shapes);
+      setShapes(project.shapesOnTop ? loadedShapes.map(s => ({ ...s, front: true })) : loadedShapes);
+      setSelectedNodeIds([]);
+      setSelectedNodeId(null);
+      setSelectedShapeId(null);
+      setSelectedShapeIds([]);
     } catch (e) {
       console.error('Failed to load project', e);
     }
@@ -394,6 +587,20 @@ export function useNodeEditor() {
     panY,
     connecting,
     selectedNodeId,
+    selectedNodeIds,
+    groups,
+    /* ── Shapes feature (additive) ── */
+    shapes,
+    selectedShapeId,
+    selectedShapeIds,
+    selectShape,
+    setShapeSelection,
+    addShape,
+    moveShape,
+    updateShape,
+    toggleShapeFrozen,
+    deleteShape,
+    setNodeFront,
     theme,
     searchQuery,
     setZoom,
@@ -403,7 +610,12 @@ export function useNodeEditor() {
     setSearchQuery,
     addNode,
     deleteNode,
+    deleteNodes,
     moveNode,
+    moveNodesBy,
+    selectNodes,
+    groupSelection,
+    ungroupSelection,
     updateNodeInput,
     addConnection,
     removeConnection,
