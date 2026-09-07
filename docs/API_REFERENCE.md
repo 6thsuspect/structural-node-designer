@@ -487,6 +487,7 @@ interface NodeCanvasProps {
   onFinishConnecting: (nodeId?: string, portId?: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onRemoveConnection: (connId: string) => void;  // NEW
+  onUpdateConnectionColor?: (connId: string, color: string | undefined) => void;
   onUpdateInput: (nodeId: string, portId: string, value: any) => void;
   onZoomChange: (zoom: number) => void;
   onPanChange: (x: number, y: number) => void;
@@ -534,7 +535,7 @@ interface ToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomFit: () => void;
-  onLoadDemo: () => void;
+  onLoadDemo: (demo: DemoProject) => void;
   onCreateCustomNode: () => void;
   onQuickFormula: () => void;
   onSettings: () => void;  // NEW

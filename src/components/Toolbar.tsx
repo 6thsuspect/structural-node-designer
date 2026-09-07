@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Theme } from '../types';
+import AppLogo from './AppLogo';
+import { DEMO_PROJECTS, type DemoProject } from '../demoProjects';
 
 interface Props {
   theme: Theme;
@@ -13,10 +15,13 @@ interface Props {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomFit: () => void;
-  onLoadDemo: () => void;
+  onLoadDemo: (demo: DemoProject) => void;
   onCreateCustomNode: () => void;
   onQuickFormula: () => void;
   onSettings: () => void;
+  onAbout: () => void;
+  snapEnabled: boolean;
+  onToggleSnap: () => void;
 }
 
 const themeStyles: Record<Theme, { bg: string; text: string; border: string; hover: string; accent: string }> = {
@@ -28,9 +33,10 @@ const themeStyles: Record<Theme, { bg: string; text: string; border: string; hov
 
 export default function Toolbar({
   theme, onThemeChange, onSave, onLoad, onClear, onUndo, onRedo, onReport,
-  onZoomIn, onZoomOut, onZoomFit, onLoadDemo, onCreateCustomNode, onQuickFormula, onSettings,
+  onZoomIn, onZoomOut, onZoomFit, onLoadDemo, onCreateCustomNode, onQuickFormula, onSettings, onAbout, snapEnabled, onToggleSnap,
 }: Props) {
   const colors = themeStyles[theme];
+  const [demoMenuOpen, setDemoMenuOpen] = useState(false);
 
   const Button = ({ children, onClick, title, accent }: { children: React.ReactNode; onClick: () => void; title?: string; accent?: boolean }) => (
     <button
@@ -64,9 +70,7 @@ export default function Toolbar({
     >
       {/* Logo */}
       <div className="flex items-center gap-2 mr-4">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ background: colors.accent }}>
-          🏗️
-        </div>
+        <AppLogo size={28} />
         <div>
           <div className="text-xs font-bold tracking-tight" style={{ color: colors.text }}>
             Structural Node Designer
@@ -96,6 +100,7 @@ export default function Toolbar({
       <Button onClick={onZoomIn} title="Zoom In">🔍+</Button>
       <Button onClick={onZoomOut} title="Zoom Out">🔍−</Button>
       <Button onClick={onZoomFit} title="Zoom to Fit">⊞ Fit</Button>
+      <Button onClick={onToggleSnap} title="Snap to nearby nodes (show alignment guides)" accent={snapEnabled}>🧲 Snap</Button>
 
       <Separator />
 
@@ -121,8 +126,32 @@ export default function Toolbar({
       <Button onClick={onReport} title="Generate Report">📄 Report</Button>
       <Button onClick={onQuickFormula} title="Quick Formula" accent>⚡ Quick Formula</Button>
       <Button onClick={onCreateCustomNode} title="Advanced Node Editor">✏️ Advanced</Button>
-      <Button onClick={onLoadDemo} title="Load Demo Workflow">🚀 Demo</Button>
+      {/* Demo projects dropdown (bundled .snd.json files, listed by file name) */}
+      <div className="relative">
+        <Button onClick={() => setDemoMenuOpen(v => !v)} title="Load a demo project">🚀 Demo ▾</Button>
+        {demoMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setDemoMenuOpen(false)} />
+            <div className="absolute left-0 z-50 mt-1 min-w-[230px] rounded-lg shadow-2xl overflow-hidden py-1"
+              style={{ background: colors.bg, border: `1px solid ${colors.border}` }}>
+              <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.text, opacity: 0.5 }}>
+                Demo projects
+              </div>
+              {DEMO_PROJECTS.map(d => (
+                <button key={d.fileName} onClick={() => { setDemoMenuOpen(false); onLoadDemo(d); }}
+                  className="w-full px-3 py-2 text-left text-xs transition-colors"
+                  style={{ color: colors.text }} title={d.fileName}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = colors.hover; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                  🚀 {d.name}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
       <Button onClick={onSettings} title="Settings & Preferences">⚙️ Settings</Button>
+      <Button onClick={onAbout} title="About the Author">👨‍💻 About Me</Button>
 
       {/* Spacer */}
       <div className="flex-1" />
@@ -132,6 +161,7 @@ export default function Toolbar({
         <span>Alt+Drag: Pan</span>
         <span>Scroll: Zoom</span>
         <span>Del: Delete</span>
+        <span>Ctrl+Drag: Move selection</span>
         <span>Drag from toolbox: Add node</span>
       </div>
     </div>

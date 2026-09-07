@@ -1,7 +1,7 @@
 // Properties Panel Component
 import { CanvasNode, Theme, Connection, CanvasShape } from '../types';
 import { getNodeDefinition } from '../nodeDefinitions';
-import { getShapeDefinition, MIN_SHAPE_SIZE } from '../features/canvas-shapes';
+import { getShapeDefinition, MIN_SHAPE_SIZE, TEXT_FONT_FAMILIES, TEXT_FONT_SIZE_MIN, TEXT_FONT_SIZE_MAX } from '../features/canvas-shapes';
 
 interface Props {
   node: CanvasNode | null;
@@ -51,6 +51,23 @@ export default function PropertiesPanel({
         />
       </div>
     );
+    /* ── Text annotations: small toggle button (align + B/I/U) ── */
+    const fmtBtn = (active: boolean, onClick: () => void, text: string, title: string, textStyle?: 'bold' | 'italic' | 'underline') => (
+      <button
+        onClick={onClick}
+        title={title}
+        className="flex-1 px-2 py-1.5 rounded text-xs font-medium transition-all hover:opacity-80"
+        style={active
+          ? { background: colors.accent, color: '#fff' }
+          : { background: colors.input, color: colors.text, border: `1px solid ${colors.border}` }}
+      >
+        <span style={{
+          fontWeight: textStyle === 'bold' ? 700 : 400,
+          fontStyle: textStyle === 'italic' ? 'italic' : 'normal',
+          textDecoration: textStyle === 'underline' ? 'underline' : 'none',
+        }}>{text}</span>
+      </button>
+    );
     return (
       <div className="h-full flex flex-col overflow-hidden" style={{ background: colors.bg }}>
         {/* Header */}
@@ -82,6 +99,102 @@ export default function PropertiesPanel({
             )}
           </div>
 
+          {/* Text annotations: content + formatting (Text shapes only) */}
+          {shape.type === 'text' && (
+            <>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.accent }}>
+                  Text
+                </h4>
+                <textarea
+                  value={shape.text ?? ''}
+                  onChange={(e) => onUpdateShape?.(shape.id, { text: e.target.value })}
+                  rows={3}
+                  placeholder="Type here… (or double-click the box on canvas)"
+                  className="w-full px-2 py-1.5 rounded text-sm mt-0.5 outline-none resize-y"
+                  style={{ background: colors.input, color: colors.text, border: `1px solid ${colors.border}` }}
+                />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.accent }}>
+                  Format
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: colors.label }}>Size</label>
+                    <input
+                      type="number" min={TEXT_FONT_SIZE_MIN} max={TEXT_FONT_SIZE_MAX} step={1}
+                      value={shape.fontSize ?? 16}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (Number.isFinite(v)) onUpdateShape?.(shape.id, { fontSize: Math.min(TEXT_FONT_SIZE_MAX, Math.max(TEXT_FONT_SIZE_MIN, v)) });
+                      }}
+                      className="w-full px-2 py-1 rounded text-sm mt-0.5 outline-none"
+                      style={{ background: colors.input, color: colors.text, border: `1px solid ${colors.border}`, fontFamily: 'monospace' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: colors.label }}>Font</label>
+                    <select
+                      value={shape.fontFamily || TEXT_FONT_FAMILIES[0].value}
+                      onChange={(e) => onUpdateShape?.(shape.id, { fontFamily: e.target.value })}
+                      className="w-full px-2 py-1 rounded text-sm mt-0.5 outline-none cursor-pointer"
+                      style={{ background: colors.input, color: colors.text, border: `1px solid ${colors.border}` }}
+                    >
+                      {TEXT_FONT_FAMILIES.map(f => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <label className="text-xs font-medium" style={{ color: colors.label }}>Color</label>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <input
+                      type="color"
+                      value={/^#[0-9a-fA-F]{6}$/.test(shape.fontColor || '') ? (shape.fontColor as string) : colors.text}
+                      onChange={(e) => onUpdateShape?.(shape.id, { fontColor: e.target.value })}
+                      className="w-8 h-8 p-0.5 rounded cursor-pointer"
+                      style={{ background: colors.input, border: `1px solid ${colors.border}` }}
+                    />
+                    <input
+                      type="text"
+                      value={shape.fontColor || ''}
+                      placeholder={colors.text}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === '' || /^#[0-9a-fA-F]{3,8}$/.test(v)) onUpdateShape?.(shape.id, { fontColor: v === '' ? undefined : v });
+                      }}
+                      className="flex-1 min-w-0 px-2 py-1 rounded text-xs outline-none"
+                      style={{ background: colors.input, color: colors.text, border: `1px solid ${colors.border}`, fontFamily: 'monospace' }}
+                    />
+                    <button
+                      onClick={() => onUpdateShape?.(shape.id, { fontColor: undefined })}
+                      title="Auto — use the theme text color"
+                      className="px-2 py-1 rounded text-xs transition-all hover:opacity-80"
+                      style={{ background: colors.input, color: colors.label, border: `1px solid ${colors.border}` }}
+                    >
+                      Auto
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <label className="text-xs font-medium" style={{ color: colors.label }}>Align</label>
+                  <div className="flex gap-1.5 mt-0.5">
+                    {fmtBtn((shape.textAlign ?? 'left') === 'left', () => onUpdateShape?.(shape.id, { textAlign: 'left' }), 'Left', 'Align left')}
+                    {fmtBtn(shape.textAlign === 'center', () => onUpdateShape?.(shape.id, { textAlign: 'center' }), 'Center', 'Align center')}
+                    {fmtBtn(shape.textAlign === 'right', () => onUpdateShape?.(shape.id, { textAlign: 'right' }), 'Right', 'Align right')}
+                  </div>
+                </div>
+                <div className="flex gap-1.5 mt-2">
+                  {fmtBtn(shape.fontWeight === 'bold', () => onUpdateShape?.(shape.id, { fontWeight: shape.fontWeight === 'bold' ? 'normal' : 'bold' }), 'B', 'Bold', 'bold')}
+                  {fmtBtn(shape.fontStyle === 'italic', () => onUpdateShape?.(shape.id, { fontStyle: shape.fontStyle === 'italic' ? 'normal' : 'italic' }), 'I', 'Italic', 'italic')}
+                  {fmtBtn(Boolean(shape.underline), () => onUpdateShape?.(shape.id, { underline: !shape.underline }), 'U', 'Underline', 'underline')}
+                </div>
+              </div>
+            </>
+          )}
+          {shape.type !== 'text' && (<>
           {/* Fill: color + opacity */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.accent }}>
@@ -123,6 +236,7 @@ export default function PropertiesPanel({
               </div>
             </div>
           </div>
+          </>)}
 
           {/* Draw order (per-item: this shape) */}
           {onUpdateShape && (

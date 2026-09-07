@@ -12,6 +12,7 @@ import {
 import { computeContentBounds, computeFitView } from '../features/canvas-fit';
 import {
   DEFAULT_SHAPE_FILL_OPACITY,
+  DEFAULT_TEXT_FONT_SIZE,
   MIN_SHAPE_SIZE,
   getShapeDefinition,
   shapePolygonPoints,
@@ -38,6 +39,10 @@ function truncateText(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
 }
 
+/* ─── Wire selection + custom wire colors ─── */
+const SELECTED_WIRE_COLOR = '#ef4444';  // a selected wire always renders red
+const WIRE_COLOR_PRESETS = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899'];
+
 interface Props {
   nodes: CanvasNode[];
   connections: Connection[];
@@ -54,6 +59,8 @@ interface Props {
   onFinishConnecting: (nodeId?: string, portId?: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onRemoveConnection: (connId: string) => void;
+  /** Recolor a wire (undefined = reset to the theme default). Absent = no color UI. */
+  onUpdateConnectionColor?: (connId: string, color: string | undefined) => void;
   onUpdateInput: (nodeId: string, portId: string, value: any) => void;
   onEditNodeCode: (nodeId: string) => void;
   onEditFormula: (nodeId: string) => void;
@@ -67,6 +74,9 @@ interface Props {
   focusTarget?: { nodeId: string; token: number } | null;
   /** Zoom-to-fit request (token changes per request; 0/undefined = none yet). */
   fitSignal?: number;
+  /* ── Alignment snap (smart guides) ── */
+  /** When true, dragging a node snaps to nearby nodes' edges/centers with guide lines. */
+  snapEnabled?: boolean;
   /* ── Node Groups integration (optional — feature is inert when absent) ── */
   /** Current multi-selection (marquee / group-aware single selection). */
   selectedNodeIds?: string[];
@@ -88,11 +98,11 @@ interface Props {
   shapes?: CanvasShape[];
   /** The currently selected shape id (primary — resize handles + panel). */
   selectedShapeId?: string | null;
-  /** The full shape selection (marquee / ctrl+right-click) — all are highlighted. */
+  /** The full shape selection (marquee) — all are highlighted. */
   selectedShapeIds?: string[];
   /** Select a single shape (click; null clears). Mutually exclusive with node selection. */
   onSelectShape?: (shapeId: string | null) => void;
-  /** Set the exact shape selection (marquee / ctrl+right-click toggling). */
+  /** Set the exact shape selection (marquee). */
   onSelectShapes?: (shapeIds: string[], clearNodes: boolean, primaryId?: string) => void;
   /** Move a shape to a new top-left position (drag). */
   onMoveShape?: (shapeId: string, x: number, y: number) => void;
@@ -123,6 +133,79 @@ function bezierPath(x1: number, y1: number, x2: number, y2: number): string {
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
+/* ─── Alignment snap (smart guides) ───
+   While a node is dragged with snapping on, its target position snaps to the
+   nearest other node's left / center / right (vertical guides) and top /
+   middle / bottom (horizontal guides) — true horizontal/vertical alignment.
+   Guides span the dragged node plus every node sharing the alignment. */
+const SNAP_THRESHOLD_SCREEN = 6;  // snap radius, in screen pixels
+const SNAP_GUIDE_PAD = 16;        // canvas units the guides overshoot past the nodes
+const SNAP_GUIDE_COLOR = '#ec4899';
+
+interface SnapGuide { pos: number; from: number; to: number }
+interface SnapResult { x: number; y: number; vertical: SnapGuide[]; horizontal: SnapGuide[] }
+
+/** Visual node-box height — mirrors the formula in renderNode. */
+function visualNodeHeight(node: CanvasNode): number {
+  return HEADER_HEIGHT + Math.max(node.inputs.length, node.outputs.length) * PORT_HEIGHT + 10;
+}
+
+function computeSnapGuides(targetX: number, targetY: number, self: CanvasNode, nodes: CanvasNode[], zoom: number): SnapResult {
+  const w = self.width;
+  const h = visualNodeHeight(self);
+  const selfX = [targetX, targetX + w / 2, targetX + w];       // left, centerX, right
+  const selfY = [targetY, targetY + h / 2, targetY + h];       // top, centerY, bottom
+  const threshold = SNAP_THRESHOLD_SCREEN / zoom;
+
+  // Pass 1: closest same-kind match per axis (nearest node box wins).
+  let dx = 0, dy = 0, xKind = -1, yKind = -1, bestX = threshold, bestY = threshold;
+  for (const n of nodes) {
+    if (n.id === self.id) continue;
+    const nh = visualNodeHeight(n);
+    const oX = [n.x, n.x + n.width / 2, n.x + n.width];
+    const oY = [n.y, n.y + nh / 2, n.y + nh];
+    for (let k = 0; k < 3; k++) {
+      const ax = Math.abs(oX[k] - selfX[k]);
+      if (ax <= bestX) { bestX = ax; dx = oX[k] - selfX[k]; xKind = k; }
+      const ay = Math.abs(oY[k] - selfY[k]);
+      if (ay <= bestY) { bestY = ay; dy = oY[k] - selfY[k]; yKind = k; }
+    }
+  }
+
+  // Pass 2: span each guide across every node sharing the winning alignment.
+  const vertical: SnapGuide[] = [];
+  const horizontal: SnapGuide[] = [];
+  if (xKind >= 0) {
+    const pos = selfX[xKind] + dx;
+    let from = targetY - SNAP_GUIDE_PAD, to = targetY + h + SNAP_GUIDE_PAD;
+    for (const n of nodes) {
+      if (n.id === self.id) continue;
+      const nh = visualNodeHeight(n);
+      const o = [n.x, n.x + n.width / 2, n.x + n.width][xKind];
+      if (Math.abs(o - pos) < 0.5) {
+        from = Math.min(from, n.y - SNAP_GUIDE_PAD);
+        to = Math.max(to, n.y + nh + SNAP_GUIDE_PAD);
+      }
+    }
+    vertical.push({ pos, from, to });
+  }
+  if (yKind >= 0) {
+    const pos = selfY[yKind] + dy;
+    let from = targetX - SNAP_GUIDE_PAD, to = targetX + w + SNAP_GUIDE_PAD;
+    for (const n of nodes) {
+      if (n.id === self.id) continue;
+      const nh = visualNodeHeight(n);
+      const o = [n.y, n.y + nh / 2, n.y + nh][yKind];
+      if (Math.abs(o - pos) < 0.5) {
+        from = Math.min(from, n.x - SNAP_GUIDE_PAD);
+        to = Math.max(to, n.x + n.width + SNAP_GUIDE_PAD);
+      }
+    }
+    horizontal.push({ pos, from, to });
+  }
+  return { x: targetX + dx, y: targetY + dy, vertical, horizontal };
+}
+
 const themeColors: Record<Theme, Record<string, string>> = {
   dark:        { bg:'#1a1a2e',grid:'#2a2a4a',nodeBg:'#16213e',nodeBorder:'#334155',text:'#e2e8f0',portBg:'#0f3460',conn:'#60a5fa',selected:'#f59e0b',inputBg:'#1e293b',header:'#f8fafc',sub:'#94a3b8' },
   light:       { bg:'#f1f5f9',grid:'#e2e8f0',nodeBg:'#ffffff',nodeBorder:'#cbd5e1',text:'#1e293b',portBg:'#f8fafc',conn:'#3b82f6',selected:'#f59e0b',inputBg:'#f1f5f9',header:'#ffffff',sub:'#64748b' },
@@ -133,11 +216,12 @@ const themeColors: Record<Theme, Record<string, string>> = {
 export default function NodeCanvas({
   nodes, connections, zoom, panX, panY, connecting, selectedNodeId, theme,
   onMoveNode, onSelectNode, onStartConnecting, onUpdateConnecting, onFinishConnecting,
-  onDeleteNode, onRemoveConnection, onUpdateInput, onEditNodeCode, onEditFormula,
+  onDeleteNode, onRemoveConnection, onUpdateConnectionColor, onUpdateInput, onEditNodeCode, onEditFormula,
   onZoomChange, onPanChange, onDropNode,
   onViewTrace, focusTarget,
   selectedNodeIds, groups, onSelectNodes, onMoveNodes, onGroupSelection, onUngroupSelection, onUpdateNodeFront, onMultiDelete,
   fitSignal,
+  snapEnabled = false,
   shapes, selectedShapeId, selectedShapeIds, onSelectShapes, onSelectShape, onMoveShape, onResizeShape, onUpdateShape,
   onDropShape, onDeleteShape, onToggleShapeFrozen,
 }: Props) {
@@ -149,6 +233,10 @@ export default function NodeCanvas({
   // memberShapeIds = the group's shapes (mixed groups move together too).
   const [dragNode, setDragNode] = useState<{ id: string; offsetX: number; offsetY: number; memberIds: string[]; memberShapeIds: string[] } | null>(null);
   const [editingPort, setEditingPort] = useState<{ nodeId: string; portId: string } | null>(null);
+  /* ── Text annotations: inline editing (double-click a Text shape) ── */
+  const [editingShapeText, setEditingShapeText] = useState<string | null>(null);
+  const [editingTextValue, setEditingTextValue] = useState('');
+  const textEditCancelRef = useRef(false);
   /* ── Shapes feature: drag + corner-resize interaction state ── */
   const [dragShape, setDragShape] = useState<{ id: string; offsetX: number; offsetY: number; memberNodeIds: string[]; memberShapeIds: string[] } | null>(null);
   // ratio = the shape's aspect ratio captured at drag start (Ctrl = fixed ratio).
@@ -166,12 +254,19 @@ export default function NodeCanvas({
   const [contextMenu, setContextMenu] = useState<{ nodeId: string } | null>(null);
   // ─── NEW: connection context menu state ───
   const [connMenu, setConnMenu] = useState<{ x: number; y: number; connId: string } | null>(null);
+  /* ── Wire selection: left-click selects ONLY the wire (nodes/shapes are
+     deselected); the selected wire renders red until deselected ── */
+  const [selectedConnId, setSelectedConnId] = useState<string | null>(null);
   // ── Node Groups feature: right-click context menu for the current multi-selection ──
   const [selMenu, setSelMenu] = useState<{ x: number; y: number } | null>(null);
   // ─── NEW: hovered node for visual feedback (no blink) ───
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   // ─── Calculation Trace: temporary highlight while panning to a traced node ───
   const [traceHighlightId, setTraceHighlightId] = useState<string | null>(null);
+  /* ── Alignment snap: live smart guides while a node is dragged (canvas coords) ── */
+  const [snapGuides, setSnapGuides] = useState<{ vertical: SnapGuide[]; horizontal: SnapGuide[] } | null>(null);
+  // The live selected wire (null when the id is stale, e.g. after undo/delete).
+  const selectedConn = connections.find(c => c.id === selectedConnId) ?? null;
   useEffect(() => {
     if (!focusTarget) return;
     const node = nodes.find(n => n.id === focusTarget.nodeId);
@@ -209,6 +304,11 @@ export default function NodeCanvas({
     // Re-run only when a new fit request arrives (token changes per request).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitSignal]);
+
+  /* ── Alignment snap: clear any live guides when snapping is switched off ── */
+  useEffect(() => {
+    if (!snapEnabled) setSnapGuides(null);
+  }, [snapEnabled]);
 
   const screenToCanvas = useCallback((sx: number, sy: number) => {
     const svg = svgRef.current;
@@ -276,11 +376,27 @@ export default function NodeCanvas({
     }
     if (dragNode) {
       const pos = screenToCanvas(e.clientX, e.clientY);
-      const targetX = pos.x - dragNode.offsetX;
-      const targetY = pos.y - dragNode.offsetY;
+      const primary = nodes.find(n => n.id === dragNode.id);
+      let targetX = pos.x - dragNode.offsetX;
+      let targetY = pos.y - dragNode.offsetY;
+      // Alignment snap: snap the dragged node's target to the nearest node's
+      // edges/center (true horizontal/vertical alignment) and show guides.
+      // For multi/group drags the snap is computed from the primary node and
+      // the whole set follows the snapped delta.
+      if (snapEnabled && primary) {
+        const snap = computeSnapGuides(targetX, targetY, primary, nodes, zoom);
+        targetX = snap.x;
+        targetY = snap.y;
+        setSnapGuides(
+          snap.vertical.length > 0 || snap.horizontal.length > 0
+            ? { vertical: snap.vertical, horizontal: snap.horizontal }
+            : null,
+        );
+      } else {
+        setSnapGuides(null);
+      }
       if (dragNode.memberIds.length > 1 && onMoveNodes) {
         // Grouped node: move the whole group (nodes AND its shapes) by the delta.
-        const primary = nodes.find(n => n.id === dragNode.id);
         if (primary) onMoveNodes(dragNode.memberIds, targetX - primary.x, targetY - primary.y, dragNode.memberShapeIds);
       } else {
         onMoveNode(dragNode.id, targetX, targetY);
@@ -316,13 +432,14 @@ export default function NodeCanvas({
       onUpdateConnecting(pos.x, pos.y);
     }
   }, [isPanning, panStart, dragNode, marquee, nodes, groups, connecting, screenToCanvas, onMoveNodes,
-      dragShape, onMoveShape, shapeResize, onResizeShape, shapes]);
+      dragShape, onMoveShape, shapeResize, onResizeShape, shapes, snapEnabled]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     setIsPanning(false);
     setDragNode(null);
     setDragShape(null);
     setShapeResize(null);
+    setSnapGuides(null);
     // Finish the marquee selection (if one was in progress).
     if (marquee) {
       const box = normalizeMarquee(marquee.startX, marquee.startY, marquee.endX, marquee.endY);
@@ -330,8 +447,10 @@ export default function NodeCanvas({
       if (small) {
         // Plain click on empty canvas → clear selection (existing behavior).
         // Shapes feature: also drop any shape selection.
-        if (!marqueeShiftRef.current) { onSelectNode(null); onSelectShapes?.([], false); }
+        if (!marqueeShiftRef.current) { onSelectNode(null); onSelectShapes?.([], false); setSelectedConnId(null); }
       } else {
+        // A real marquee replaces the selection — a selected wire is dropped too.
+        setSelectedConnId(null);
         const ids = nodesInBox(nodes, box);
         // Shapes inside the box join the selection and are highlighted too.
         const shapeIds = nodesInBox(shapes ?? [], box);
@@ -368,7 +487,11 @@ export default function NodeCanvas({
 
   const handleNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
+    // Left button only: right-click selection is handled in onContextMenu, so a
+    // right-press must not alter the selection here.
+    if (e.button !== 0) return;
     setSelMenu(null);
+    setSelectedConnId(null); // a clicked node replaces any wire selection
     // Shift+click: toggle this node's (group's) membership in the selection.
     if (e.shiftKey && onSelectNodes) {
       const current = selectedNodeIds ?? [];
@@ -380,6 +503,20 @@ export default function NodeCanvas({
       if (allIn) onSelectNodes(current.filter(id => !memberSet.has(id)));
       else onSelectNodes(Array.from(new Set([...current, ...members])));
       return; // selection toggle only — no drag
+    }
+    // Ctrl+left-press on an already-selected node: hold and drag to move the
+    // WHOLE current node selection together (the selection itself is untouched).
+    // Ctrl+press anywhere else falls through to the normal click behavior below.
+    if ((e.ctrlKey || e.metaKey) && onMoveNodes) {
+      const current = selectedNodeIds ?? [];
+      if (current.includes(nodeId)) {
+        const pos = screenToCanvas(e.clientX, e.clientY);
+        const node = nodes.find(n => n.id === nodeId);
+        if (node) {
+          setDragNode({ id: nodeId, offsetX: pos.x - node.x, offsetY: pos.y - node.y, memberIds: current, memberShapeIds: [] });
+        }
+        return; // move the selection only — no selection change
+      }
     }
     onSelectNode(nodeId);
     onSelectShape?.(null);
@@ -398,7 +535,11 @@ export default function NodeCanvas({
 
   const handlePortMouseDown = useCallback((e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => {
     e.stopPropagation();
+    // Left button only: right-clicking a port must not start a connection wire
+    // (right-clicks select via the node's onContextMenu instead).
+    if (e.button !== 0) return;
     setConnMenu(null);
+    setSelectedConnId(null);
     const pos = screenToCanvas(e.clientX, e.clientY);
     onStartConnecting(nodeId, portId, isOutput, pos.x, pos.y);
   }, [screenToCanvas]);
@@ -408,43 +549,63 @@ export default function NodeCanvas({
     if (connecting.isConnecting) onFinishConnecting(nodeId, portId);
   }, [connecting]);
 
-  // ─── NEW: click on connection wire ───
-  const handleConnectionClick = useCallback((e: React.MouseEvent, connId: string) => {
+  /* ── Left-click a wire: select ONLY it (any node/shape selection is dropped).
+     The menu no longer opens here — right-click shows the wire options. ── */
+  const handleConnectionMouseDown = useCallback((e: React.MouseEvent, connId: string) => {
+    e.stopPropagation();
+    // Left button only: right-clicks open the wire menu instead.
+    if (e.button !== 0) return;
+    setContextMenu(null);
+    setConnMenu(null);
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
+    onSelectNode(null);
+    setSelectedConnId(connId);
+  }, [onSelectNode]);
+
+  /* ── Right-click a wire: select it (when not already) and open its options
+     menu at the cursor (container-relative, so toolbar/toolbox don't offset it). ── */
+  const handleConnectionContextMenu = useCallback((e: React.MouseEvent, connId: string) => {
+    e.preventDefault();
     e.stopPropagation();
     setContextMenu(null);
-    // Store container-relative coordinates so the menu opens right at the cursor
-    // (clientX/Y are viewport coords and would be offset by the toolbar/toolbox).
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
+    if (connId !== selectedConnId) {
+      onSelectNode(null);
+      setSelectedConnId(connId);
+    }
     const rect = svgRef.current?.getBoundingClientRect();
     setConnMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), connId });
-  }, []);
+  }, [onSelectNode, selectedConnId]);
 
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
     e.stopPropagation();
     setConnMenu(null);
     setSelMenu(null);
-    // Ctrl+right-click: toggle this node's (group's) membership in the current
-    // multi-selection — no menu (build a mixed node+shape selection one by one).
-    if (e.ctrlKey || e.metaKey) {
-      const current = selectedNodeIds ?? [];
-      const members = groupMemberIds(groups ?? [], nodeId);
-      const memberSet = new Set(members);
-      const allIn = members.every(id => current.includes(id));
-      onSelectNodes?.(
-        allIn ? current.filter(id => !memberSet.has(id)) : Array.from(new Set([...current, ...members])),
-      );
-      return;
-    }
     // Right-clicking an unselected node selects it (group-aware) so the
     // menu's Group/Ungroup actions have a well-defined target.
     if (!(selectedNodeIds ?? []).includes(nodeId)) onSelectNode(nodeId);
     onSelectShape?.(null);
     setContextMenu({ nodeId });
-  }, [selectedNodeIds, onSelectNode, onSelectNodes, groups]);
+  }, [selectedNodeIds, onSelectNode, onSelectShape]);
 
   // Right-click on empty canvas with a selection (nodes and/or shapes) → menu.
   const handleBackgroundContextMenu = useCallback((e: React.MouseEvent) => {
     const current = (selectedNodeIds ?? []).length + (selectedShapeIds ?? []).length;
+    // Right-click during wire selection shows the WIRE options (no node/shape menu).
+    if (current === 0 && selectedConn) {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu(null);
+      setShapeMenu(null);
+      const rect = svgRef.current?.getBoundingClientRect();
+      setConnMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), connId: selectedConn.id });
+      return;
+    }
     if (current === 0) return; // keep the native browser menu as before
     e.preventDefault();
     e.stopPropagation();
@@ -452,17 +613,21 @@ export default function NodeCanvas({
     setShapeMenu(null);
     const rect = svgRef.current?.getBoundingClientRect();
     setSelMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
-  }, [selectedNodeIds, selectedShapeIds]);
+  }, [selectedNodeIds, selectedShapeIds, selectedConn]);
 
   /* ── Shapes feature: shape body drag (select + move; grouped shapes move
      their whole group — nodes and shapes — with them) ── */
   const handleShapeMouseDown = useCallback((e: React.MouseEvent, shape: CanvasShape) => {
     e.stopPropagation();
+    // Left button only: right-click selection is handled in onContextMenu, so a
+    // right-press must not alter the selection here.
+    if (e.button !== 0) return;
     setContextMenu(null);
     setConnMenu(null);
     setSelMenu(null);
     setShapeMenu(null);
     setShapeSizeEditor(null);
+    setSelectedConnId(null); // a clicked shape replaces any wire selection
     onSelectShape?.(shape.id);
     const pos = screenToCanvas(e.clientX, e.clientY);
     const g = getGroupOfShape(groups ?? [], shape.id);
@@ -480,12 +645,13 @@ export default function NodeCanvas({
      ratio is captured now so Ctrl can lock it for the whole drag. ── */
   const handleShapeHandleMouseDown = useCallback((e: React.MouseEvent, shape: CanvasShape, handle: ShapeResizeHandle) => {
     e.stopPropagation();
+    // Left button only: right-clicks open the shape menu instead of resizing.
+    if (e.button !== 0) return;
     if (shape.frozen) return;
     setShapeResize({ id: shape.id, handle, ratio: shape.width / Math.max(1, shape.height) });
   }, []);
 
-  /* ── Shapes feature: right-click — Ctrl toggles selection (multi-select
-     shapes one by one); plain right-click opens the shape menu ── */
+  /* ── Shapes feature: right-click opens the shape menu ── */
   const handleShapeContextMenu = useCallback((e: React.MouseEvent, shapeId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -493,18 +659,31 @@ export default function NodeCanvas({
     setConnMenu(null);
     setSelMenu(null);
     setShapeSizeEditor(null);
-    if (e.ctrlKey || e.metaKey) {
-      const current = selectedShapeIds ?? [];
-      const next = current.includes(shapeId)
-        ? current.filter(id => id !== shapeId)
-        : [...current, shapeId];
-      onSelectShapes?.(next, false, next.includes(shapeId) ? shapeId : undefined);
-      return;
-    }
     if (shapeId !== selectedShapeId) onSelectShape?.(shapeId);
     const rect = svgRef.current?.getBoundingClientRect();
     setShapeMenu({ id: shapeId, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
-  }, [selectedShapeId, selectedShapeIds, onSelectShape, onSelectShapes]);
+  }, [selectedShapeId, onSelectShape]);
+
+  /* ── Text annotations: inline edit lifecycle (double-click → textarea) ── */
+  const beginShapeTextEdit = useCallback((shape: CanvasShape) => {
+    textEditCancelRef.current = false;
+    setEditingTextValue(shape.text ?? '');
+    setEditingShapeText(shape.id);
+    setSelectedConnId(null);
+    if (shape.id !== selectedShapeId) onSelectShape?.(shape.id);
+  }, [selectedShapeId, onSelectShape]);
+
+  const commitShapeTextEdit = useCallback(() => {
+    // Escape sets the cancel flag before unmounting; the trailing blur must not commit.
+    if (textEditCancelRef.current) { textEditCancelRef.current = false; setEditingShapeText(null); return; }
+    if (editingShapeText) onUpdateShape?.(editingShapeText, { text: editingTextValue });
+    setEditingShapeText(null);
+  }, [editingShapeText, editingTextValue, onUpdateShape]);
+
+  const cancelShapeTextEdit = useCallback(() => {
+    textEditCancelRef.current = true;
+    setEditingShapeText(null);
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }, []);
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -519,7 +698,17 @@ export default function NodeCanvas({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' && !editingPort) {
+      // Text fields keep native behavior (Delete edits text, it must not delete canvas items).
+      const t = e.target as HTMLElement | null;
+      const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA');
+      if (e.key === 'Delete' && !editingPort && !editingShapeText && !typing) {
+        // A selected wire is deleted first (wire selection is exclusive).
+        if (selectedConn) {
+          onRemoveConnection(selectedConn.id);
+          setSelectedConnId(null);
+          setConnMenu(null);
+          return;
+        }
         // Shapes feature: a selected shape is deleted before any node logic runs.
         if (selectedShapeId && (shapes ?? []).some(s => s.id === selectedShapeId)) {
           onDeleteShape?.(selectedShapeId);
@@ -529,11 +718,11 @@ export default function NodeCanvas({
         if (multi.length > 1 && onMultiDelete) onMultiDelete(multi);
         else if (selectedNodeId) onDeleteNode(selectedNodeId);
       }
-      if (e.key === 'Escape') { setContextMenu(null); setConnMenu(null); setSelMenu(null); setShapeMenu(null); setShapeSizeEditor(null); setEditingPort(null); }
+      if (e.key === 'Escape') { setContextMenu(null); setConnMenu(null); setSelMenu(null); setShapeMenu(null); setShapeSizeEditor(null); setEditingPort(null); setSelectedConnId(null); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selectedNodeId, selectedNodeIds, editingPort, onMultiDelete, onDeleteNode, selectedShapeId, shapes, onDeleteShape]);
+  }, [selectedNodeId, selectedNodeIds, editingPort, editingShapeText, onMultiDelete, onDeleteNode, selectedShapeId, shapes, onDeleteShape, selectedConn, onRemoveConnection]);
 
   // ─── Grid ───
   const renderGrid = () => {
@@ -562,26 +751,31 @@ export default function NodeCanvas({
     if (!fromNode || !toNode) return null;
     const from = getPortPosition(fromNode, conn.fromPortId, true);
     const to = getPortPosition(toNode, conn.toPortId, false);
-    const isHighlighted = connMenu?.connId === conn.id;
+    // Selected wires render red; otherwise a custom wire color wins, else the theme default.
+    const isSelected = selectedConn?.id === conn.id;
+    const stroke = isSelected ? SELECTED_WIRE_COLOR : (conn.color ?? colors.conn);
 
     return (
       <g key={conn.id}>
         <path
           d={bezierPath(from.x, from.y, to.x, to.y)}
           fill="none"
-          stroke={colors.conn}
-          strokeWidth={isHighlighted ? 3.5 : 2.5}
-          strokeOpacity={isHighlighted ? 1 : 0.8}
+          stroke={stroke}
+          strokeWidth={isSelected ? 3.5 : 2.5}
+          strokeOpacity={isSelected ? 1 : 0.8}
         />
-        {/* Wide invisible hit-area so user can click the wire */}
+        {/* Wide invisible hit-area: left-click selects the wire, right-click opens its menu */}
         <path
           d={bezierPath(from.x, from.y, to.x, to.y)}
           fill="none"
           stroke="transparent"
           strokeWidth={16}
           className="cursor-pointer"
-          onClick={(e) => handleConnectionClick(e, conn.id)}
-        />
+          onMouseDown={(e) => handleConnectionMouseDown(e, conn.id)}
+          onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
+        >
+          <title>{`${fromNode.label} → ${toNode.label}`}</title>
+        </path>
       </g>
     );
   };
@@ -744,7 +938,9 @@ export default function NodeCanvas({
 
   // ─── Node rendering ───
   const renderNode = (node: CanvasNode) => {
-    const isSelected = node.id === selectedNodeId;
+    // Every selected node is highlighted (primary + full multi-selection);
+    // anything not in the selection renders with the normal border (unhighlighted).
+    const isSelected = node.id === selectedNodeId || (selectedNodeIds ?? []).includes(node.id);
     const isHovered = node.id === hoveredNodeId && !isSelected; // FIX #2: no blink, just subtle bg shift
     const headerColor = node.color || '#666';
     const maxPorts = Math.max(node.inputs.length, node.outputs.length);
@@ -791,13 +987,113 @@ export default function NodeCanvas({
     );
   };
 
+  /* ── Shapes feature: corner resize handles shared by geometric + text shapes ──
+     (primary selection only, hidden while frozen). */
+  const renderShapeResizeHandles = (shape: CanvasShape) => {
+    if (shape.id !== selectedShapeId || shape.frozen || !onResizeShape) return null;
+    const hs = 10 / zoom;
+    const corners: [ShapeResizeHandle, number, number, string][] = [
+      ['nw', shape.x, shape.y, 'nwse-resize'],
+      ['ne', shape.x + shape.width, shape.y, 'nesw-resize'],
+      ['sw', shape.x, shape.y + shape.height, 'nesw-resize'],
+      ['se', shape.x + shape.width, shape.y + shape.height, 'nwse-resize'],
+    ];
+    return corners.map(([h, hx, hy, cursor]) => (
+      <rect key={h}
+        x={hx - hs / 2} y={hy - hs / 2} width={hs} height={hs} rx={1.5 / zoom}
+        fill={colors.nodeBg} stroke={colors.selected} strokeWidth={1.5 / zoom}
+        style={{ cursor }}
+        onMouseDown={(e) => handleShapeHandleMouseDown(e, shape, h)} />
+    ));
+  };
+
+  /* ── Text annotations: freeform formatted text in a resizable box ──
+     Double-click to edit inline; formatting lives in the Properties panel.
+     A selected text box shows a dashed outline (the letters stay clean). */
+  const renderTextShape = (shape: CanvasShape) => {
+    const isSelected = shape.id === selectedShapeId || (selectedShapeIds ?? []).includes(shape.id);
+    const def = getShapeDefinition(shape.type);
+    const isEditing = editingShapeText === shape.id;
+    const ink = shape.fontColor || colors.text;
+    const fontCss: React.CSSProperties = {
+      fontSize: shape.fontSize ?? DEFAULT_TEXT_FONT_SIZE,
+      fontFamily: shape.fontFamily || 'system-ui, sans-serif',
+      fontWeight: shape.fontWeight === 'bold' ? 700 : 400,
+      fontStyle: shape.fontStyle === 'italic' ? 'italic' : 'normal',
+      textDecoration: shape.underline ? 'underline' : 'none',
+      textAlign: shape.textAlign ?? 'left',
+    };
+    return (
+      <g key={shape.id}
+        onMouseDown={(e) => handleShapeMouseDown(e, shape)}
+        onDoubleClick={(e) => { e.stopPropagation(); beginShapeTextEdit(shape); }}
+        onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
+        style={{ cursor: dragShape?.id === shape.id ? 'grabbing' : 'move' }}>
+        <title>{def?.description}</title>
+        {/* Dashed selection outline + faint wash — hidden while unselected */}
+        {isSelected && (
+          <rect x={shape.x} y={shape.y} width={shape.width} height={shape.height} rx={3}
+            fill={colors.selected} fillOpacity={0.06} stroke={colors.selected}
+            strokeWidth={1.5 / zoom} strokeDasharray={`${5 / zoom} ${3 / zoom}`} pointerEvents="none" />
+        )}
+        {isEditing ? (
+          <foreignObject x={shape.x} y={shape.y} width={shape.width} height={shape.height}>
+            <textarea
+              value={editingTextValue}
+              autoFocus
+              onChange={(e) => setEditingTextValue(e.target.value)}
+              onBlur={commitShapeTextEdit}
+              onMouseDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') cancelShapeTextEdit();
+                else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commitShapeTextEdit();
+              }}
+              placeholder="Type here…  (Ctrl+Enter to finish)"
+              title="Type here — Ctrl+Enter (or click outside) to finish, Esc to cancel"
+              style={{
+                width: '100%', height: '100%', resize: 'none', overflow: 'hidden',
+                background: 'transparent', border: 'none', outline: 'none', padding: 2,
+                color: ink, lineHeight: 1.35, whiteSpace: 'pre-wrap', ...fontCss,
+              }}
+            />
+          </foreignObject>
+        ) : (
+          <foreignObject x={shape.x} y={shape.y} width={shape.width} height={shape.height}>
+            {/* Handlers are attached directly: HTML-in-SVG event bubbling is
+                unreliable across browsers, so the div mirrors the <g> above. */}
+            <div
+              onMouseDown={(e) => handleShapeMouseDown(e, shape)}
+              onDoubleClick={(e) => { e.stopPropagation(); beginShapeTextEdit(shape); }}
+              onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
+              style={{
+                width: '100%', height: '100%', overflow: 'hidden', padding: 2, boxSizing: 'border-box',
+                color: ink, lineHeight: 1.35, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                userSelect: 'none', ...fontCss,
+              }}
+            >
+              {shape.text ? shape.text : <span style={{ opacity: 0.35 }}>Text</span>}
+            </div>
+          </foreignObject>
+        )}
+        {/* Frozen badge: the box size is locked (text stays editable) */}
+        {shape.frozen && (
+          <text x={shape.x + shape.width - 6} y={shape.y + 18} textAnchor="end"
+            fontSize={14} pointerEvents="none" opacity={0.9}>❄️</text>
+        )}
+        {renderShapeResizeHandles(shape)}
+      </g>
+    );
+  };
+
   /* ── Shapes feature: render one canvas shape ──
      Geometry lives in a child <g> so the (translucent) fill stays clickable.
      Every selected shape is highlighted; resize handles are on the PRIMARY
      one only. Resize handles only exist when selected AND not frozen. */
   const renderShape = (shape: CanvasShape) => {
+    // Text annotations render through their own branch (formatted HTML text).
+    if (shape.type === 'text') return renderTextShape(shape);
     const isSelected = shape.id === selectedShapeId || (selectedShapeIds ?? []).includes(shape.id);
-    const isPrimary = shape.id === selectedShapeId;
     const def = getShapeDefinition(shape.type);
     const shapeColor = shape.color || colors.conn;
     const stroke = isSelected ? colors.selected : shapeColor;
@@ -826,22 +1122,7 @@ export default function NodeCanvas({
             fontSize={14} pointerEvents="none" opacity={0.9}>❄️</text>
         )}
         {/* Corner resize handles (primary selection only, hidden while frozen) */}
-        {isPrimary && !shape.frozen && onResizeShape && (() => {
-          const hs = 10 / zoom;
-          const corners: [ShapeResizeHandle, number, number, string][] = [
-            ['nw', shape.x, shape.y, 'nwse-resize'],
-            ['ne', shape.x + shape.width, shape.y, 'nesw-resize'],
-            ['sw', shape.x, shape.y + shape.height, 'nesw-resize'],
-            ['se', shape.x + shape.width, shape.y + shape.height, 'nwse-resize'],
-          ];
-          return corners.map(([h, hx, hy, cursor]) => (
-            <rect key={h}
-              x={hx - hs / 2} y={hy - hs / 2} width={hs} height={hs} rx={1.5 / zoom}
-              fill={colors.nodeBg} stroke={colors.selected} strokeWidth={1.5 / zoom}
-              style={{ cursor }}
-              onMouseDown={(e) => handleShapeHandleMouseDown(e, shape, h)} />
-          ));
-        })()}
+        {renderShapeResizeHandles(shape)}
       </g>
     );
   };
@@ -937,6 +1218,15 @@ export default function NodeCanvas({
               />
             );
           })()}
+          {/* Alignment snap guides (smart guides while dragging with snap on) */}
+          {(snapGuides?.vertical ?? []).map((g, i) => (
+            <line key={`sv${i}`} x1={g.pos} y1={g.from} x2={g.pos} y2={g.to}
+              stroke={SNAP_GUIDE_COLOR} strokeWidth={1.5 / zoom} strokeLinecap="round" strokeDasharray={`0.1 ${4 / zoom}`} pointerEvents="none" />
+          ))}
+          {(snapGuides?.horizontal ?? []).map((g, i) => (
+            <line key={`sh${i}`} x1={g.from} y1={g.pos} x2={g.to} y2={g.pos}
+              stroke={SNAP_GUIDE_COLOR} strokeWidth={1.5 / zoom} strokeLinecap="round" strokeDasharray={`0.1 ${4 / zoom}`} pointerEvents="none" />
+          ))}
         </g>
       </svg>
 
@@ -946,17 +1236,60 @@ export default function NodeCanvas({
         {Math.round(zoom * 100)}% &bull; {nodes.length} nodes &bull; {connections.length} conns{shapes && shapes.length > 0 ? ` &bull; ${shapes.length} shapes` : ''}
       </div>
 
-      {/* ─── NEW: Connection context menu ─── */}
-      {connMenu && (
-        <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[180px]"
-          style={{ left: connMenu.x, top: connMenu.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
-          <div className="px-3 py-2 text-xs font-semibold" style={{ color: colors.sub, borderBottom: `1px solid ${colors.nodeBorder}` }}>🔗 Connection</div>
-          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
-            onClick={() => { onRemoveConnection(connMenu.connId); setConnMenu(null); }}>🗑️ Delete Connection</button>
-          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
-            onClick={() => { setConnMenu(null); }}>✕ Cancel</button>
-        </div>
-      )}
+      {/* Wire options menu (right-click during wire selection) */}
+      {connMenu && (() => {
+        const conn = connections.find(c => c.id === connMenu.connId);
+        if (!conn) return null;
+        const fromNode = nodes.find(n => n.id === conn.fromNodeId);
+        const toNode = nodes.find(n => n.id === conn.toNodeId);
+        const currentColor = conn.color ?? colors.conn;
+        return (
+          <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[220px]"
+            style={{ left: connMenu.x, top: connMenu.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
+            <div className="px-3 py-2 text-xs font-semibold" style={{ color: colors.sub, borderBottom: `1px solid ${colors.nodeBorder}` }}>
+              🔗 Connection
+              <div className="font-normal truncate" title={`${fromNode?.label ?? '?'} → ${toNode?.label ?? '?'}`}>
+                {fromNode?.label ?? '?'} → {toNode?.label ?? '?'}
+              </div>
+            </div>
+            {/* Custom wire color: presets + picker + reset. The menu stays open
+                while picking so the color previews live on the canvas. */}
+            {onUpdateConnectionColor && (
+              <>
+                <div className="px-3 pt-2 text-[11px] font-semibold" style={{ color: colors.sub }}>🎨 Wire color</div>
+                <div className="px-3 py-2 flex flex-wrap items-center gap-1.5">
+                  {WIRE_COLOR_PRESETS.map(c => (
+                    <button key={c} title={c}
+                      onClick={() => { onUpdateConnectionColor(conn.id, c); setConnMenu(null); }}
+                      className="w-6 h-6 rounded-full transition-transform hover:scale-110"
+                      style={{ background: c, border: `2px solid ${conn.color === c ? colors.text : 'transparent'}` }} />
+                  ))}
+                </div>
+                <label className="px-3 pb-2 flex items-center gap-2 text-xs cursor-pointer" style={{ color: colors.text }}>
+                  <input
+                    type="color"
+                    title="Custom color"
+                    value={/^#[0-9a-fA-F]{6}$/.test(currentColor) ? currentColor : '#60a5fa'}
+                    onChange={(e) => onUpdateConnectionColor(conn.id, e.target.value)}
+                    className="w-8 h-6 p-0 rounded cursor-pointer"
+                    style={{ background: colors.inputBg, border: `1px solid ${colors.nodeBorder}` }}
+                  />
+                  Custom…
+                  <span className="font-mono" style={{ color: colors.sub }}>{currentColor}</span>
+                </label>
+                {conn.color && (
+                  <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                    onClick={() => { onUpdateConnectionColor(conn.id, undefined); setConnMenu(null); }}>↩️ Reset to default</button>
+                )}
+              </>
+            )}
+            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
+              onClick={() => { onRemoveConnection(conn.id); setSelectedConnId(null); setConnMenu(null); }}>🗑️ Delete Connection</button>
+            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+              onClick={() => { setConnMenu(null); }}>✕ Cancel</button>
+          </div>
+        );
+      })()}
 
       {/* Node context menu — anchored to the node and follows it on pan/zoom */}
       {contextMenu && contextMenuAnchor && (

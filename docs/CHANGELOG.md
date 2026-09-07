@@ -4,6 +4,20 @@ All notable changes to the Structural Node Designer project will be documented i
 
 ---
 
+## [Unreleased]
+
+### Added
+
+#### 🔗 Wire Selection + Custom Wire Colors
+- Left-click a wire selects ONLY it (nodes/shapes are deselected); the selected wire turns red while selected
+- Right-click during wire selection opens the wire options menu (on the wire or anywhere on the canvas)
+- Wire menu: custom wire color (preset swatches + color picker + reset to theme default), Delete Connection, Cancel
+- `Delete` key removes the selected wire; `Esc` / clicking empty canvas deselects
+- Wire colors persist in saved `.snd.json` projects
+- `Delete` key no longer deletes canvas items while typing in a text field
+
+---
+
 ## [1.1.0] - 2024
 
 ### Added

@@ -1,0 +1,2363 @@
+{
+  "name": "Circular RC Section — IS 456 ULS + SLS Check",
+  "version": "1.0",
+  "created": "2026-09-04T18:19:00.620Z",
+  "modified": "2026-09-04T18:19:00.620Z",
+  "canvas": {
+    "nodes": [
+      {
+        "id": "snd_D_8cb6cdd4",
+        "type": "number_input",
+        "x": 40,
+        "y": 40,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_D_8cb6cdd4-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 1000,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_D_8cb6cdd4-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 1000,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "D diameter",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_cover_cdd68b51",
+        "type": "number_input",
+        "x": 40,
+        "y": 150,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_cover_cdd68b51-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 50,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_cover_cdd68b51-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 50,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Clear cover",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_n_bars_ea2470c5",
+        "type": "number_input",
+        "x": 40,
+        "y": 260,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_n_bars_ea2470c5-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 12,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_n_bars_ea2470c5-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 12,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "No. of bars",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dia_65bec41b",
+        "type": "number_input",
+        "x": 40,
+        "y": 370,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_dia_65bec41b-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 16,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_dia_65bec41b-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 16,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Bar diameter",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dx_dda34261",
+        "type": "number_input",
+        "x": 40,
+        "y": 480,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_dx_dda34261-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 5,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_dx_dda34261-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 5,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Fibre grid dx",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_fck_66f30dc2",
+        "type": "number_input",
+        "x": 40,
+        "y": 590,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_fck_66f30dc2-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 30,
+            "connected": false,
+            "unit": "MPa"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_fck_66f30dc2-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 30,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "fck concrete",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_fy_79939a31",
+        "type": "number_input",
+        "x": 40,
+        "y": 700,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_fy_79939a31-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 500,
+            "connected": false,
+            "unit": "MPa"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_fy_79939a31-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 500,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "fy steel",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_Pu_b9ab51fc",
+        "type": "number_input",
+        "x": 40,
+        "y": 850,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_Pu_b9ab51fc-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 2000,
+            "connected": false,
+            "unit": "kN"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_Pu_b9ab51fc-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 2000,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Pu (ULS)",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_Mux_7deeed59",
+        "type": "number_input",
+        "x": 40,
+        "y": 960,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_Mux_7deeed59-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 300,
+            "connected": false,
+            "unit": "kNm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_Mux_7deeed59-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 300,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Mux (ULS)",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_Muy_b4029b41",
+        "type": "number_input",
+        "x": 40,
+        "y": 1070,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_Muy_b4029b41-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 150,
+            "connected": false,
+            "unit": "kNm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_Muy_b4029b41-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 150,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Muy (ULS)",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_P_83734660",
+        "type": "number_input",
+        "x": 40,
+        "y": 1220,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_P_83734660-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 1400,
+            "connected": false,
+            "unit": "kN"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_P_83734660-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 1400,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "P (SLS)",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_Mx_ab543cc5",
+        "type": "number_input",
+        "x": 40,
+        "y": 1330,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_Mx_ab543cc5-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 200,
+            "connected": false,
+            "unit": "kNm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_Mx_ab543cc5-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 200,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Mx (SLS)",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_My_ea769280",
+        "type": "number_input",
+        "x": 40,
+        "y": 1440,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_My_ea769280-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 100,
+            "connected": false,
+            "unit": "kNm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_My_ea769280-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 100,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "My (SLS)",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_uls_limit_36f97dee",
+        "type": "number_input",
+        "x": 40,
+        "y": 1590,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_uls_limit_36f97dee-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 1,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_uls_limit_36f97dee-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 1,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "ULS limit",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_crack_limit_58d24264",
+        "type": "number_input",
+        "x": 40,
+        "y": 1700,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_crack_limit_58d24264-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 0.3,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_crack_limit_58d24264-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 0.3,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Crack limit",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_layout_1f2ed62e",
+        "type": "code_rebar_layout",
+        "x": 360,
+        "y": 40,
+        "width": 200,
+        "height": 244,
+        "inputs": [
+          {
+            "id": "snd_layout_1f2ed62e-in-0",
+            "name": "D",
+            "type": "number",
+            "value": 1000,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_layout_1f2ed62e-in-1",
+            "name": "cover",
+            "type": "number",
+            "value": 50,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_layout_1f2ed62e-in-2",
+            "name": "n_bars",
+            "type": "number",
+            "value": 12,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_layout_1f2ed62e-in-3",
+            "name": "dia",
+            "type": "number",
+            "value": 16,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_layout_1f2ed62e-in-4",
+            "name": "group_type",
+            "type": "string",
+            "value": "single",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_layout_1f2ed62e-in-5",
+            "name": "two_layer",
+            "type": "boolean",
+            "value": false,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_layout_1f2ed62e-in-6",
+            "name": "extra_layers",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_layout_1f2ed62e-out-0",
+            "name": "Asc",
+            "type": "number",
+            "value": 2412.743157956961,
+            "connected": false,
+            "unit": "mm²"
+          },
+          {
+            "id": "snd_layout_1f2ed62e-out-1",
+            "name": "Ac",
+            "type": "number",
+            "value": 785398.1633974483,
+            "connected": false,
+            "unit": "mm²"
+          },
+          {
+            "id": "snd_layout_1f2ed62e-out-2",
+            "name": "p_steel",
+            "type": "number",
+            "value": 0.30720000000000003,
+            "connected": false,
+            "unit": "%"
+          },
+          {
+            "id": "snd_layout_1f2ed62e-out-3",
+            "name": "r_bar",
+            "type": "number",
+            "value": 442.00000000000006,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_layout_1f2ed62e-out-4",
+            "name": "n_placed",
+            "type": "number",
+            "value": 12,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_layout_1f2ed62e-out-5",
+            "name": "layers_json",
+            "type": "string",
+            "value": "[{\"n\":12,\"dia\":16,\"r\":442,\"group\":\"single\"}]",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_layout_1f2ed62e-out-6",
+            "name": "layout",
+            "type": "string",
+            "value": "12 x 16mm @ r=442.0 (single)",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Rebar Layout",
+        "category": "RCC",
+        "color": "#795548",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_material_75c30bb8",
+        "type": "code_material_is456",
+        "x": 360,
+        "y": 480,
+        "width": 200,
+        "height": 160,
+        "inputs": [
+          {
+            "id": "snd_material_75c30bb8-in-0",
+            "name": "fck",
+            "type": "number",
+            "value": 30,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_material_75c30bb8-in-1",
+            "name": "fy",
+            "type": "number",
+            "value": 500,
+            "connected": true,
+            "unit": "MPa"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_material_75c30bb8-out-0",
+            "name": "Es",
+            "type": "number",
+            "value": 200000,
+            "connected": false,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_material_75c30bb8-out-1",
+            "name": "Ec",
+            "type": "number",
+            "value": 27386.127875258306,
+            "connected": false,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_material_75c30bb8-out-2",
+            "name": "fcd",
+            "type": "number",
+            "value": 13.5,
+            "connected": false,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_material_75c30bb8-out-3",
+            "name": "fyd",
+            "type": "number",
+            "value": 435,
+            "connected": false,
+            "unit": "MPa"
+          }
+        ],
+        "label": "Material (IS 456)",
+        "category": "Materials",
+        "color": "#009688",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_mul_c_890a0308",
+        "type": "multiply",
+        "x": 360,
+        "y": 700,
+        "width": 200,
+        "height": 104,
+        "inputs": [
+          {
+            "id": "snd_mul_c_890a0308-in-0",
+            "name": "A",
+            "type": "number",
+            "value": 30,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_mul_c_890a0308-in-1",
+            "name": "B",
+            "type": "number",
+            "value": 0.45,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_mul_c_890a0308-out-0",
+            "name": "Result",
+            "type": "number",
+            "value": 13.5,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "σc perm = 0.45 fck",
+        "category": "Math",
+        "color": "#2196F3",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_mul_s_e2e792b6",
+        "type": "multiply",
+        "x": 360,
+        "y": 830,
+        "width": 200,
+        "height": 104,
+        "inputs": [
+          {
+            "id": "snd_mul_s_e2e792b6-in-0",
+            "name": "A",
+            "type": "number",
+            "value": 500,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_mul_s_e2e792b6-in-1",
+            "name": "B",
+            "type": "number",
+            "value": 0.87,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_mul_s_e2e792b6-out-0",
+            "name": "Result",
+            "type": "number",
+            "value": 435,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "σs perm = 0.87 fy",
+        "category": "Math",
+        "color": "#2196F3",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_uls_d7aa986c",
+        "type": "code_uls_biaxial_is456",
+        "x": 720,
+        "y": 40,
+        "width": 200,
+        "height": 300,
+        "inputs": [
+          {
+            "id": "snd_uls_d7aa986c-in-0",
+            "name": "D",
+            "type": "number",
+            "value": 1000,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_uls_d7aa986c-in-1",
+            "name": "layers_json",
+            "type": "string",
+            "value": "[{\"n\":12,\"dia\":16,\"r\":442,\"group\":\"single\"}]",
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_uls_d7aa986c-in-2",
+            "name": "dx",
+            "type": "number",
+            "value": 5,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_uls_d7aa986c-in-3",
+            "name": "fck",
+            "type": "number",
+            "value": 30,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_uls_d7aa986c-in-4",
+            "name": "fy",
+            "type": "number",
+            "value": 500,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_uls_d7aa986c-in-5",
+            "name": "Asc",
+            "type": "number",
+            "value": 2412.743157956961,
+            "connected": true,
+            "unit": "mm²"
+          },
+          {
+            "id": "snd_uls_d7aa986c-in-6",
+            "name": "Pu",
+            "type": "number",
+            "value": 2000,
+            "connected": true,
+            "unit": "kN"
+          },
+          {
+            "id": "snd_uls_d7aa986c-in-7",
+            "name": "Mux",
+            "type": "number",
+            "value": 300,
+            "connected": true,
+            "unit": "kNm"
+          },
+          {
+            "id": "snd_uls_d7aa986c-in-8",
+            "name": "Muy",
+            "type": "number",
+            "value": 150,
+            "connected": true,
+            "unit": "kNm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_uls_d7aa986c-out-0",
+            "name": "Puz",
+            "type": "number",
+            "value": 11507.653890099411,
+            "connected": false,
+            "unit": "kN"
+          },
+          {
+            "id": "snd_uls_d7aa986c-out-1",
+            "name": "Mux1",
+            "type": "number",
+            "value": 1034.7876871061026,
+            "connected": false,
+            "unit": "kNm"
+          },
+          {
+            "id": "snd_uls_d7aa986c-out-2",
+            "name": "Muy1",
+            "type": "number",
+            "value": 1034.7876871061017,
+            "connected": false,
+            "unit": "kNm"
+          },
+          {
+            "id": "snd_uls_d7aa986c-out-3",
+            "name": "alpha_n",
+            "type": "number",
+            "value": 1,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_uls_d7aa986c-out-4",
+            "name": "ratio",
+            "type": "number",
+            "value": 0.4348718153561283,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_uls_d7aa986c-out-5",
+            "name": "Status",
+            "type": "string",
+            "value": "SAFE 0.435",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "ULS Biaxial (39.6)",
+        "category": "RCC",
+        "color": "#795548",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_sls_3cedd5bc",
+        "type": "code_sls_cracked_is456",
+        "x": 720,
+        "y": 620,
+        "width": 200,
+        "height": 356,
+        "inputs": [
+          {
+            "id": "snd_sls_3cedd5bc-in-0",
+            "name": "D",
+            "type": "number",
+            "value": 1000,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-1",
+            "name": "cover",
+            "type": "number",
+            "value": 50,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-2",
+            "name": "layers_json",
+            "type": "string",
+            "value": "[{\"n\":12,\"dia\":16,\"r\":442,\"group\":\"single\"}]",
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-3",
+            "name": "dx",
+            "type": "number",
+            "value": 5,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-4",
+            "name": "fck",
+            "type": "number",
+            "value": 30,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-5",
+            "name": "fy",
+            "type": "number",
+            "value": 500,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-6",
+            "name": "Ec",
+            "type": "number",
+            "value": 27386.127875258306,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-7",
+            "name": "Es",
+            "type": "number",
+            "value": 200000,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-8",
+            "name": "P",
+            "type": "number",
+            "value": 1400,
+            "connected": true,
+            "unit": "kN"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-9",
+            "name": "Mx",
+            "type": "number",
+            "value": 200,
+            "connected": true,
+            "unit": "kNm"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-in-10",
+            "name": "My",
+            "type": "number",
+            "value": 100,
+            "connected": true,
+            "unit": "kNm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_sls_3cedd5bc-out-0",
+            "name": "eps0",
+            "type": "number",
+            "value": 0.00006288000756473064,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_sls_3cedd5bc-out-1",
+            "name": "kappa",
+            "type": "number",
+            "value": 1.6107256604698406e-7,
+            "connected": false,
+            "unit": "1/mm"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-out-2",
+            "name": "c_NA",
+            "type": "number",
+            "value": 890.3832871466875,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-out-3",
+            "name": "sigma_c",
+            "type": "number",
+            "value": 3.9276168734442702,
+            "connected": false,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-out-4",
+            "name": "sigma_s",
+            "type": "number",
+            "value": 1.662813325607263,
+            "connected": false,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-out-5",
+            "name": "crack",
+            "type": "number",
+            "value": 0,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_sls_3cedd5bc-out-6",
+            "name": "Status",
+            "type": "string",
+            "value": "OK 3.93 MPa / 0.000 mm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "SLS Cracked + Crack",
+        "category": "RCC",
+        "color": "#795548",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_chk_uls_1ffaa171",
+        "type": "compare_check",
+        "x": 1080,
+        "y": 120,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_chk_uls_1ffaa171-in-0",
+            "name": "Demand",
+            "type": "number",
+            "value": 0.4348718153561283,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_uls_1ffaa171-in-1",
+            "name": "Capacity",
+            "type": "number",
+            "value": 1,
+            "connected": true,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_chk_uls_1ffaa171-out-0",
+            "name": "Pass",
+            "type": "boolean",
+            "value": true,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_uls_1ffaa171-out-1",
+            "name": "Ratio",
+            "type": "number",
+            "value": 0.435,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_uls_1ffaa171-out-2",
+            "name": "Status",
+            "type": "string",
+            "value": "PASS ✓",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "ULS interaction",
+        "category": "Logic",
+        "color": "#9C27B0",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_chk_sc_01f6e452",
+        "type": "compare_check",
+        "x": 1080,
+        "y": 700,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_chk_sc_01f6e452-in-0",
+            "name": "Demand",
+            "type": "number",
+            "value": 3.9276168734442702,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_sc_01f6e452-in-1",
+            "name": "Capacity",
+            "type": "number",
+            "value": 13.5,
+            "connected": true,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_chk_sc_01f6e452-out-0",
+            "name": "Pass",
+            "type": "boolean",
+            "value": true,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_sc_01f6e452-out-1",
+            "name": "Ratio",
+            "type": "number",
+            "value": 0.291,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_sc_01f6e452-out-2",
+            "name": "Status",
+            "type": "string",
+            "value": "PASS ✓",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Concrete stress",
+        "category": "Logic",
+        "color": "#9C27B0",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_chk_ss_5d22eba2",
+        "type": "compare_check",
+        "x": 1080,
+        "y": 830,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_chk_ss_5d22eba2-in-0",
+            "name": "Demand",
+            "type": "number",
+            "value": 1.662813325607263,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_ss_5d22eba2-in-1",
+            "name": "Capacity",
+            "type": "number",
+            "value": 435,
+            "connected": true,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_chk_ss_5d22eba2-out-0",
+            "name": "Pass",
+            "type": "boolean",
+            "value": true,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_ss_5d22eba2-out-1",
+            "name": "Ratio",
+            "type": "number",
+            "value": 0.004,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_ss_5d22eba2-out-2",
+            "name": "Status",
+            "type": "string",
+            "value": "PASS ✓",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Steel stress",
+        "category": "Logic",
+        "color": "#9C27B0",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_chk_cr_cf440dec",
+        "type": "compare_check",
+        "x": 1080,
+        "y": 960,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_chk_cr_cf440dec-in-0",
+            "name": "Demand",
+            "type": "number",
+            "value": 0,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_cr_cf440dec-in-1",
+            "name": "Capacity",
+            "type": "number",
+            "value": 0.3,
+            "connected": true,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_chk_cr_cf440dec-out-0",
+            "name": "Pass",
+            "type": "boolean",
+            "value": true,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_cr_cf440dec-out-1",
+            "name": "Ratio",
+            "type": "number",
+            "value": 0,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_cr_cf440dec-out-2",
+            "name": "Status",
+            "type": "string",
+            "value": "PASS ✓",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Crack width",
+        "category": "Logic",
+        "color": "#9C27B0",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_asc_46d25cfe",
+        "type": "display",
+        "x": 1400,
+        "y": 40,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_asc_46d25cfe-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 2412.743157956961,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_asc_46d25cfe-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Asc",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_asc_46d25cfe-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "mm²",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Steel area Asc",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_pst_97ecae88",
+        "type": "display",
+        "x": 1400,
+        "y": 200,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_pst_97ecae88-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 0.30720000000000003,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_pst_97ecae88-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Steel",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_pst_97ecae88-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "%",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Steel percentage",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_mux1_2035d018",
+        "type": "display",
+        "x": 1400,
+        "y": 360,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_mux1_2035d018-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 1034.7876871061026,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_mux1_2035d018-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Mux1",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_mux1_2035d018-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "kNm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Mux1 capacity",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_muy1_ec8e4edd",
+        "type": "display",
+        "x": 1400,
+        "y": 520,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_muy1_ec8e4edd-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 1034.7876871061017,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_muy1_ec8e4edd-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Muy1",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_muy1_ec8e4edd-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "kNm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Muy1 capacity",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_puz_d67ea249",
+        "type": "display",
+        "x": 1400,
+        "y": 680,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_puz_d67ea249-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 11507.653890099411,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_puz_d67ea249-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Puz",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_puz_d67ea249-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "kN",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Puz squash load",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_an_592d224e",
+        "type": "display",
+        "x": 1400,
+        "y": 840,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_an_592d224e-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 1,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_an_592d224e-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "αn",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_an_592d224e-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Alpha n",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_cna_0f7337a0",
+        "type": "display",
+        "x": 1400,
+        "y": 1000,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_cna_0f7337a0-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 890.3832871466875,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_cna_0f7337a0-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "c (NA)",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_cna_0f7337a0-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "mm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "NA depth c",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_ust_63cb36c9",
+        "type": "display",
+        "x": 1400,
+        "y": 1160,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_ust_63cb36c9-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": "SAFE 0.435",
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_ust_63cb36c9-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "ULS",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_ust_63cb36c9-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "ULS verdict",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_sst_33b5a316",
+        "type": "display",
+        "x": 1400,
+        "y": 1320,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_sst_33b5a316-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": "OK 3.93 MPa / 0.000 mm",
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_sst_33b5a316-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "SLS",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_sst_33b5a316-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "SLS verdict",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      }
+    ],
+    "connections": [
+      {
+        "id": "26943b1e-8de8-4fb2-8827-54f4023d5fb0",
+        "fromNodeId": "snd_D_8cb6cdd4",
+        "fromPortId": "snd_D_8cb6cdd4-out-0",
+        "toNodeId": "snd_layout_1f2ed62e",
+        "toPortId": "snd_layout_1f2ed62e-in-0"
+      },
+      {
+        "id": "5055305d-743f-4579-9d0b-8fb9534d008d",
+        "fromNodeId": "snd_cover_cdd68b51",
+        "fromPortId": "snd_cover_cdd68b51-out-0",
+        "toNodeId": "snd_layout_1f2ed62e",
+        "toPortId": "snd_layout_1f2ed62e-in-1"
+      },
+      {
+        "id": "fa600ba0-394d-4db1-b189-50b4087f994c",
+        "fromNodeId": "snd_n_bars_ea2470c5",
+        "fromPortId": "snd_n_bars_ea2470c5-out-0",
+        "toNodeId": "snd_layout_1f2ed62e",
+        "toPortId": "snd_layout_1f2ed62e-in-2"
+      },
+      {
+        "id": "e3238432-1b2b-49a9-8ad5-7477595d7f04",
+        "fromNodeId": "snd_dia_65bec41b",
+        "fromPortId": "snd_dia_65bec41b-out-0",
+        "toNodeId": "snd_layout_1f2ed62e",
+        "toPortId": "snd_layout_1f2ed62e-in-3"
+      },
+      {
+        "id": "de9c044e-d7ce-4cf7-bb51-0389a53acb95",
+        "fromNodeId": "snd_fck_66f30dc2",
+        "fromPortId": "snd_fck_66f30dc2-out-0",
+        "toNodeId": "snd_material_75c30bb8",
+        "toPortId": "snd_material_75c30bb8-in-0"
+      },
+      {
+        "id": "6e1fb84c-64c6-45f2-b745-7c4d3c1e69eb",
+        "fromNodeId": "snd_fy_79939a31",
+        "fromPortId": "snd_fy_79939a31-out-0",
+        "toNodeId": "snd_material_75c30bb8",
+        "toPortId": "snd_material_75c30bb8-in-1"
+      },
+      {
+        "id": "f505a4a2-dd83-472a-aa5d-764893e9c759",
+        "fromNodeId": "snd_fck_66f30dc2",
+        "fromPortId": "snd_fck_66f30dc2-out-0",
+        "toNodeId": "snd_mul_c_890a0308",
+        "toPortId": "snd_mul_c_890a0308-in-0"
+      },
+      {
+        "id": "3a30b701-a91a-44cb-9fa0-39fa527c7f12",
+        "fromNodeId": "snd_fy_79939a31",
+        "fromPortId": "snd_fy_79939a31-out-0",
+        "toNodeId": "snd_mul_s_e2e792b6",
+        "toPortId": "snd_mul_s_e2e792b6-in-0"
+      },
+      {
+        "id": "62e2064a-1193-468d-ab87-72aa667ad0c4",
+        "fromNodeId": "snd_D_8cb6cdd4",
+        "fromPortId": "snd_D_8cb6cdd4-out-0",
+        "toNodeId": "snd_uls_d7aa986c",
+        "toPortId": "snd_uls_d7aa986c-in-0"
+      },
+      {
+        "id": "ccad5469-2a1e-45be-9542-6c4999e472bc",
+        "fromNodeId": "snd_dx_dda34261",
+        "fromPortId": "snd_dx_dda34261-out-0",
+        "toNodeId": "snd_uls_d7aa986c",
+        "toPortId": "snd_uls_d7aa986c-in-2"
+      },
+      {
+        "id": "ac0992f9-8f4f-4813-a015-397b2e56fd1a",
+        "fromNodeId": "snd_fck_66f30dc2",
+        "fromPortId": "snd_fck_66f30dc2-out-0",
+        "toNodeId": "snd_uls_d7aa986c",
+        "toPortId": "snd_uls_d7aa986c-in-3"
+      },
+      {
+        "id": "d0d1a552-156b-4ea2-bf70-b56f1b6af30a",
+        "fromNodeId": "snd_fy_79939a31",
+        "fromPortId": "snd_fy_79939a31-out-0",
+        "toNodeId": "snd_uls_d7aa986c",
+        "toPortId": "snd_uls_d7aa986c-in-4"
+      },
+      {
+        "id": "076dbde4-5cca-4789-9057-c26e4a7e866d",
+        "fromNodeId": "snd_Pu_b9ab51fc",
+        "fromPortId": "snd_Pu_b9ab51fc-out-0",
+        "toNodeId": "snd_uls_d7aa986c",
+        "toPortId": "snd_uls_d7aa986c-in-6"
+      },
+      {
+        "id": "a840d38d-4129-459b-9205-1a69e2c64353",
+        "fromNodeId": "snd_Mux_7deeed59",
+        "fromPortId": "snd_Mux_7deeed59-out-0",
+        "toNodeId": "snd_uls_d7aa986c",
+        "toPortId": "snd_uls_d7aa986c-in-7"
+      },
+      {
+        "id": "9abba84b-d821-428a-8f84-e8db393cd4e0",
+        "fromNodeId": "snd_Muy_b4029b41",
+        "fromPortId": "snd_Muy_b4029b41-out-0",
+        "toNodeId": "snd_uls_d7aa986c",
+        "toPortId": "snd_uls_d7aa986c-in-8"
+      },
+      {
+        "id": "997dccb7-128b-4d0c-8158-50db56084e8d",
+        "fromNodeId": "snd_layout_1f2ed62e",
+        "fromPortId": "snd_layout_1f2ed62e-out-5",
+        "toNodeId": "snd_uls_d7aa986c",
+        "toPortId": "snd_uls_d7aa986c-in-1"
+      },
+      {
+        "id": "0ed95786-cd6f-4a77-bc7b-85ed884fbe87",
+        "fromNodeId": "snd_layout_1f2ed62e",
+        "fromPortId": "snd_layout_1f2ed62e-out-0",
+        "toNodeId": "snd_uls_d7aa986c",
+        "toPortId": "snd_uls_d7aa986c-in-5"
+      },
+      {
+        "id": "0088e332-f2db-4a8d-be55-09e76cca4fdf",
+        "fromNodeId": "snd_D_8cb6cdd4",
+        "fromPortId": "snd_D_8cb6cdd4-out-0",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-0"
+      },
+      {
+        "id": "87aef5b3-2a0b-4fe2-af25-47d80064d5db",
+        "fromNodeId": "snd_cover_cdd68b51",
+        "fromPortId": "snd_cover_cdd68b51-out-0",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-1"
+      },
+      {
+        "id": "2625bb5f-35ac-41a7-a136-49b65bf63f27",
+        "fromNodeId": "snd_dx_dda34261",
+        "fromPortId": "snd_dx_dda34261-out-0",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-3"
+      },
+      {
+        "id": "e0fafff1-4b45-4cc0-b1aa-f4548220b2c7",
+        "fromNodeId": "snd_fck_66f30dc2",
+        "fromPortId": "snd_fck_66f30dc2-out-0",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-4"
+      },
+      {
+        "id": "5e5e4f7d-f2a2-41c3-848b-9268d67e534b",
+        "fromNodeId": "snd_fy_79939a31",
+        "fromPortId": "snd_fy_79939a31-out-0",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-5"
+      },
+      {
+        "id": "f2d887a4-f315-459e-b1a2-9f334c045864",
+        "fromNodeId": "snd_P_83734660",
+        "fromPortId": "snd_P_83734660-out-0",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-8"
+      },
+      {
+        "id": "8fd0b087-4167-4b6f-ac55-7980d866905b",
+        "fromNodeId": "snd_Mx_ab543cc5",
+        "fromPortId": "snd_Mx_ab543cc5-out-0",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-9"
+      },
+      {
+        "id": "bbf2b879-b483-4651-8885-494bff42209c",
+        "fromNodeId": "snd_My_ea769280",
+        "fromPortId": "snd_My_ea769280-out-0",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-10"
+      },
+      {
+        "id": "a998a6dc-14c9-466b-8e92-0d50b33d64ac",
+        "fromNodeId": "snd_layout_1f2ed62e",
+        "fromPortId": "snd_layout_1f2ed62e-out-5",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-2"
+      },
+      {
+        "id": "79896afb-e964-47f4-a196-9106760b1b59",
+        "fromNodeId": "snd_material_75c30bb8",
+        "fromPortId": "snd_material_75c30bb8-out-1",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-6"
+      },
+      {
+        "id": "2fa205dd-18df-4dbb-943d-48c0bf98de5c",
+        "fromNodeId": "snd_material_75c30bb8",
+        "fromPortId": "snd_material_75c30bb8-out-0",
+        "toNodeId": "snd_sls_3cedd5bc",
+        "toPortId": "snd_sls_3cedd5bc-in-7"
+      },
+      {
+        "id": "1a5a0064-829f-43df-89fb-b20e960c42c6",
+        "fromNodeId": "snd_uls_d7aa986c",
+        "fromPortId": "snd_uls_d7aa986c-out-4",
+        "toNodeId": "snd_chk_uls_1ffaa171",
+        "toPortId": "snd_chk_uls_1ffaa171-in-0"
+      },
+      {
+        "id": "822cc5e4-f666-4cff-b689-b3d595dc20b3",
+        "fromNodeId": "snd_uls_limit_36f97dee",
+        "fromPortId": "snd_uls_limit_36f97dee-out-0",
+        "toNodeId": "snd_chk_uls_1ffaa171",
+        "toPortId": "snd_chk_uls_1ffaa171-in-1"
+      },
+      {
+        "id": "9343018a-2b2d-4e75-97f5-0bb6ec8167f8",
+        "fromNodeId": "snd_sls_3cedd5bc",
+        "fromPortId": "snd_sls_3cedd5bc-out-3",
+        "toNodeId": "snd_chk_sc_01f6e452",
+        "toPortId": "snd_chk_sc_01f6e452-in-0"
+      },
+      {
+        "id": "cec95953-2c1b-45cc-9ba9-fd22d98830b2",
+        "fromNodeId": "snd_mul_c_890a0308",
+        "fromPortId": "snd_mul_c_890a0308-out-0",
+        "toNodeId": "snd_chk_sc_01f6e452",
+        "toPortId": "snd_chk_sc_01f6e452-in-1"
+      },
+      {
+        "id": "914985ac-5950-47c3-9597-6c410abbf20c",
+        "fromNodeId": "snd_sls_3cedd5bc",
+        "fromPortId": "snd_sls_3cedd5bc-out-4",
+        "toNodeId": "snd_chk_ss_5d22eba2",
+        "toPortId": "snd_chk_ss_5d22eba2-in-0"
+      },
+      {
+        "id": "37452267-132e-4488-b7ea-aa686990ea10",
+        "fromNodeId": "snd_mul_s_e2e792b6",
+        "fromPortId": "snd_mul_s_e2e792b6-out-0",
+        "toNodeId": "snd_chk_ss_5d22eba2",
+        "toPortId": "snd_chk_ss_5d22eba2-in-1"
+      },
+      {
+        "id": "c4a7cafc-af5b-4fe4-baaf-32bd8c64ab73",
+        "fromNodeId": "snd_sls_3cedd5bc",
+        "fromPortId": "snd_sls_3cedd5bc-out-5",
+        "toNodeId": "snd_chk_cr_cf440dec",
+        "toPortId": "snd_chk_cr_cf440dec-in-0"
+      },
+      {
+        "id": "5f26e28c-2186-4a6b-a83e-16ca35d98d66",
+        "fromNodeId": "snd_crack_limit_58d24264",
+        "fromPortId": "snd_crack_limit_58d24264-out-0",
+        "toNodeId": "snd_chk_cr_cf440dec",
+        "toPortId": "snd_chk_cr_cf440dec-in-1"
+      },
+      {
+        "id": "22c37d64-8b49-4b28-9b69-b3ed385811ef",
+        "fromNodeId": "snd_layout_1f2ed62e",
+        "fromPortId": "snd_layout_1f2ed62e-out-0",
+        "toNodeId": "snd_dsp_asc_46d25cfe",
+        "toPortId": "snd_dsp_asc_46d25cfe-in-0"
+      },
+      {
+        "id": "cc1f5964-5e3d-49a2-b9ef-440379082d1b",
+        "fromNodeId": "snd_layout_1f2ed62e",
+        "fromPortId": "snd_layout_1f2ed62e-out-2",
+        "toNodeId": "snd_dsp_pst_97ecae88",
+        "toPortId": "snd_dsp_pst_97ecae88-in-0"
+      },
+      {
+        "id": "624e1103-f93d-47f9-8ef7-8836c54dff11",
+        "fromNodeId": "snd_uls_d7aa986c",
+        "fromPortId": "snd_uls_d7aa986c-out-1",
+        "toNodeId": "snd_dsp_mux1_2035d018",
+        "toPortId": "snd_dsp_mux1_2035d018-in-0"
+      },
+      {
+        "id": "05d9ce73-47cc-4682-ba1f-a7eb3d172a35",
+        "fromNodeId": "snd_uls_d7aa986c",
+        "fromPortId": "snd_uls_d7aa986c-out-2",
+        "toNodeId": "snd_dsp_muy1_ec8e4edd",
+        "toPortId": "snd_dsp_muy1_ec8e4edd-in-0"
+      },
+      {
+        "id": "8d14dbf5-77f9-402c-83a2-2668b7b74ef0",
+        "fromNodeId": "snd_uls_d7aa986c",
+        "fromPortId": "snd_uls_d7aa986c-out-0",
+        "toNodeId": "snd_dsp_puz_d67ea249",
+        "toPortId": "snd_dsp_puz_d67ea249-in-0"
+      },
+      {
+        "id": "a1ba8ff1-c630-4d99-b688-7491d8756679",
+        "fromNodeId": "snd_uls_d7aa986c",
+        "fromPortId": "snd_uls_d7aa986c-out-3",
+        "toNodeId": "snd_dsp_an_592d224e",
+        "toPortId": "snd_dsp_an_592d224e-in-0"
+      },
+      {
+        "id": "709742af-57ca-4811-be14-64b4ed333f46",
+        "fromNodeId": "snd_sls_3cedd5bc",
+        "fromPortId": "snd_sls_3cedd5bc-out-2",
+        "toNodeId": "snd_dsp_cna_0f7337a0",
+        "toPortId": "snd_dsp_cna_0f7337a0-in-0"
+      },
+      {
+        "id": "6da4d6b6-d40f-4aea-b07f-98442242d412",
+        "fromNodeId": "snd_uls_d7aa986c",
+        "fromPortId": "snd_uls_d7aa986c-out-5",
+        "toNodeId": "snd_dsp_ust_63cb36c9",
+        "toPortId": "snd_dsp_ust_63cb36c9-in-0"
+      },
+      {
+        "id": "b8fbbc76-e9ac-451d-be6b-5fc792590c28",
+        "fromNodeId": "snd_sls_3cedd5bc",
+        "fromPortId": "snd_sls_3cedd5bc-out-6",
+        "toNodeId": "snd_dsp_sst_33b5a316",
+        "toPortId": "snd_dsp_sst_33b5a316-in-0"
+      }
+    ],
+    "zoom": 0.404,
+    "panX": 8,
+    "panY": 8
+  },
+  "theme": "dark",
+  "customNodes": [],
+  "codeNodes": [
+    {
+      "id": "code_material_is456",
+      "label": "Material (IS 456)",
+      "description": "Es, Ec = 5000√fck, fcd = 0.45fck, fyd = 0.87fy",
+      "category": "Materials",
+      "inputs": [
+        {
+          "name": "fck",
+          "type": "number",
+          "value": 30,
+          "unit": "MPa"
+        },
+        {
+          "name": "fy",
+          "type": "number",
+          "value": 500,
+          "unit": "MPa"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Es",
+          "type": "number",
+          "unit": "MPa"
+        },
+        {
+          "name": "Ec",
+          "type": "number",
+          "unit": "MPa"
+        },
+        {
+          "name": "fcd",
+          "type": "number",
+          "unit": "MPa"
+        },
+        {
+          "name": "fyd",
+          "type": "number",
+          "unit": "MPa"
+        }
+      ],
+      "code": "// Material properties per IS 456:2000 — port of material_properties(fck, fy).\nconst fck = Number(inputs[\"fck\"]) || 0;   // MPa, characteristic concrete strength\nconst fy  = Number(inputs[\"fy\"])  || 0;   // MPa, characteristic steel strength\n\nconst Es  = 200000.0;                     // MPa\nconst Ec  = 5000.0 * Math.sqrt(fck);      // MPa  (IS 456 Cl 6.2.1)\nconst fcd = 0.45 * fck;                   // MPa  (ULS concrete design strength)\nconst fyd = 0.87 * fy;                    // MPa  (ULS steel design strength)\n\nreturn { \"Es\": Es, \"Ec\": Ec, \"fcd\": fcd, \"fyd\": fyd };"
+    },
+    {
+      "id": "code_rebar_layout",
+      "label": "Rebar Layout",
+      "description": "Circular-section bar layout: single / bundle / triplet, 1 or 2 layers, extra layers as \"n:dia:r[:group];…\"",
+      "category": "RCC",
+      "inputs": [
+        {
+          "name": "D",
+          "type": "number",
+          "value": 1000,
+          "unit": "mm"
+        },
+        {
+          "name": "cover",
+          "type": "number",
+          "value": 50,
+          "unit": "mm"
+        },
+        {
+          "name": "n_bars",
+          "type": "number",
+          "value": 12,
+          "unit": ""
+        },
+        {
+          "name": "dia",
+          "type": "number",
+          "value": 16,
+          "unit": "mm"
+        },
+        {
+          "name": "group_type",
+          "type": "string",
+          "value": "single",
+          "unit": ""
+        },
+        {
+          "name": "two_layer",
+          "type": "boolean",
+          "value": false,
+          "unit": ""
+        },
+        {
+          "name": "extra_layers",
+          "type": "string",
+          "value": "",
+          "unit": ""
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Asc",
+          "type": "number",
+          "unit": "mm²"
+        },
+        {
+          "name": "Ac",
+          "type": "number",
+          "unit": "mm²"
+        },
+        {
+          "name": "p_steel",
+          "type": "number",
+          "unit": "%"
+        },
+        {
+          "name": "r_bar",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "n_placed",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "layers_json",
+          "type": "string",
+          "unit": ""
+        },
+        {
+          "name": "layout",
+          "type": "string",
+          "unit": ""
+        }
+      ],
+      "code": "// Reinforcement layout for a circular section.\n// Port of CircularSection._place_steel(): single bars, bundles (2) and\n// triplets (3), one or two concentric layers, plus optional extra layers.\n// Outputs the total steel area and a JSON description of the bar layers that\n// the ULS / SLS nodes consume (they rebuild the same bar coordinates).\nconst D      = Number(inputs[\"D\"]) || 0;                        // mm\nconst cover  = Number(inputs[\"cover\"]) || 0;                    // mm\nconst n_bars = Math.round(Number(inputs[\"n_bars\"]) || 0);\nconst dia    = Number(inputs[\"dia\"]) || 0;                      // mm\nconst group  = String(inputs[\"group_type\"] || \"single\").trim().toLowerCase();\nconst twoLay = Boolean(inputs[\"two_layer\"]);\nconst extra  = String(inputs[\"extra_layers\"] || \"\").trim();      // \"n:dia:r[:group];...\"\n\nif (D <= 0) throw new Error(\"D must be greater than 0\");\nconst R = D / 2;\nconst r_out = R - cover - dia / 2;\nif (r_out <= 0) throw new Error(\"cover + dia/2 exceeds the section radius\");\n\nconst PER = { single: 1, bundle: 2, triplet: 3 };\nfunction perGroup(g) {\n  if (PER[g] === undefined) throw new Error('group_type must be single, bundle or triplet (got \"' + g + '\")');\n  return PER[g];\n}\n\n// ── layer list (menu options 1, 2 and 3 of the original script) ──\nconst layers = [];\nconst bpg = perGroup(group);\nif (twoLay) {\n  if (n_bars % (bpg * 2) !== 0) throw new Error(\"two layers need a bar count divisible by \" + (bpg * 2));\n  const n1 = Math.floor(n_bars / 2);\n  layers.push({ n: n1, dia: dia, r: r_out, group: group });\n  layers.push({ n: n_bars - n1, dia: dia, r: r_out - Math.max(dia, 25.0), group: group });\n} else {\n  if (n_bars % bpg !== 0) throw new Error(\"bar count \" + n_bars + \" is not divisible by \" + bpg + ' for \"' + group + '\"');\n  layers.push({ n: n_bars, dia: dia, r: r_out, group: group });\n}\nif (extra !== \"\") {\n  extra.split(\";\").forEach(function (chunk) {\n    const s = chunk.trim();\n    if (s === \"\") return;\n    const p = s.split(\":\");\n    if (p.length < 3) throw new Error('extra_layers entry \"' + s + '\" must be n:dia:radius[:group]');\n    layers.push({\n      n: Math.round(Number(p[0])), dia: Number(p[1]), r: Number(p[2]),\n      group: String(p[3] || \"single\").trim().toLowerCase(),\n    });\n  });\n}\n\n// ── place the bars ──\nconst bars = [];\nlayers.forEach(function (L) {\n  const per = perGroup(L.group);\n  if (L.n % per !== 0) throw new Error(\"layer with \" + L.n + ' bars is not divisible by ' + per + ' (\"' + L.group + '\")');\n  if (L.r <= 0) throw new Error(\"layer radius must be greater than 0\");\n  const nGroups = L.n / per;\n  const aBar = Math.PI * L.dia * L.dia / 4;\n  const dth = per > 1 ? L.dia / L.r : 0;          // arc spacing ~= bar diameter\n  for (let i = 0; i < nGroups; i++) {\n    const base = 2 * Math.PI * i / nGroups;\n    const angles = per === 1 ? [base]\n      : per === 2 ? [base - dth / 2, base + dth / 2]\n      : [base - dth, base, base + dth];\n    for (let k = 0; k < angles.length; k++) {\n      bars.push([L.r * Math.cos(angles[k]), L.r * Math.sin(angles[k]), aBar]);\n    }\n  }\n});\n\nlet Asc = 0, r_max = 0;\nfor (let i = 0; i < bars.length; i++) {\n  Asc += bars[i][2];\n  r_max = Math.max(r_max, Math.sqrt(bars[i][0] * bars[i][0] + bars[i][1] * bars[i][1]));\n}\nconst Ac = Math.PI * R * R;\nconst p_steel = Ac > 0 ? 100 * Asc / Ac : 0;\nconst layout = layers.map(function (L) {\n  return L.n + \" x \" + L.dia + \"mm @ r=\" + L.r.toFixed(1) + \" (\" + L.group + \")\";\n}).join(\"  +  \");\n\nreturn {\n  \"Asc\": Asc,\n  \"Ac\": Ac,\n  \"p_steel\": p_steel,\n  \"r_bar\": r_max,\n  \"n_placed\": bars.length,\n  \"layers_json\": JSON.stringify(layers),\n  \"layout\": layout\n};"
+    },
+    {
+      "id": "code_uls_biaxial_is456",
+      "label": "ULS Biaxial (39.6)",
+      "description": "IS 456 Cl 39.6 biaxial check: fibre model + neutral-axis scan → Mux1, Muy1, αn and the interaction ratio. Loads in kN / kNm.",
+      "category": "RCC",
+      "inputs": [
+        {
+          "name": "D",
+          "type": "number",
+          "value": 1000,
+          "unit": "mm"
+        },
+        {
+          "name": "layers_json",
+          "type": "string",
+          "value": "[]",
+          "unit": ""
+        },
+        {
+          "name": "dx",
+          "type": "number",
+          "value": 5,
+          "unit": "mm"
+        },
+        {
+          "name": "fck",
+          "type": "number",
+          "value": 30,
+          "unit": "MPa"
+        },
+        {
+          "name": "fy",
+          "type": "number",
+          "value": 500,
+          "unit": "MPa"
+        },
+        {
+          "name": "Asc",
+          "type": "number",
+          "value": 0,
+          "unit": "mm²"
+        },
+        {
+          "name": "Pu",
+          "type": "number",
+          "value": 2000,
+          "unit": "kN"
+        },
+        {
+          "name": "Mux",
+          "type": "number",
+          "value": 300,
+          "unit": "kNm"
+        },
+        {
+          "name": "Muy",
+          "type": "number",
+          "value": 150,
+          "unit": "kNm"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Puz",
+          "type": "number",
+          "unit": "kN"
+        },
+        {
+          "name": "Mux1",
+          "type": "number",
+          "unit": "kNm"
+        },
+        {
+          "name": "Muy1",
+          "type": "number",
+          "unit": "kNm"
+        },
+        {
+          "name": "alpha_n",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "ratio",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "Status",
+          "type": "string",
+          "unit": ""
+        }
+      ],
+      "code": "// ULS biaxial bending check for a circular RC section — IS 456:2000 Cl 39.6.\n// Port of CircularSection.check_uls() + uniaxial_capacity_uls().\n// Fibre model with strain compatibility: parabolic-rectangular concrete\n// (fcd = 0.45 fck, eps_cu = 0.0035) and bilinear steel (fyd = 0.87 fy).\n// The neutral-axis depth is scanned over logspace(-2, 3, 300) * R, the N-M\n// points are sorted by N and the moment at the demanded axial load is read off\n// by linear interpolation (largest value where the curve is multi-valued).\n// Loads enter in kN / kNm, capacities leave in kN / kNm.\nconst D      = Number(inputs[\"D\"]) || 0;                    // mm\nconst dx     = Number(inputs[\"dx\"]) || 5;                  // mm, fibre grid (original script used 5)\nconst fck    = Number(inputs[\"fck\"]) || 0;                  // MPa\nconst fy     = Number(inputs[\"fy\"]) || 0;                   // MPa\nconst Asc    = Number(inputs[\"Asc\"]) || 0;                  // mm2\nconst Pu     = (Number(inputs[\"Pu\"])  || 0) * 1000;         // kN  -> N\nconst Mux    = (Number(inputs[\"Mux\"]) || 0) * 1e6;          // kNm -> Nmm\nconst Muy    = (Number(inputs[\"Muy\"]) || 0) * 1e6;          // kNm -> Nmm\nconst layers = JSON.parse(String(inputs[\"layers_json\"] || \"[]\"));\n\n// ── shared section builder (fibre grid + bar coordinates) ──\nfunction placeBars(layers) {\n  const PER = { single: 1, bundle: 2, triplet: 3 };\n  const bx = [], by = [], ba = [];\n  for (let i = 0; i < layers.length; i++) {\n    const L = layers[i];\n    const per = PER[L.group] === undefined ? 1 : PER[L.group];\n    if (L.n % per !== 0) throw new Error(\"layer with \" + L.n + \" bars is not divisible by \" + per);\n    const nGroups = L.n / per;\n    const aBar = Math.PI * L.dia * L.dia / 4;\n    const dth = per > 1 ? L.dia / L.r : 0;\n    for (let g = 0; g < nGroups; g++) {\n      const base = 2 * Math.PI * g / nGroups;\n      const angles = per === 1 ? [base]\n        : per === 2 ? [base - dth / 2, base + dth / 2]\n        : [base - dth, base, base + dth];\n      for (let k = 0; k < angles.length; k++) {\n        bx.push(L.r * Math.cos(angles[k]));\n        by.push(L.r * Math.sin(angles[k]));\n        ba.push(aBar);\n      }\n    }\n  }\n  return { bx: bx, by: by, ba: ba };\n}\n\nfunction buildFibres(R, dx) {\n  // Matches np.arange(-R, R, dx): points -R + i*dx while the value is < R.\n  const fx = [], fy = [], fa = [];\n  const nStep = Math.ceil(2 * R / dx);\n  for (let i = 0; i < nStep; i++) {\n    const x = -R + i * dx;\n    if (x >= R) break;\n    for (let j = 0; j < nStep; j++) {\n      const y = -R + j * dx;\n      if (y >= R) break;\n      if (x * x + y * y <= R * R) { fx.push(x + dx / 2); fy.push(y + dx / 2); fa.push(dx * dx); }\n    }\n  }\n  return { fx: fx, fy: fy, fa: fa };\n}\n\nif (D <= 0) throw new Error(\"D must be greater than 0\");\nif (dx <= 0) throw new Error(\"fibre grid dx must be greater than 0\");\nconst R = D / 2;\nconst fib = buildFibres(R, dx);\nconst bar = placeBars(layers);\nconst nf = fib.fa.length, nb = bar.ba.length;\n\nconst EPS_CU = 0.0035;\nconst Es = 200000.0;\nconst fcd = 0.45 * fck;\nconst fyd = 0.87 * fy;\nconst NPTS = 300;\n\n// Both uniaxial axes are accumulated in one pass per neutral-axis depth\n// (the strain field for x-axis bending varies with y, for y-axis with x).\nconst resX = [], resY = [];\nfor (let i = 0; i < NPTS; i++) {\n  const c = R * Math.pow(10, -2 + 5 * i / (NPTS - 1));\n  const kappa = EPS_CU / c;\n  const eps0 = -kappa * (R - c);\n  let Nx = 0, Mx = 0, Ny = 0, My = 0;\n\n  for (let k = 0; k < nf; k++) {\n    const a = fib.fa[k];\n    const ex = eps0 + kappa * fib.fy[k];\n    let sc = 0;\n    if (ex > 0) {\n      if (ex <= 0.002) { const q = ex / 0.002; sc = fcd * (2 * q - q * q); }\n      else if (ex <= 0.0035) { sc = fcd; }\n    }\n    Nx += sc * a; Mx += sc * a * fib.fy[k];\n\n    const ey = eps0 + kappa * fib.fx[k];\n    let sc2 = 0;\n    if (ey > 0) {\n      if (ey <= 0.002) { const q = ey / 0.002; sc2 = fcd * (2 * q - q * q); }\n      else if (ey <= 0.0035) { sc2 = fcd; }\n    }\n    Ny += sc2 * a; My += sc2 * a * fib.fx[k];\n  }\n\n  for (let k = 0; k < nb; k++) {\n    const a = bar.ba[k];\n    let s1 = Es * (eps0 + kappa * bar.by[k]);\n    if (s1 > fyd) s1 = fyd; else if (s1 < -fyd) s1 = -fyd;\n    Nx += s1 * a; Mx += s1 * a * bar.by[k];\n\n    let s2 = Es * (eps0 + kappa * bar.bx[k]);\n    if (s2 > fyd) s2 = fyd; else if (s2 < -fyd) s2 = -fyd;\n    Ny += s2 * a; My += s2 * a * bar.bx[k];\n  }\n\n  resX.push([Nx, Mx]);\n  resY.push([Ny, My]);\n}\n\nfunction capacityAt(res, P) {\n  const s = res.slice().sort(function (a, b) { return a[0] - b[0]; });\n  let best = null;\n  for (let i = 0; i < s.length - 1; i++) {\n    const n0 = s[i][0], m0 = s[i][1], n1 = s[i + 1][0], m1 = s[i + 1][1];\n    if ((n0 - P) * (n1 - P) <= 0 && Math.abs(n1 - n0) > 1e-12) {\n      const t = (P - n0) / (n1 - n0);\n      const m = m0 + t * (m1 - m0);\n      if (best === null || m > best) best = m;\n    }\n  }\n  return best === null ? 0 : best;\n}\n\nconst Mux1 = capacityAt(resX, Pu);      // Nmm\nconst Muy1 = capacityAt(resY, Pu);      // Nmm\n\n// Squash load per Cl 39.6.1.2 (gross concrete area + 0.75 fy Asc)\nconst Puz = 0.45 * fck * (Math.PI * R * R) + 0.75 * fy * Asc;   // N\n\nlet alpha_n = Puz > 0 ? 0.667 + 1.667 * (Pu / Puz) : 1.0;\nalpha_n = Math.max(1.0, Math.min(2.0, alpha_n));\n\nconst ratio = (Mux1 > 0 && Muy1 > 0)\n  ? Math.pow(Math.abs(Mux) / Mux1, alpha_n) + Math.pow(Math.abs(Muy) / Muy1, alpha_n)\n  : 1e9;\nconst safe = ratio <= 1.0;\nconst Status = (safe ? \"SAFE \" : \"UNSAFE \") + ratio.toFixed(3)\n  + (Mux1 > 0 && Muy1 > 0 ? \"\" : \" (no N-M bracket)\");\n\nreturn {\n  \"Puz\": Puz / 1000,\n  \"Mux1\": Mux1 / 1e6,\n  \"Muy1\": Muy1 / 1e6,\n  \"alpha_n\": alpha_n,\n  \"ratio\": ratio,\n  \"Status\": Status\n};"
+    },
+    {
+      "id": "code_sls_cracked_is456",
+      "label": "SLS Cracked + Crack",
+      "description": "Cracked transformed-section analysis (concrete compression-only) → stresses, NA depth and IS 456 Cl 4.3.2 crack width. Loads in kN / kNm.",
+      "category": "RCC",
+      "inputs": [
+        {
+          "name": "D",
+          "type": "number",
+          "value": 1000,
+          "unit": "mm"
+        },
+        {
+          "name": "cover",
+          "type": "number",
+          "value": 50,
+          "unit": "mm"
+        },
+        {
+          "name": "layers_json",
+          "type": "string",
+          "value": "[]",
+          "unit": ""
+        },
+        {
+          "name": "dx",
+          "type": "number",
+          "value": 5,
+          "unit": "mm"
+        },
+        {
+          "name": "fck",
+          "type": "number",
+          "value": 30,
+          "unit": "MPa"
+        },
+        {
+          "name": "fy",
+          "type": "number",
+          "value": 500,
+          "unit": "MPa"
+        },
+        {
+          "name": "Ec",
+          "type": "number",
+          "value": 27386.1278752583,
+          "unit": "MPa"
+        },
+        {
+          "name": "Es",
+          "type": "number",
+          "value": 200000,
+          "unit": "MPa"
+        },
+        {
+          "name": "P",
+          "type": "number",
+          "value": 1400,
+          "unit": "kN"
+        },
+        {
+          "name": "Mx",
+          "type": "number",
+          "value": 200,
+          "unit": "kNm"
+        },
+        {
+          "name": "My",
+          "type": "number",
+          "value": 100,
+          "unit": "kNm"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "eps0",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "kappa",
+          "type": "number",
+          "unit": "1/mm"
+        },
+        {
+          "name": "c_NA",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "sigma_c",
+          "type": "number",
+          "unit": "MPa"
+        },
+        {
+          "name": "sigma_s",
+          "type": "number",
+          "unit": "MPa"
+        },
+        {
+          "name": "crack",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "Status",
+          "type": "string",
+          "unit": ""
+        }
+      ],
+      "code": "// SLS check for a circular RC section — cracked transformed-section analysis\n// plus the IS 456:2000 Cl 4.3.2 crack-width expression.\n// Port of CircularSection.sls_uniaxial() and check_sls().\n// Concrete is linear elastic and carries compression only; steel is linear\n// elastic (Es = 200000 MPa). The neutral axis is found as the fixed point of\n// c = R + eps0/kappa by bracketed bisection over [0.01 R, 10 D] — the\n// dependency-free stand-in for scipy's brentq (same bracket contract, and the\n// same 10 D fallback when no bracket exists).\n// Loads enter in kN / kNm, stresses leave in MPa, crack width in mm.\nconst D      = Number(inputs[\"D\"]) || 0;                     // mm\nconst cover  = Number(inputs[\"cover\"]) || 0;                 // mm\nconst dx     = Number(inputs[\"dx\"]) || 5;                   // mm, fibre grid (original script used 5)\nconst fck    = Number(inputs[\"fck\"]) || 0;                   // MPa\nconst fy     = Number(inputs[\"fy\"]) || 0;                    // MPa\nconst Ec     = Number(inputs[\"Ec\"]) || 0;                    // MPa\nconst Es     = Number(inputs[\"Es\"]) || 200000;               // MPa\nconst P      = (Number(inputs[\"P\"])  || 0) * 1000;           // kN  -> N\nconst Mx_in  = (Number(inputs[\"Mx\"]) || 0) * 1e6;            // kNm -> Nmm\nconst My_in  = (Number(inputs[\"My\"]) || 0) * 1e6;            // kNm -> Nmm\nconst layers = JSON.parse(String(inputs[\"layers_json\"] || \"[]\"));\n\n// ── shared section builder (fibre grid + bar coordinates) ──\nfunction placeBars(layers) {\n  const PER = { single: 1, bundle: 2, triplet: 3 };\n  const bx = [], by = [], ba = [];\n  for (let i = 0; i < layers.length; i++) {\n    const L = layers[i];\n    const per = PER[L.group] === undefined ? 1 : PER[L.group];\n    if (L.n % per !== 0) throw new Error(\"layer with \" + L.n + \" bars is not divisible by \" + per);\n    const nGroups = L.n / per;\n    const aBar = Math.PI * L.dia * L.dia / 4;\n    const dth = per > 1 ? L.dia / L.r : 0;\n    for (let g = 0; g < nGroups; g++) {\n      const base = 2 * Math.PI * g / nGroups;\n      const angles = per === 1 ? [base]\n        : per === 2 ? [base - dth / 2, base + dth / 2]\n        : [base - dth, base, base + dth];\n      for (let k = 0; k < angles.length; k++) {\n        bx.push(L.r * Math.cos(angles[k]));\n        by.push(L.r * Math.sin(angles[k]));\n        ba.push(aBar);\n      }\n    }\n  }\n  return { bx: bx, by: by, ba: ba };\n}\n\nfunction buildFibres(R, dx) {\n  // Matches np.arange(-R, R, dx): points -R + i*dx while the value is < R.\n  const fx = [], fy = [], fa = [];\n  const nStep = Math.ceil(2 * R / dx);\n  for (let i = 0; i < nStep; i++) {\n    const x = -R + i * dx;\n    if (x >= R) break;\n    for (let j = 0; j < nStep; j++) {\n      const y = -R + j * dx;\n      if (y >= R) break;\n      if (x * x + y * y <= R * R) { fx.push(x + dx / 2); fy.push(y + dx / 2); fa.push(dx * dx); }\n    }\n  }\n  return { fx: fx, fy: fy, fa: fa };\n}\n\nif (D <= 0) throw new Error(\"D must be greater than 0\");\nif (Ec <= 0 || Es <= 0) throw new Error(\"Ec and Es must be greater than 0\");\nconst R = D / 2;\nconst fib = buildFibres(R, dx);\nconst bar = placeBars(layers);\nconst nf = fib.fa.length, nb = bar.ba.length;\nconst M = Math.sqrt(Mx_in * Mx_in + My_in * My_in);          // resultant, Nmm\n\nlet eps0 = 0, kappa = 0, sigma_c = 0, sigma_s = 0, c = 0, crack = 0;\n\nif (M < 1e-6) {\n  // Uncracked / axial only — the original script's early return.\n  sigma_c = P / (Math.PI * R * R);\n  sigma_s = Es * (sigma_c / Ec);\n  c = 0;\n} else {\n  // Transformed section properties for a trial neutral axis at y = R - cg.\n  function stateAt(cg) {\n    const yNA = R - cg;\n    let Ac = 0, Sc = 0, Ic = 0;\n    for (let k = 0; k < nf; k++) {\n      const y = fib.fy[k];\n      if (y >= yNA) { const a = fib.fa[k]; Ac += a; Sc += y * a; Ic += y * y * a; }\n    }\n    let As = 0, Ss = 0, Is = 0;\n    for (let k = 0; k < nb; k++) { const y = bar.by[k], a = bar.ba[k]; As += a; Ss += y * a; Is += y * y * a; }\n    const A = Ec * Ac + Es * As;\n    const B = Ec * Sc + Es * Ss;\n    const C = Ec * Ic + Es * Is;\n    return { A: A, B: B, C: C, det: A * C - B * B };\n  }\n\n  function solveAt(st) {\n    const e0 = (P * st.C - M * st.B) / st.det;\n    const kap = (st.A * M - st.B * P) / st.det;\n    return { eps0: e0, kappa: kap };\n  }\n\n  function residual(cg) {\n    const st = stateAt(cg);\n    if (Math.abs(st.det) < 1e-12) return 1e9;\n    const s = solveAt(st);\n    const yNAa = Math.abs(s.kappa) > 1e-12 ? -s.eps0 / s.kappa : (s.eps0 >= 0 ? -R : R);\n    return (R - yNAa) - cg;\n  }\n\n  // Bracketed bisection (brentq stand-in).\n  let lo = 0.01 * R, hi = 10 * D;\n  let flo = residual(lo), fhi = residual(hi);\n  let solved = isFinite(flo) && isFinite(fhi) && (flo === 0 || fhi === 0 || flo * fhi < 0);\n  if (!solved) {\n    let px = lo, pf = flo;\n    for (let i = 1; i <= 200; i++) {\n      const x = lo + (hi - lo) * i / 200;\n      const fx = residual(x);\n      if (isFinite(fx) && isFinite(pf) && pf * fx <= 0) { hi = x; fhi = fx; lo = px; flo = pf; solved = true; break; }\n      px = x; pf = fx;\n    }\n  }\n  if (solved) {\n    for (let it = 0; it < 200; it++) {\n      const mid = 0.5 * (lo + hi);\n      const fm = residual(mid);\n      if (!isFinite(fm)) break;\n      if (fm === 0 || (hi - lo) < 1e-3) { lo = mid; break; }\n      if (flo * fm < 0) { hi = mid; fhi = fm; } else { lo = mid; flo = fm; }\n    }\n    c = 0.5 * (lo + hi);\n  } else {\n    c = 10 * D;                     // same fallback as the original script\n  }\n\n  const st = stateAt(c);\n  if (Math.abs(st.det) < 1e-12) throw new Error(\"degenerate transformed section (det ~ 0)\");\n  const sol = solveAt(st);\n  eps0 = sol.eps0;\n  kappa = sol.kappa;\n\n  const strain_top = eps0 + kappa * R;\n  sigma_c = Ec * Math.max(strain_top, 0);\n\n  let minStress = 0;\n  let min_y = nb > 0 ? bar.by[0] : 0;\n  for (let k = 0; k < nb; k++) {\n    if (bar.by[k] < min_y) min_y = bar.by[k];\n    const s = Es * (eps0 + kappa * bar.by[k]);\n    if (s < minStress) minStress = s;\n  }\n  sigma_s = Math.abs(minStress);\n\n  // ── crack width, IS 456 Cl 4.3.2 (a_cr assumes a 12 mm bar, as in the\n  //    original script: a_cr = cover + 12) ──\n  if (nb > 0) {\n    const a_cr = cover + 12.0;\n    const c_min = cover;\n    const h = D;\n    const x = c;\n    const d = R - min_y;                 // top fibre to the lowest bar\n    const es = Math.abs(eps0 + kappa * min_y);\n    const b = D;\n    let As_t = 0;\n    for (let k = 0; k < nb; k++) { if (bar.by[k] <= 0) As_t += bar.ba[k]; }\n    let eps_m = es;\n    const dhx = h - x, ddx = d - x;\n    if (As_t > 0 && Math.abs(ddx) > 1e-9 && dhx !== 0) {\n      eps_m = es - (b * dhx * dhx) / (3 * Es * As_t * ddx);\n    }\n    if (eps_m < 0) eps_m = 0;\n    const denom = dhx !== 0 ? 1 + 2 * (a_cr - c_min) / dhx : 0;\n    crack = denom > 0 ? 3 * a_cr * eps_m / denom : 0;\n  }\n}\n\nconst sc_lim = 0.45 * fck;\nconst ss_lim = 0.87 * fy;\nconst cr_lim = 0.3;\nconst fails = [];\nif (sigma_c > sc_lim) fails.push(\"concrete \" + sigma_c.toFixed(2) + \">\" + sc_lim.toFixed(2));\nif (sigma_s > ss_lim) fails.push(\"steel \" + sigma_s.toFixed(2) + \">\" + ss_lim.toFixed(2));\nif (crack > cr_lim) fails.push(\"crack \" + crack.toFixed(3) + \">\" + cr_lim.toFixed(3));\nconst Status = fails.length === 0 ? \"OK \" + sigma_c.toFixed(2) + \" MPa / \" + crack.toFixed(3) + \" mm\"\n  : \"NOT OK (\" + fails.join(\", \") + \")\";\n\nreturn {\n  \"eps0\": eps0,\n  \"kappa\": kappa,\n  \"c_NA\": c,\n  \"sigma_c\": sigma_c,\n  \"sigma_s\": sigma_s,\n  \"crack\": crack,\n  \"Status\": Status\n};"
+    }
+  ]
+}

@@ -48,6 +48,8 @@ export interface Connection {
   fromPortId: string;
   toNodeId: string;
   toPortId: string;
+  /** Custom wire color (CSS color). Absent = theme default wire color. */
+  color?: string;
 }
 
 export interface CanvasState {
@@ -115,7 +117,7 @@ export interface NodeGroup {
 /* ── Shapes feature (additive) ── */
 
 /** Shape types available in the Toolbox "Shapes" tab. */
-export type ShapeType = 'rectangle' | 'square' | 'circle' | 'triangle' | 'diamond' | 'hexagon';
+export type ShapeType = 'rectangle' | 'square' | 'circle' | 'triangle' | 'diamond' | 'hexagon' | 'text';
 
 /** A freeform drawing shape on the canvas (independent of calculation nodes). */
 export interface CanvasShape {
@@ -134,4 +136,21 @@ export interface CanvasShape {
   fillOpacity?: number;
   /** Draw order: true = render in front of wires and default items. */
   front?: boolean;
+  /* ── Text annotations (only meaningful for type 'text') ── */
+  /** Text content. */
+  text?: string;
+  /** Font size in canvas units. Defaults to DEFAULT_TEXT_FONT_SIZE. */
+  fontSize?: number;
+  /** Font color (hex). Falls back to the theme text color at render time. */
+  fontColor?: string;
+  /** Font family CSS stack. Falls back to the system stack. */
+  fontFamily?: string;
+  /** Bold toggle. */
+  fontWeight?: 'normal' | 'bold';
+  /** Italic toggle. */
+  fontStyle?: 'normal' | 'italic';
+  /** Underline toggle. */
+  underline?: boolean;
+  /** Horizontal text alignment inside the box. */
+  textAlign?: 'left' | 'center' | 'right';
 }
