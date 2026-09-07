@@ -1,0 +1,3325 @@
+{
+  "name": "Welded I-Section LTB — IRC:24 / IS 800 Design Check",
+  "version": "1.0",
+  "created": "2026-09-04T19:09:36.349Z",
+  "modified": "2026-09-04T19:09:36.349Z",
+  "canvas": {
+    "nodes": [
+      {
+        "id": "snd_bf_top_df267887",
+        "type": "width_input",
+        "x": 40,
+        "y": 40,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_bf_top_df267887-in-0",
+            "name": "Width",
+            "type": "number",
+            "value": 700,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_bf_top_df267887-out-0",
+            "name": "W",
+            "type": "number",
+            "value": 700,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Top flange width bf",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_tf_top_1243c2c6",
+        "type": "thickness_input",
+        "x": 40,
+        "y": 150,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_tf_top_1243c2c6-in-0",
+            "name": "Thickness",
+            "type": "number",
+            "value": 32,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_tf_top_1243c2c6-out-0",
+            "name": "t",
+            "type": "number",
+            "value": 32,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Top flange thk tf",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_bf_bot_6ad54809",
+        "type": "width_input",
+        "x": 40,
+        "y": 260,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_bf_bot_6ad54809-in-0",
+            "name": "Width",
+            "type": "number",
+            "value": 1000,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_bf_bot_6ad54809-out-0",
+            "name": "W",
+            "type": "number",
+            "value": 1000,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Bot flange width bf",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_tf_bot_1ddf9ce4",
+        "type": "thickness_input",
+        "x": 40,
+        "y": 370,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_tf_bot_1ddf9ce4-in-0",
+            "name": "Thickness",
+            "type": "number",
+            "value": 45,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_tf_bot_1ddf9ce4-out-0",
+            "name": "t",
+            "type": "number",
+            "value": 45,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Bot flange thk tf",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_d_web_26916a7f",
+        "type": "depth_input",
+        "x": 40,
+        "y": 480,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_d_web_26916a7f-in-0",
+            "name": "Depth",
+            "type": "number",
+            "value": 1523,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_d_web_26916a7f-out-0",
+            "name": "D",
+            "type": "number",
+            "value": 1523,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Web clear depth d",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_tw_e69f543a",
+        "type": "thickness_input",
+        "x": 40,
+        "y": 590,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_tw_e69f543a-in-0",
+            "name": "Thickness",
+            "type": "number",
+            "value": 20,
+            "connected": false,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_tw_e69f543a-out-0",
+            "name": "t",
+            "type": "number",
+            "value": 20,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Web thickness tw",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_L_m_26124e2b",
+        "type": "length_input",
+        "x": 40,
+        "y": 730,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_L_m_26124e2b-in-0",
+            "name": "Length",
+            "type": "number",
+            "value": 8.925,
+            "connected": false,
+            "unit": "m"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_L_m_26124e2b-out-0",
+            "name": "L",
+            "type": "number",
+            "value": 8.925,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Unbraced length L_LT",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_fy_f0348487",
+        "type": "fy_input",
+        "x": 40,
+        "y": 840,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_fy_f0348487-in-0",
+            "name": "Fy",
+            "type": "number",
+            "value": 390,
+            "connected": false,
+            "unit": "MPa"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_fy_f0348487-out-0",
+            "name": "Fy",
+            "type": "number",
+            "value": 390,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Steel grade fy",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_gm0_afb8688b",
+        "type": "number_input",
+        "x": 40,
+        "y": 950,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_gm0_afb8688b-in-0",
+            "name": "Value",
+            "type": "number",
+            "value": 1.1,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_gm0_afb8688b-out-0",
+            "name": "Out",
+            "type": "number",
+            "value": 1.1,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "γm0 partial factor",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_Mu_d6ed7159",
+        "type": "moment_input",
+        "x": 40,
+        "y": 1090,
+        "width": 200,
+        "height": 76,
+        "inputs": [
+          {
+            "id": "snd_Mu_d6ed7159-in-0",
+            "name": "Moment",
+            "type": "number",
+            "value": 5000,
+            "connected": false,
+            "unit": "kNm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_Mu_d6ed7159-out-0",
+            "name": "M",
+            "type": "number",
+            "value": 5000,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Applied Mu (factored)",
+        "category": "Inputs",
+        "color": "#4CAF50",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_gross_1001936e",
+        "type": "code_gross_props",
+        "x": 340,
+        "y": 40,
+        "width": 200,
+        "height": 300,
+        "inputs": [
+          {
+            "id": "snd_gross_1001936e-in-0",
+            "name": "bf_top",
+            "type": "number",
+            "value": 700,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_gross_1001936e-in-1",
+            "name": "tf_top",
+            "type": "number",
+            "value": 32,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_gross_1001936e-in-2",
+            "name": "bf_bot",
+            "type": "number",
+            "value": 1000,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_gross_1001936e-in-3",
+            "name": "tf_bot",
+            "type": "number",
+            "value": 45,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_gross_1001936e-in-4",
+            "name": "d_web",
+            "type": "number",
+            "value": 1523,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_gross_1001936e-in-5",
+            "name": "tw",
+            "type": "number",
+            "value": 20,
+            "connected": true,
+            "unit": "mm"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_gross_1001936e-out-0",
+            "name": "overall_depth",
+            "type": "number",
+            "value": 1600,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_gross_1001936e-out-1",
+            "name": "h_f",
+            "type": "number",
+            "value": 1561.5,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_gross_1001936e-out-2",
+            "name": "A_total",
+            "type": "number",
+            "value": 97860,
+            "connected": false,
+            "unit": "mm²"
+          },
+          {
+            "id": "snd_gross_1001936e-out-3",
+            "name": "y_bar",
+            "type": "number",
+            "value": 623.9535050071531,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_gross_1001936e-out-4",
+            "name": "y_pna",
+            "type": "number",
+            "value": 241.5,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_gross_1001936e-out-5",
+            "name": "I_z_gross",
+            "type": "number",
+            "value": 43836692408.447784,
+            "connected": false,
+            "unit": "mm⁴"
+          },
+          {
+            "id": "snd_gross_1001936e-out-6",
+            "name": "I_y_gross",
+            "type": "number",
+            "value": 4665682000,
+            "connected": false,
+            "unit": "mm⁴"
+          },
+          {
+            "id": "snd_gross_1001936e-out-7",
+            "name": "Z_e_gross",
+            "type": "number",
+            "value": 44912504.30520633,
+            "connected": false,
+            "unit": "mm³"
+          },
+          {
+            "id": "snd_gross_1001936e-out-8",
+            "name": "Z_p",
+            "type": "number",
+            "value": 57909145,
+            "connected": false,
+            "unit": "mm³"
+          }
+        ],
+        "label": "Gross I-Section Props",
+        "category": "Section",
+        "color": "#3F51B5",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_classify_48ab823e",
+        "type": "code_classify_irc24",
+        "x": 340,
+        "y": 400,
+        "width": 200,
+        "height": 468,
+        "inputs": [
+          {
+            "id": "snd_classify_48ab823e-in-0",
+            "name": "bf_top",
+            "type": "number",
+            "value": 700,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_classify_48ab823e-in-1",
+            "name": "tf_top",
+            "type": "number",
+            "value": 32,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_classify_48ab823e-in-2",
+            "name": "bf_bot",
+            "type": "number",
+            "value": 1000,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_classify_48ab823e-in-3",
+            "name": "tf_bot",
+            "type": "number",
+            "value": 45,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_classify_48ab823e-in-4",
+            "name": "d_web",
+            "type": "number",
+            "value": 1523,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_classify_48ab823e-in-5",
+            "name": "tw",
+            "type": "number",
+            "value": 20,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_classify_48ab823e-in-6",
+            "name": "fy",
+            "type": "number",
+            "value": 390,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_classify_48ab823e-in-7",
+            "name": "section_type",
+            "type": "string",
+            "value": "welded",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_classify_48ab823e-out-0",
+            "name": "epsilon",
+            "type": "number",
+            "value": 0.8006407690254357,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-1",
+            "name": "b_tf_top",
+            "type": "number",
+            "value": 10.625,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-2",
+            "name": "top_flange_class",
+            "type": "string",
+            "value": "Semi-compact",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-3",
+            "name": "top_plastic_limit",
+            "type": "number",
+            "value": 6.72538245981366,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-4",
+            "name": "top_compact_limit",
+            "type": "number",
+            "value": 7.526023228839096,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-5",
+            "name": "top_semi_compact_limit",
+            "type": "number",
+            "value": 10.888714458745925,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-6",
+            "name": "b_tf_bot",
+            "type": "number",
+            "value": 10.88888888888889,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-7",
+            "name": "d_tw",
+            "type": "number",
+            "value": 76.15,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-8",
+            "name": "web_class",
+            "type": "string",
+            "value": "Compact",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-9",
+            "name": "web_plastic_limit",
+            "type": "number",
+            "value": 67.2538245981366,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-10",
+            "name": "web_compact_limit",
+            "type": "number",
+            "value": 84.06728074767075,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-11",
+            "name": "web_semi_compact_limit",
+            "type": "number",
+            "value": 100.8807368972049,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-12",
+            "name": "overall_class",
+            "type": "string",
+            "value": "Semi-compact",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-13",
+            "name": "top_flange_slender",
+            "type": "boolean",
+            "value": false,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_classify_48ab823e-out-14",
+            "name": "web_slender",
+            "type": "boolean",
+            "value": false,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Section Class IRC:24",
+        "category": "Steel",
+        "color": "#607D8B",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_mul_mm_b3070125",
+        "type": "multiply",
+        "x": 340,
+        "y": 940,
+        "width": 200,
+        "height": 104,
+        "inputs": [
+          {
+            "id": "snd_mul_mm_b3070125-in-0",
+            "name": "A",
+            "type": "number",
+            "value": 8.925,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_mul_mm_b3070125-in-1",
+            "name": "B",
+            "type": "number",
+            "value": 1000,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_mul_mm_b3070125-out-0",
+            "name": "Result",
+            "type": "number",
+            "value": 8925,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "L_LT  m → mm",
+        "category": "Math",
+        "color": "#2196F3",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_r_gyr_0af9c3a2",
+        "type": "radius_gyration",
+        "x": 680,
+        "y": 60,
+        "width": 200,
+        "height": 104,
+        "inputs": [
+          {
+            "id": "snd_r_gyr_0af9c3a2-in-0",
+            "name": "I",
+            "type": "number",
+            "value": 4665682000,
+            "connected": true,
+            "unit": "mm⁴"
+          },
+          {
+            "id": "snd_r_gyr_0af9c3a2-in-1",
+            "name": "A",
+            "type": "number",
+            "value": 97860,
+            "connected": true,
+            "unit": "mm²"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_r_gyr_0af9c3a2-out-0",
+            "name": "r",
+            "type": "number",
+            "value": 218.35088769539655,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "r_y = √(Iy/A)",
+        "category": "Section",
+        "color": "#3F51B5",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_eff_ab73394a",
+        "type": "code_effective_section",
+        "x": 680,
+        "y": 220,
+        "width": 200,
+        "height": 412,
+        "inputs": [
+          {
+            "id": "snd_eff_ab73394a-in-0",
+            "name": "bf_top",
+            "type": "number",
+            "value": 700,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-in-1",
+            "name": "tf_top",
+            "type": "number",
+            "value": 32,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-in-2",
+            "name": "bf_bot",
+            "type": "number",
+            "value": 1000,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-in-3",
+            "name": "tf_bot",
+            "type": "number",
+            "value": 45,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-in-4",
+            "name": "d_web",
+            "type": "number",
+            "value": 1523,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-in-5",
+            "name": "tw",
+            "type": "number",
+            "value": 20,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-in-6",
+            "name": "fy",
+            "type": "number",
+            "value": 390,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_eff_ab73394a-in-7",
+            "name": "top_slender",
+            "type": "boolean",
+            "value": false,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_eff_ab73394a-in-8",
+            "name": "web_slender",
+            "type": "boolean",
+            "value": false,
+            "connected": true,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_eff_ab73394a-out-0",
+            "name": "b_eff_top",
+            "type": "number",
+            "value": 700,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-out-1",
+            "name": "b_eff_bot",
+            "type": "number",
+            "value": 1000,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-out-2",
+            "name": "d_web_eff",
+            "type": "number",
+            "value": 1523,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-out-3",
+            "name": "A_eff",
+            "type": "number",
+            "value": 97860,
+            "connected": false,
+            "unit": "mm²"
+          },
+          {
+            "id": "snd_eff_ab73394a-out-4",
+            "name": "y_bar_eff",
+            "type": "number",
+            "value": 623.9535050071531,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-out-5",
+            "name": "I_z_eff",
+            "type": "number",
+            "value": 43836692408.447784,
+            "connected": false,
+            "unit": "mm⁴"
+          },
+          {
+            "id": "snd_eff_ab73394a-out-6",
+            "name": "Z_e_eff",
+            "type": "number",
+            "value": 44912504.30520633,
+            "connected": false,
+            "unit": "mm³"
+          },
+          {
+            "id": "snd_eff_ab73394a-out-7",
+            "name": "d_comp",
+            "type": "number",
+            "value": 944.0464949928469,
+            "connected": false,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_eff_ab73394a-out-8",
+            "name": "epsilon_235",
+            "type": "number",
+            "value": 0.7762500258061847,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_eff_ab73394a-out-9",
+            "name": "lambda_p_flange",
+            "type": "number",
+            "value": 0.4819577531367064,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_eff_ab73394a-out-10",
+            "name": "rho_flange",
+            "type": "number",
+            "value": 1,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_eff_ab73394a-out-11",
+            "name": "lambda_p_web",
+            "type": "number",
+            "value": 2.141131894509814,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_eff_ab73394a-out-12",
+            "name": "rho_web",
+            "type": "number",
+            "value": 0.41905433778526596,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Effective Section",
+        "category": "Section",
+        "color": "#3F51B5",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_plast_8529250c",
+        "type": "plastic_moment",
+        "x": 680,
+        "y": 680,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_plast_8529250c-in-0",
+            "name": "Fy",
+            "type": "number",
+            "value": 390,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_plast_8529250c-in-1",
+            "name": "Zp",
+            "type": "number",
+            "value": 57909145,
+            "connected": true,
+            "unit": "mm³"
+          },
+          {
+            "id": "snd_plast_8529250c-in-2",
+            "name": "γm0",
+            "type": "number",
+            "value": 1.1,
+            "connected": true,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_plast_8529250c-out-0",
+            "name": "Mp",
+            "type": "number",
+            "value": 22584566550,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_plast_8529250c-out-1",
+            "name": "Md",
+            "type": "number",
+            "value": 20531424136,
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Mp = fy·Zp",
+        "category": "Steel",
+        "color": "#607D8B",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_ltb_05413670",
+        "type": "code_ltb_capacity",
+        "x": 1020,
+        "y": 40,
+        "width": 200,
+        "height": 552,
+        "inputs": [
+          {
+            "id": "snd_ltb_05413670-in-0",
+            "name": "I_y_gross",
+            "type": "number",
+            "value": 4665682000,
+            "connected": true,
+            "unit": "mm⁴"
+          },
+          {
+            "id": "snd_ltb_05413670-in-1",
+            "name": "h_f",
+            "type": "number",
+            "value": 1561.5,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_ltb_05413670-in-2",
+            "name": "tf_top",
+            "type": "number",
+            "value": 32,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_ltb_05413670-in-3",
+            "name": "r_y",
+            "type": "number",
+            "value": 218.35088769539655,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_ltb_05413670-in-4",
+            "name": "Z_e_gross",
+            "type": "number",
+            "value": 44912504.30520633,
+            "connected": true,
+            "unit": "mm³"
+          },
+          {
+            "id": "snd_ltb_05413670-in-5",
+            "name": "Z_p",
+            "type": "number",
+            "value": 57909145,
+            "connected": true,
+            "unit": "mm³"
+          },
+          {
+            "id": "snd_ltb_05413670-in-6",
+            "name": "Z_e_eff",
+            "type": "number",
+            "value": 44912504.30520633,
+            "connected": true,
+            "unit": "mm³"
+          },
+          {
+            "id": "snd_ltb_05413670-in-7",
+            "name": "L_lt",
+            "type": "number",
+            "value": 8925,
+            "connected": true,
+            "unit": "mm"
+          },
+          {
+            "id": "snd_ltb_05413670-in-8",
+            "name": "fy",
+            "type": "number",
+            "value": 390,
+            "connected": true,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_ltb_05413670-in-9",
+            "name": "gamma_m0",
+            "type": "number",
+            "value": 1.1,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-in-10",
+            "name": "curve",
+            "type": "string",
+            "value": "d",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-in-11",
+            "name": "overall_class",
+            "type": "string",
+            "value": "Semi-compact",
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-in-12",
+            "name": "class_override",
+            "type": "string",
+            "value": "auto",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_ltb_05413670-out-0",
+            "name": "section_class",
+            "type": "string",
+            "value": "Semi-compact",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-1",
+            "name": "beta_b",
+            "type": "number",
+            "value": 0.7755684236955377,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-2",
+            "name": "Z_used",
+            "type": "number",
+            "value": 44912504.30520633,
+            "connected": false,
+            "unit": "mm³"
+          },
+          {
+            "id": "snd_ltb_05413670-out-3",
+            "name": "term1",
+            "type": "number",
+            "value": 90269371675.13786,
+            "connected": false,
+            "unit": "N·mm"
+          },
+          {
+            "id": "snd_ltb_05413670-out-4",
+            "name": "mcr_ratio",
+            "type": "number",
+            "value": 0.8376474151615225,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-5",
+            "name": "mcr_factor",
+            "type": "number",
+            "value": 1.0173901216378793,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-6",
+            "name": "M_cr_kNm",
+            "type": "number",
+            "value": 91839.16702874345,
+            "connected": false,
+            "unit": "kNm"
+          },
+          {
+            "id": "snd_ltb_05413670-out-7",
+            "name": "M_eff_Nmm",
+            "type": "number",
+            "value": 17515876679.030468,
+            "connected": false,
+            "unit": "N·mm"
+          },
+          {
+            "id": "snd_ltb_05413670-out-8",
+            "name": "lambda_LT",
+            "type": "number",
+            "value": 0.4367188839055902,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-9",
+            "name": "phi_LT",
+            "type": "number",
+            "value": 0.6853148676639965,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-10",
+            "name": "chi_LT",
+            "type": "number",
+            "value": 0.824092490930023,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-11",
+            "name": "alpha_LT",
+            "type": "number",
+            "value": 0.76,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-12",
+            "name": "alpha_str",
+            "type": "string",
+            "value": "0.76  (curve d)",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-13",
+            "name": "f_bd",
+            "type": "number",
+            "value": 292.1782467842809,
+            "connected": false,
+            "unit": "MPa"
+          },
+          {
+            "id": "snd_ltb_05413670-out-14",
+            "name": "M_d_kNm",
+            "type": "number",
+            "value": 13122.456766586653,
+            "connected": false,
+            "unit": "kNm"
+          },
+          {
+            "id": "snd_ltb_05413670-out-15",
+            "name": "M_d_no_ltb_kNm",
+            "type": "number",
+            "value": 15923.52425366406,
+            "connected": false,
+            "unit": "kNm"
+          },
+          {
+            "id": "snd_ltb_05413670-out-16",
+            "name": "ltb_governs",
+            "type": "boolean",
+            "value": true,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_ltb_05413670-out-17",
+            "name": "Status",
+            "type": "string",
+            "value": "LTB governs — λ_LT = 0.4367 > 0.4, χ_LT = 0.8241  |  class: Semi-compact",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "LTB Design Capacity",
+        "category": "Steel",
+        "color": "#607D8B",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_chk_1a3b9bb8",
+        "type": "compare_check",
+        "x": 1380,
+        "y": 120,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_chk_1a3b9bb8-in-0",
+            "name": "Demand",
+            "type": "number",
+            "value": 5000,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_1a3b9bb8-in-1",
+            "name": "Capacity",
+            "type": "number",
+            "value": 13122.456766586653,
+            "connected": true,
+            "unit": ""
+          }
+        ],
+        "outputs": [
+          {
+            "id": "snd_chk_1a3b9bb8-out-0",
+            "name": "Pass",
+            "type": "boolean",
+            "value": true,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_1a3b9bb8-out-1",
+            "name": "Ratio",
+            "type": "number",
+            "value": 0.381,
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_chk_1a3b9bb8-out-2",
+            "name": "Status",
+            "type": "string",
+            "value": "PASS ✓",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "label": "Mu ≤ M_d",
+        "category": "Logic",
+        "color": "#9C27B0",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_pf_eb8e66a0",
+        "type": "pass_fail",
+        "x": 1380,
+        "y": 320,
+        "width": 200,
+        "height": 104,
+        "inputs": [
+          {
+            "id": "snd_pf_eb8e66a0-in-0",
+            "name": "Check",
+            "type": "boolean",
+            "value": true,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_pf_eb8e66a0-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Mu ≤ M_d (LTB)",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "LTB flexure check",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_cls_used_d7f9f98d",
+        "type": "display",
+        "x": 1680,
+        "y": 40,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_cls_used_d7f9f98d-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": "Semi-compact",
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_cls_used_d7f9f98d-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Class used",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_cls_used_d7f9f98d-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Class used",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_cls_auto_7383d8b2",
+        "type": "display",
+        "x": 1680,
+        "y": 190,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_cls_auto_7383d8b2-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": "Semi-compact",
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_cls_auto_7383d8b2-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Class (auto)",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_cls_auto_7383d8b2-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Class (auto)",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_eps_290b970d",
+        "type": "display",
+        "x": 1680,
+        "y": 340,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_eps_290b970d-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 0.8006407690254357,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_eps_290b970d-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "ε = √(250/fy)",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_eps_290b970d-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "epsilon",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_btf_862b856a",
+        "type": "display",
+        "x": 1680,
+        "y": 490,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_btf_862b856a-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 10.625,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_btf_862b856a-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "b/t top flange",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_btf_862b856a-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "≤ 13.6ε",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "b/t top flange",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_dtw_55c86c14",
+        "type": "display",
+        "x": 1680,
+        "y": 640,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_dtw_55c86c14-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 76.15,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_dtw_55c86c14-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "d/tw web",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_dtw_55c86c14-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "≤ 126ε",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "d/tw web",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_A_959cfba9",
+        "type": "display",
+        "x": 1680,
+        "y": 790,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_A_959cfba9-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 97860,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_A_959cfba9-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "A gross",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_A_959cfba9-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "mm²",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "A gross",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_Ze_80667434",
+        "type": "display",
+        "x": 1680,
+        "y": 940,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_Ze_80667434-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 44912504.30520633,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_Ze_80667434-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Z_e gross",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_Ze_80667434-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "mm³",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Z_e gross",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_Zp_4fbdfc66",
+        "type": "display",
+        "x": 1680,
+        "y": 1090,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_Zp_4fbdfc66-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 57909145,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_Zp_4fbdfc66-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Z_p gross",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_Zp_4fbdfc66-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "mm³",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Z_p gross",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_beff_eb9bc848",
+        "type": "display",
+        "x": 1680,
+        "y": 1240,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_beff_eb9bc848-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 700,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_beff_eb9bc848-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "b_eff top flange",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_beff_eb9bc848-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "mm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "b_eff top flange",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_deff_0ee9e8da",
+        "type": "display",
+        "x": 1680,
+        "y": 1390,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_deff_0ee9e8da-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 1523,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_deff_0ee9e8da-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "d_web effective",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_deff_0ee9e8da-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "mm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "d_web effective",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_Zeeff_c54b3321",
+        "type": "display",
+        "x": 1680,
+        "y": 1540,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_Zeeff_c54b3321-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 44912504.30520633,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_Zeeff_c54b3321-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Z_e effective",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_Zeeff_c54b3321-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "mm³",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Z_e effective",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_beta_1a507c5c",
+        "type": "display",
+        "x": 1680,
+        "y": 1690,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_beta_1a507c5c-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 0.7755684236955377,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_beta_1a507c5c-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "β_b",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_beta_1a507c5c-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "beta_b",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_mcr_b325d119",
+        "type": "display",
+        "x": 1980,
+        "y": 40,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_mcr_b325d119-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 91839.16702874345,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_mcr_b325d119-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "M_cr elastic LTB",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_mcr_b325d119-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "kNm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "M_cr",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_lam_157832f0",
+        "type": "display",
+        "x": 1980,
+        "y": 190,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_lam_157832f0-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 0.4367188839055902,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_lam_157832f0-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "λ_LT",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_lam_157832f0-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "lambda_LT",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_phi_982e09e0",
+        "type": "display",
+        "x": 1980,
+        "y": 340,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_phi_982e09e0-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 0.6853148676639965,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_phi_982e09e0-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "φ_LT",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_phi_982e09e0-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "phi_LT",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_chi_b586aee1",
+        "type": "display",
+        "x": 1980,
+        "y": 490,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_chi_b586aee1-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 0.824092490930023,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_chi_b586aee1-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "χ_LT",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_chi_b586aee1-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "chi_LT",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_alpha_1d3a430f",
+        "type": "display",
+        "x": 1980,
+        "y": 640,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_alpha_1d3a430f-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": "0.76  (curve d)",
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_alpha_1d3a430f-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "α_LT",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_alpha_1d3a430f-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "alpha_LT",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_fbd_bc4a73fa",
+        "type": "display",
+        "x": 1980,
+        "y": 790,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_fbd_bc4a73fa-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 292.1782467842809,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_fbd_bc4a73fa-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "f_bd",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_fbd_bc4a73fa-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "MPa",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "f_bd",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_md_9e01e79d",
+        "type": "display",
+        "x": 1980,
+        "y": 940,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_md_9e01e79d-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 13122.456766586653,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_md_9e01e79d-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "M_d with LTB",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_md_9e01e79d-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "kNm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "M_d (LTB)",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_md0_a85e4df2",
+        "type": "display",
+        "x": 1980,
+        "y": 1090,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_md0_a85e4df2-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 15923.52425366406,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_md0_a85e4df2-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "M_d no LTB",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_md0_a85e4df2-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "kNm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "M_d (no LTB)",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_mp_fbdd0d68",
+        "type": "display",
+        "x": 1980,
+        "y": 1240,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_mp_fbdd0d68-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 22584566550,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_mp_fbdd0d68-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Mp = fy·Zp",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_mp_fbdd0d68-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "N·mm",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Mp reference",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_ratio_4d8c38bd",
+        "type": "display",
+        "x": 1980,
+        "y": 1390,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_ratio_4d8c38bd-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": 0.381,
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_ratio_4d8c38bd-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "Mu / M_d",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_ratio_4d8c38bd-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "Mu / M_d",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      },
+      {
+        "id": "snd_dsp_stat_4653a84c",
+        "type": "display",
+        "x": 1980,
+        "y": 1540,
+        "width": 200,
+        "height": 132,
+        "inputs": [
+          {
+            "id": "snd_dsp_stat_4653a84c-in-0",
+            "name": "Value",
+            "type": "any",
+            "value": "LTB governs — λ_LT = 0.4367 > 0.4, χ_LT = 0.8241  |  class: Semi-compact",
+            "connected": true,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_stat_4653a84c-in-1",
+            "name": "Label",
+            "type": "string",
+            "value": "LTB verdict",
+            "connected": false,
+            "unit": ""
+          },
+          {
+            "id": "snd_dsp_stat_4653a84c-in-2",
+            "name": "Unit",
+            "type": "string",
+            "value": "",
+            "connected": false,
+            "unit": ""
+          }
+        ],
+        "outputs": [],
+        "label": "LTB verdict",
+        "category": "Outputs",
+        "color": "#FF9800",
+        "collapsed": false,
+        "selected": false,
+        "computed": true
+      }
+    ],
+    "connections": [
+      {
+        "id": "91fabbac-f818-439f-bf9b-27dabbad999b",
+        "fromNodeId": "snd_bf_top_df267887",
+        "fromPortId": "snd_bf_top_df267887-out-0",
+        "toNodeId": "snd_gross_1001936e",
+        "toPortId": "snd_gross_1001936e-in-0"
+      },
+      {
+        "id": "c077ae43-6ad2-423d-9f2d-90116529c7bb",
+        "fromNodeId": "snd_tf_top_1243c2c6",
+        "fromPortId": "snd_tf_top_1243c2c6-out-0",
+        "toNodeId": "snd_gross_1001936e",
+        "toPortId": "snd_gross_1001936e-in-1"
+      },
+      {
+        "id": "e270cfdb-e185-41c1-bf7f-242ac648317e",
+        "fromNodeId": "snd_bf_bot_6ad54809",
+        "fromPortId": "snd_bf_bot_6ad54809-out-0",
+        "toNodeId": "snd_gross_1001936e",
+        "toPortId": "snd_gross_1001936e-in-2"
+      },
+      {
+        "id": "45ce782a-47c1-4b0c-9937-b1e7918d9f26",
+        "fromNodeId": "snd_tf_bot_1ddf9ce4",
+        "fromPortId": "snd_tf_bot_1ddf9ce4-out-0",
+        "toNodeId": "snd_gross_1001936e",
+        "toPortId": "snd_gross_1001936e-in-3"
+      },
+      {
+        "id": "426a1926-18e2-4bb6-b47f-1babf4a8d411",
+        "fromNodeId": "snd_d_web_26916a7f",
+        "fromPortId": "snd_d_web_26916a7f-out-0",
+        "toNodeId": "snd_gross_1001936e",
+        "toPortId": "snd_gross_1001936e-in-4"
+      },
+      {
+        "id": "1b31afaa-e4ad-40ac-a33d-9de3514bc020",
+        "fromNodeId": "snd_tw_e69f543a",
+        "fromPortId": "snd_tw_e69f543a-out-0",
+        "toNodeId": "snd_gross_1001936e",
+        "toPortId": "snd_gross_1001936e-in-5"
+      },
+      {
+        "id": "e0d997c9-4ff1-4747-b8ee-6a5e84e523b6",
+        "fromNodeId": "snd_bf_top_df267887",
+        "fromPortId": "snd_bf_top_df267887-out-0",
+        "toNodeId": "snd_classify_48ab823e",
+        "toPortId": "snd_classify_48ab823e-in-0"
+      },
+      {
+        "id": "54cf976d-cf71-48e4-981b-3faab25cf858",
+        "fromNodeId": "snd_tf_top_1243c2c6",
+        "fromPortId": "snd_tf_top_1243c2c6-out-0",
+        "toNodeId": "snd_classify_48ab823e",
+        "toPortId": "snd_classify_48ab823e-in-1"
+      },
+      {
+        "id": "f5ef6c71-813f-47dd-b254-9c22381d80ce",
+        "fromNodeId": "snd_bf_bot_6ad54809",
+        "fromPortId": "snd_bf_bot_6ad54809-out-0",
+        "toNodeId": "snd_classify_48ab823e",
+        "toPortId": "snd_classify_48ab823e-in-2"
+      },
+      {
+        "id": "aa7138fd-0c1b-4fbc-8dff-876f68b80d86",
+        "fromNodeId": "snd_tf_bot_1ddf9ce4",
+        "fromPortId": "snd_tf_bot_1ddf9ce4-out-0",
+        "toNodeId": "snd_classify_48ab823e",
+        "toPortId": "snd_classify_48ab823e-in-3"
+      },
+      {
+        "id": "68138f47-7320-43dc-8879-4fcdbad8a0eb",
+        "fromNodeId": "snd_d_web_26916a7f",
+        "fromPortId": "snd_d_web_26916a7f-out-0",
+        "toNodeId": "snd_classify_48ab823e",
+        "toPortId": "snd_classify_48ab823e-in-4"
+      },
+      {
+        "id": "89acaa56-e46e-40bf-b0dc-4dd750a33946",
+        "fromNodeId": "snd_tw_e69f543a",
+        "fromPortId": "snd_tw_e69f543a-out-0",
+        "toNodeId": "snd_classify_48ab823e",
+        "toPortId": "snd_classify_48ab823e-in-5"
+      },
+      {
+        "id": "a52cbcfd-5899-4654-8d27-daa59b5eafca",
+        "fromNodeId": "snd_fy_f0348487",
+        "fromPortId": "snd_fy_f0348487-out-0",
+        "toNodeId": "snd_classify_48ab823e",
+        "toPortId": "snd_classify_48ab823e-in-6"
+      },
+      {
+        "id": "dea604a1-7298-4515-94bd-de210d68e915",
+        "fromNodeId": "snd_L_m_26124e2b",
+        "fromPortId": "snd_L_m_26124e2b-out-0",
+        "toNodeId": "snd_mul_mm_b3070125",
+        "toPortId": "snd_mul_mm_b3070125-in-0"
+      },
+      {
+        "id": "7e333b20-498f-4293-8a6c-e47da2376f63",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-6",
+        "toNodeId": "snd_r_gyr_0af9c3a2",
+        "toPortId": "snd_r_gyr_0af9c3a2-in-0"
+      },
+      {
+        "id": "e36cb27a-e2ad-42c5-a117-03abfdf21391",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-2",
+        "toNodeId": "snd_r_gyr_0af9c3a2",
+        "toPortId": "snd_r_gyr_0af9c3a2-in-1"
+      },
+      {
+        "id": "561a08d6-10ad-4c6e-ba39-3a232caf8d2d",
+        "fromNodeId": "snd_bf_top_df267887",
+        "fromPortId": "snd_bf_top_df267887-out-0",
+        "toNodeId": "snd_eff_ab73394a",
+        "toPortId": "snd_eff_ab73394a-in-0"
+      },
+      {
+        "id": "6b34a137-9355-490b-92d6-c256242d367e",
+        "fromNodeId": "snd_tf_top_1243c2c6",
+        "fromPortId": "snd_tf_top_1243c2c6-out-0",
+        "toNodeId": "snd_eff_ab73394a",
+        "toPortId": "snd_eff_ab73394a-in-1"
+      },
+      {
+        "id": "a316395e-9f9f-4c3a-ba00-5fac4b574d70",
+        "fromNodeId": "snd_bf_bot_6ad54809",
+        "fromPortId": "snd_bf_bot_6ad54809-out-0",
+        "toNodeId": "snd_eff_ab73394a",
+        "toPortId": "snd_eff_ab73394a-in-2"
+      },
+      {
+        "id": "ef7ee2a0-3b2b-47c0-baca-d0f8c9d2f504",
+        "fromNodeId": "snd_tf_bot_1ddf9ce4",
+        "fromPortId": "snd_tf_bot_1ddf9ce4-out-0",
+        "toNodeId": "snd_eff_ab73394a",
+        "toPortId": "snd_eff_ab73394a-in-3"
+      },
+      {
+        "id": "e4d354f5-2fe5-4f6d-a089-1c5ae9e792fc",
+        "fromNodeId": "snd_d_web_26916a7f",
+        "fromPortId": "snd_d_web_26916a7f-out-0",
+        "toNodeId": "snd_eff_ab73394a",
+        "toPortId": "snd_eff_ab73394a-in-4"
+      },
+      {
+        "id": "a7cfeb14-9d16-4382-9b0e-e431a1eb50b8",
+        "fromNodeId": "snd_tw_e69f543a",
+        "fromPortId": "snd_tw_e69f543a-out-0",
+        "toNodeId": "snd_eff_ab73394a",
+        "toPortId": "snd_eff_ab73394a-in-5"
+      },
+      {
+        "id": "72f7e349-0a17-47ba-903a-f4e7ba1a6afa",
+        "fromNodeId": "snd_fy_f0348487",
+        "fromPortId": "snd_fy_f0348487-out-0",
+        "toNodeId": "snd_eff_ab73394a",
+        "toPortId": "snd_eff_ab73394a-in-6"
+      },
+      {
+        "id": "f78b501f-0b81-4c06-9437-c013614c785a",
+        "fromNodeId": "snd_classify_48ab823e",
+        "fromPortId": "snd_classify_48ab823e-out-13",
+        "toNodeId": "snd_eff_ab73394a",
+        "toPortId": "snd_eff_ab73394a-in-7"
+      },
+      {
+        "id": "46edaafc-30ef-408b-aadc-cd912b7b849f",
+        "fromNodeId": "snd_classify_48ab823e",
+        "fromPortId": "snd_classify_48ab823e-out-14",
+        "toNodeId": "snd_eff_ab73394a",
+        "toPortId": "snd_eff_ab73394a-in-8"
+      },
+      {
+        "id": "bab2d7fc-26fc-486d-9d77-76de16834b81",
+        "fromNodeId": "snd_fy_f0348487",
+        "fromPortId": "snd_fy_f0348487-out-0",
+        "toNodeId": "snd_plast_8529250c",
+        "toPortId": "snd_plast_8529250c-in-0"
+      },
+      {
+        "id": "2b268362-b3f2-443d-9a6b-b086a1055a13",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-8",
+        "toNodeId": "snd_plast_8529250c",
+        "toPortId": "snd_plast_8529250c-in-1"
+      },
+      {
+        "id": "c663ed68-7820-4bf8-b74f-81345fa6673b",
+        "fromNodeId": "snd_gm0_afb8688b",
+        "fromPortId": "snd_gm0_afb8688b-out-0",
+        "toNodeId": "snd_plast_8529250c",
+        "toPortId": "snd_plast_8529250c-in-2"
+      },
+      {
+        "id": "27941059-989f-4745-852b-11d7f0200c37",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-6",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-0"
+      },
+      {
+        "id": "2f1a5b3b-87bc-479d-b5a6-c76d6d1cc169",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-1",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-1"
+      },
+      {
+        "id": "6a764086-ef7c-41c6-8073-334887ca76de",
+        "fromNodeId": "snd_tf_top_1243c2c6",
+        "fromPortId": "snd_tf_top_1243c2c6-out-0",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-2"
+      },
+      {
+        "id": "23d8f5ab-4a0c-4545-a902-150b126b6492",
+        "fromNodeId": "snd_r_gyr_0af9c3a2",
+        "fromPortId": "snd_r_gyr_0af9c3a2-out-0",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-3"
+      },
+      {
+        "id": "2a24d35a-8696-43fa-82ea-eac78dd1e24c",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-7",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-4"
+      },
+      {
+        "id": "29848091-cc41-422a-82ee-b06bf357ffbb",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-8",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-5"
+      },
+      {
+        "id": "4cf175f3-d77e-4d87-90d6-ebc847afea45",
+        "fromNodeId": "snd_eff_ab73394a",
+        "fromPortId": "snd_eff_ab73394a-out-6",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-6"
+      },
+      {
+        "id": "e55aea93-a8d1-440a-bc5b-beb751bcf046",
+        "fromNodeId": "snd_mul_mm_b3070125",
+        "fromPortId": "snd_mul_mm_b3070125-out-0",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-7"
+      },
+      {
+        "id": "ac91b138-d5fb-4024-9732-cc343670d4fc",
+        "fromNodeId": "snd_fy_f0348487",
+        "fromPortId": "snd_fy_f0348487-out-0",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-8"
+      },
+      {
+        "id": "0a811c26-dae9-424b-9ad0-5738c639e379",
+        "fromNodeId": "snd_gm0_afb8688b",
+        "fromPortId": "snd_gm0_afb8688b-out-0",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-9"
+      },
+      {
+        "id": "6d1a92d6-f8e3-4f22-b040-55d5db817901",
+        "fromNodeId": "snd_classify_48ab823e",
+        "fromPortId": "snd_classify_48ab823e-out-12",
+        "toNodeId": "snd_ltb_05413670",
+        "toPortId": "snd_ltb_05413670-in-11"
+      },
+      {
+        "id": "59ddd6d1-2166-422d-9611-42bbc1a63b2b",
+        "fromNodeId": "snd_Mu_d6ed7159",
+        "fromPortId": "snd_Mu_d6ed7159-out-0",
+        "toNodeId": "snd_chk_1a3b9bb8",
+        "toPortId": "snd_chk_1a3b9bb8-in-0"
+      },
+      {
+        "id": "8bbaabe5-fe92-4e8d-8259-05046f0869c0",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-14",
+        "toNodeId": "snd_chk_1a3b9bb8",
+        "toPortId": "snd_chk_1a3b9bb8-in-1"
+      },
+      {
+        "id": "2f71320c-224a-4cae-9352-c1732b2adfc2",
+        "fromNodeId": "snd_chk_1a3b9bb8",
+        "fromPortId": "snd_chk_1a3b9bb8-out-0",
+        "toNodeId": "snd_pf_eb8e66a0",
+        "toPortId": "snd_pf_eb8e66a0-in-0"
+      },
+      {
+        "id": "92edc07f-e95b-4a64-8f4a-3aa112e8257a",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-0",
+        "toNodeId": "snd_dsp_cls_used_d7f9f98d",
+        "toPortId": "snd_dsp_cls_used_d7f9f98d-in-0"
+      },
+      {
+        "id": "0cf6f408-f1b1-47af-b5d0-3683341c1c30",
+        "fromNodeId": "snd_classify_48ab823e",
+        "fromPortId": "snd_classify_48ab823e-out-12",
+        "toNodeId": "snd_dsp_cls_auto_7383d8b2",
+        "toPortId": "snd_dsp_cls_auto_7383d8b2-in-0"
+      },
+      {
+        "id": "186ddbb9-4d35-4a23-8fbd-780ebfde516e",
+        "fromNodeId": "snd_classify_48ab823e",
+        "fromPortId": "snd_classify_48ab823e-out-0",
+        "toNodeId": "snd_dsp_eps_290b970d",
+        "toPortId": "snd_dsp_eps_290b970d-in-0"
+      },
+      {
+        "id": "b94e5d47-9aad-4e19-85af-8e5fe66ce18e",
+        "fromNodeId": "snd_classify_48ab823e",
+        "fromPortId": "snd_classify_48ab823e-out-1",
+        "toNodeId": "snd_dsp_btf_862b856a",
+        "toPortId": "snd_dsp_btf_862b856a-in-0"
+      },
+      {
+        "id": "107fd31f-8445-4da4-a15a-948117a9e292",
+        "fromNodeId": "snd_classify_48ab823e",
+        "fromPortId": "snd_classify_48ab823e-out-7",
+        "toNodeId": "snd_dsp_dtw_55c86c14",
+        "toPortId": "snd_dsp_dtw_55c86c14-in-0"
+      },
+      {
+        "id": "55e02945-f8ff-49ce-9946-1d412bf5acb8",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-2",
+        "toNodeId": "snd_dsp_A_959cfba9",
+        "toPortId": "snd_dsp_A_959cfba9-in-0"
+      },
+      {
+        "id": "8772f926-269c-4bf4-8862-77e4c9de214a",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-7",
+        "toNodeId": "snd_dsp_Ze_80667434",
+        "toPortId": "snd_dsp_Ze_80667434-in-0"
+      },
+      {
+        "id": "cd7767ee-2aff-4ed2-ad6b-9726f0fc7d7e",
+        "fromNodeId": "snd_gross_1001936e",
+        "fromPortId": "snd_gross_1001936e-out-8",
+        "toNodeId": "snd_dsp_Zp_4fbdfc66",
+        "toPortId": "snd_dsp_Zp_4fbdfc66-in-0"
+      },
+      {
+        "id": "551ebbeb-3a42-4c9a-b13d-81f19cd332ff",
+        "fromNodeId": "snd_eff_ab73394a",
+        "fromPortId": "snd_eff_ab73394a-out-0",
+        "toNodeId": "snd_dsp_beff_eb9bc848",
+        "toPortId": "snd_dsp_beff_eb9bc848-in-0"
+      },
+      {
+        "id": "0232f5ca-1c95-4d3c-ad27-438c0d6d6dde",
+        "fromNodeId": "snd_eff_ab73394a",
+        "fromPortId": "snd_eff_ab73394a-out-2",
+        "toNodeId": "snd_dsp_deff_0ee9e8da",
+        "toPortId": "snd_dsp_deff_0ee9e8da-in-0"
+      },
+      {
+        "id": "95886b0a-d99b-42c0-a8da-450f703aeeff",
+        "fromNodeId": "snd_eff_ab73394a",
+        "fromPortId": "snd_eff_ab73394a-out-6",
+        "toNodeId": "snd_dsp_Zeeff_c54b3321",
+        "toPortId": "snd_dsp_Zeeff_c54b3321-in-0"
+      },
+      {
+        "id": "473349ab-d1ae-4de2-8676-6ef648c64f6c",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-1",
+        "toNodeId": "snd_dsp_beta_1a507c5c",
+        "toPortId": "snd_dsp_beta_1a507c5c-in-0"
+      },
+      {
+        "id": "fc3cc181-b3dc-4c84-b89c-6177c14bf79b",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-6",
+        "toNodeId": "snd_dsp_mcr_b325d119",
+        "toPortId": "snd_dsp_mcr_b325d119-in-0"
+      },
+      {
+        "id": "3b7087bc-b0da-4569-a6dc-fe548d5b1c82",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-8",
+        "toNodeId": "snd_dsp_lam_157832f0",
+        "toPortId": "snd_dsp_lam_157832f0-in-0"
+      },
+      {
+        "id": "b1a6d30c-641e-432f-afdc-ea21a3e0068c",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-9",
+        "toNodeId": "snd_dsp_phi_982e09e0",
+        "toPortId": "snd_dsp_phi_982e09e0-in-0"
+      },
+      {
+        "id": "47a78806-c128-449b-bec7-333303702722",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-10",
+        "toNodeId": "snd_dsp_chi_b586aee1",
+        "toPortId": "snd_dsp_chi_b586aee1-in-0"
+      },
+      {
+        "id": "415f9c79-045b-4fc4-8560-5a6c5574cc0a",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-12",
+        "toNodeId": "snd_dsp_alpha_1d3a430f",
+        "toPortId": "snd_dsp_alpha_1d3a430f-in-0"
+      },
+      {
+        "id": "309d959e-6c7f-4e3b-9128-6969f74b3d6f",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-13",
+        "toNodeId": "snd_dsp_fbd_bc4a73fa",
+        "toPortId": "snd_dsp_fbd_bc4a73fa-in-0"
+      },
+      {
+        "id": "7ed66ff7-a9da-4894-ae7f-6fcafbb1ccae",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-14",
+        "toNodeId": "snd_dsp_md_9e01e79d",
+        "toPortId": "snd_dsp_md_9e01e79d-in-0"
+      },
+      {
+        "id": "745143bf-4f4b-493e-ae18-d2f9a7430ba4",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-15",
+        "toNodeId": "snd_dsp_md0_a85e4df2",
+        "toPortId": "snd_dsp_md0_a85e4df2-in-0"
+      },
+      {
+        "id": "94b17b0d-043f-42b3-9c31-b9731111c0bc",
+        "fromNodeId": "snd_plast_8529250c",
+        "fromPortId": "snd_plast_8529250c-out-0",
+        "toNodeId": "snd_dsp_mp_fbdd0d68",
+        "toPortId": "snd_dsp_mp_fbdd0d68-in-0"
+      },
+      {
+        "id": "e258f5c2-ce18-46df-a8da-163359979856",
+        "fromNodeId": "snd_chk_1a3b9bb8",
+        "fromPortId": "snd_chk_1a3b9bb8-out-1",
+        "toNodeId": "snd_dsp_ratio_4d8c38bd",
+        "toPortId": "snd_dsp_ratio_4d8c38bd-in-0"
+      },
+      {
+        "id": "a12cf173-2bf2-4095-847c-47b00370e413",
+        "fromNodeId": "snd_ltb_05413670",
+        "fromPortId": "snd_ltb_05413670-out-17",
+        "toNodeId": "snd_dsp_stat_4653a84c",
+        "toPortId": "snd_dsp_stat_4653a84c-in-0"
+      }
+    ],
+    "zoom": 0.389,
+    "panX": 8,
+    "panY": 8
+  },
+  "theme": "dark",
+  "customNodes": [],
+  "codeNodes": [
+    {
+      "id": "code_gross_props",
+      "label": "Gross I-Section Props",
+      "description": "Welded unsymmetric I-section: A, y_bar, I_z, I_y, Z_e, Z_p (two-branch equal-area-axis search) and h_f. Port of the gross-property block of ltb_moment_capacity_welded().",
+      "category": "Section",
+      "inputs": [
+        {
+          "name": "bf_top",
+          "type": "number",
+          "value": 700,
+          "unit": "mm"
+        },
+        {
+          "name": "tf_top",
+          "type": "number",
+          "value": 32,
+          "unit": "mm"
+        },
+        {
+          "name": "bf_bot",
+          "type": "number",
+          "value": 1000,
+          "unit": "mm"
+        },
+        {
+          "name": "tf_bot",
+          "type": "number",
+          "value": 45,
+          "unit": "mm"
+        },
+        {
+          "name": "d_web",
+          "type": "number",
+          "value": 1523,
+          "unit": "mm"
+        },
+        {
+          "name": "tw",
+          "type": "number",
+          "value": 20,
+          "unit": "mm"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "overall_depth",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "h_f",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "A_total",
+          "type": "number",
+          "unit": "mm²"
+        },
+        {
+          "name": "y_bar",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "y_pna",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "I_z_gross",
+          "type": "number",
+          "unit": "mm⁴"
+        },
+        {
+          "name": "I_y_gross",
+          "type": "number",
+          "unit": "mm⁴"
+        },
+        {
+          "name": "Z_e_gross",
+          "type": "number",
+          "unit": "mm³"
+        },
+        {
+          "name": "Z_p",
+          "type": "number",
+          "unit": "mm³"
+        }
+      ],
+      "code": "// Gross properties of a welded (doubly-unsymmetric) I-section.\n// Port of the \"Gross section properties\" block of ltb_moment_capacity_welded().\n// Dimensions in mm; y_bar / y_pna are measured from the BOTTOM of the bottom flange.\nconst bf_top = Number(inputs[\"bf_top\"]) || 0;\nconst tf_top = Number(inputs[\"tf_top\"]) || 0;\nconst bf_bot = Number(inputs[\"bf_bot\"]) || 0;\nconst tf_bot = Number(inputs[\"tf_bot\"]) || 0;\nconst d_web  = Number(inputs[\"d_web\"])  || 0;   // clear web depth between flanges\nconst tw     = Number(inputs[\"tw\"])     || 0;\n\nconst A_top = bf_top * tf_top;\nconst A_bot = bf_bot * tf_bot;\nconst A_web = d_web * tw;\nconst A_total = A_top + A_bot + A_web;\n\nconst y_bot_flange_centroid = tf_bot / 2;\nconst y_web_centroid = tf_bot + d_web / 2;\nconst y_top_flange_centroid = tf_bot + d_web + tf_top / 2;\n\nconst y_bar = (A_bot * y_bot_flange_centroid + A_web * y_web_centroid + A_top * y_top_flange_centroid) / A_total;\n\nconst overall_depth = tf_bot + d_web + tf_top;\nconst y_top_extreme = overall_depth - y_bar;\n\nconst I_bot = (bf_bot * Math.pow(tf_bot, 3) / 12) + A_bot * ((y_bar - y_bot_flange_centroid) * (y_bar - y_bot_flange_centroid));\nconst I_web = (tw * Math.pow(d_web, 3) / 12) + A_web * ((y_bar - y_web_centroid) * (y_bar - y_web_centroid));\nconst I_top = (bf_top * Math.pow(tf_top, 3) / 12) + A_top * ((y_bar - y_top_flange_centroid) * (y_bar - y_top_flange_centroid));\nconst I_z_gross = I_bot + I_web + I_top;\n\nconst I_y_gross = (tf_top * Math.pow(bf_top, 3) / 12) + (tf_bot * Math.pow(bf_bot, 3) / 12) + (d_web * Math.pow(tw, 3) / 12);\n\nconst Z_e_gross = I_z_gross / y_top_extreme;      // elastic modulus, extreme TOP fibre\n\n// Plastic modulus — the original's two-branch equal-area-axis search, verbatim:\n//   branch 1  equal-area axis lies inside the BOTTOM flange\n//   branch 2  equal-area axis lies inside the WEB\n// There is deliberately no third branch, so a section whose axis would fall in\n// the TOP flange is extrapolated rather than solved (kept as in the original).\nconst half_area = A_total / 2.0;\nlet y_pna = 0.0;\nlet Z_p = 0.0;\nif (A_bot >= half_area) {\n  y_pna = half_area / bf_bot;\n  Z_p += bf_bot * (y_pna * y_pna) / 2.0;\n  Z_p += bf_bot * ((tf_bot - y_pna) * (tf_bot - y_pna)) / 2.0;\n  Z_p += A_web * (tf_bot - y_pna + d_web / 2);\n  Z_p += A_top * (tf_bot - y_pna + d_web + tf_top / 2);\n} else {\n  const remaining = half_area - A_bot;\n  const y_web_comp = remaining / tw;\n  y_pna = tf_bot + y_web_comp;\n  Z_p += A_bot * (y_pna - y_bot_flange_centroid);\n  Z_p += tw * (y_web_comp * y_web_comp) / 2.0;\n  const y_web_tens_centroid = tf_bot + y_web_comp + (d_web - y_web_comp) / 2;\n  Z_p += (tw * (d_web - y_web_comp)) * (y_web_tens_centroid - y_pna);\n  Z_p += A_top * (y_top_flange_centroid - y_pna);\n}\n\n// flange-centroid distance used by the M_cr formula\nconst h_f = overall_depth - tf_top / 2 - tf_bot / 2;\n\nreturn { \"overall_depth\": overall_depth, \"h_f\": h_f, \"A_total\": A_total, \"y_bar\": y_bar, \"y_pna\": y_pna, \"I_z_gross\": I_z_gross, \"I_y_gross\": I_y_gross, \"Z_e_gross\": Z_e_gross, \"Z_p\": Z_p };"
+    },
+    {
+      "id": "code_classify_irc24",
+      "label": "Section Class IRC:24",
+      "description": "IRC:24-2010 / IS 800:2007 classification of the compression flange and web (ε = √(250/fy)). section_type \"welded\" → 8.4/9.4/13.6ε outstand limits, anything else → rolled 9.4/10.5/15.7ε. Web limits 84/105/126ε.",
+      "category": "Steel",
+      "inputs": [
+        {
+          "name": "bf_top",
+          "type": "number",
+          "value": 700,
+          "unit": "mm"
+        },
+        {
+          "name": "tf_top",
+          "type": "number",
+          "value": 32,
+          "unit": "mm"
+        },
+        {
+          "name": "bf_bot",
+          "type": "number",
+          "value": 1000,
+          "unit": "mm"
+        },
+        {
+          "name": "tf_bot",
+          "type": "number",
+          "value": 45,
+          "unit": "mm"
+        },
+        {
+          "name": "d_web",
+          "type": "number",
+          "value": 1523,
+          "unit": "mm"
+        },
+        {
+          "name": "tw",
+          "type": "number",
+          "value": 20,
+          "unit": "mm"
+        },
+        {
+          "name": "fy",
+          "type": "number",
+          "value": 390,
+          "unit": "MPa"
+        },
+        {
+          "name": "section_type",
+          "type": "string",
+          "value": "welded",
+          "unit": ""
+        }
+      ],
+      "outputs": [
+        {
+          "name": "epsilon",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "b_tf_top",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "top_flange_class",
+          "type": "string",
+          "unit": ""
+        },
+        {
+          "name": "top_plastic_limit",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "top_compact_limit",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "top_semi_compact_limit",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "b_tf_bot",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "d_tw",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "web_class",
+          "type": "string",
+          "unit": ""
+        },
+        {
+          "name": "web_plastic_limit",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "web_compact_limit",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "web_semi_compact_limit",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "overall_class",
+          "type": "string",
+          "unit": ""
+        },
+        {
+          "name": "top_flange_slender",
+          "type": "boolean",
+          "unit": ""
+        },
+        {
+          "name": "web_slender",
+          "type": "boolean",
+          "unit": ""
+        }
+      ],
+      "code": "// Section classification per IRC:24-2010 / IS 800:2007 — port of\n// classify_section_irc24(). Only the compression (top) flange and the web are\n// classified; the bottom tension flange ratio is reported for information.\n// section_type must be exactly \"welded\" — any other string uses the ROLLED\n// outstand limits (same case-sensitive test as the original).\nconst bf_top = Number(inputs[\"bf_top\"]) || 0;\nconst tf_top = Number(inputs[\"tf_top\"]) || 0;\nconst bf_bot = Number(inputs[\"bf_bot\"]) || 0;\nconst tf_bot = Number(inputs[\"tf_bot\"]) || 0;\nconst d_web  = Number(inputs[\"d_web\"])  || 0;\nconst tw     = Number(inputs[\"tw\"])     || 0;\nconst fy     = Number(inputs[\"fy\"])     || 0;\nconst section_type = String(inputs[\"section_type\"]);\n\nconst epsilon = Math.sqrt(250 / fy);              // NOTE: 250 here (classification)\nconst welded = section_type === \"welded\";\n\n// top (compression) flange outstand ratio\nconst b_tf_top = welded ? (bf_top - tw) / 2 / tf_top : bf_top / 2 / tf_top;\n\n// web slenderness (internal element in bending)\nconst d_tw = d_web / tw;\n\nconst plastic_limit_flange    = (welded ?  8.4 :  9.4) * epsilon;\nconst compact_limit_flange    = (welded ?  9.4 : 10.5) * epsilon;\nconst semi_compact_limit_flange = (welded ? 13.6 : 15.7) * epsilon;\n\nconst plastic_limit_web    =  84 * epsilon;\nconst compact_limit_web    = 105 * epsilon;\nconst semi_compact_limit_web = 126 * epsilon;\n\nconst top_flange_class = b_tf_top <= plastic_limit_flange ? \"Plastic\"\n  : b_tf_top <= compact_limit_flange ? \"Compact\"\n  : b_tf_top <= semi_compact_limit_flange ? \"Semi-compact\"\n  : \"Slender\";\n\nconst web_class = d_tw <= plastic_limit_web ? \"Plastic\"\n  : d_tw <= compact_limit_web ? \"Compact\"\n  : d_tw <= semi_compact_limit_web ? \"Semi-compact\"\n  : \"Slender\";\n\n// overall class = the more critical of top flange and web (ties -> top flange,\n// matching Python's max([top, web], key=rank))\nconst RANK = { \"Plastic\": 1, \"Compact\": 2, \"Semi-compact\": 3, \"Slender\": 4 };\nconst overall_class = RANK[top_flange_class] >= RANK[web_class] ? top_flange_class : web_class;\n\n// bottom flange b/t ratio, information only\nconst b_tf_bot = welded ? (bf_bot - tw) / 2 / tf_bot : bf_bot / 2 / tf_bot;\n\nreturn {\n  \"epsilon\": epsilon,\n  \"b_tf_top\": b_tf_top,\n  \"top_flange_class\": top_flange_class,\n  \"top_plastic_limit\": plastic_limit_flange,\n  \"top_compact_limit\": compact_limit_flange,\n  \"top_semi_compact_limit\": semi_compact_limit_flange,\n  \"b_tf_bot\": b_tf_bot,\n  \"d_tw\": d_tw,\n  \"web_class\": web_class,\n  \"web_plastic_limit\": plastic_limit_web,\n  \"web_compact_limit\": compact_limit_web,\n  \"web_semi_compact_limit\": semi_compact_limit_web,\n  \"overall_class\": overall_class,\n  \"top_flange_slender\": top_flange_class === \"Slender\",\n  \"web_slender\": web_class === \"Slender\",\n};"
+    },
+    {
+      "id": "code_effective_section",
+      "label": "Effective Section",
+      "description": "EC3-style effective widths for slender plates (ε = √(235/fy), ψ = 1): outstand flange ρ·b and compression web ρ·d_comp, then A_eff, y_bar_eff, I_z_eff and Z_e_eff. Port of calculate_effective_section_properties().",
+      "category": "Section",
+      "inputs": [
+        {
+          "name": "bf_top",
+          "type": "number",
+          "value": 700,
+          "unit": "mm"
+        },
+        {
+          "name": "tf_top",
+          "type": "number",
+          "value": 32,
+          "unit": "mm"
+        },
+        {
+          "name": "bf_bot",
+          "type": "number",
+          "value": 1000,
+          "unit": "mm"
+        },
+        {
+          "name": "tf_bot",
+          "type": "number",
+          "value": 45,
+          "unit": "mm"
+        },
+        {
+          "name": "d_web",
+          "type": "number",
+          "value": 1523,
+          "unit": "mm"
+        },
+        {
+          "name": "tw",
+          "type": "number",
+          "value": 20,
+          "unit": "mm"
+        },
+        {
+          "name": "fy",
+          "type": "number",
+          "value": 390,
+          "unit": "MPa"
+        },
+        {
+          "name": "top_slender",
+          "type": "boolean",
+          "value": false,
+          "unit": ""
+        },
+        {
+          "name": "web_slender",
+          "type": "boolean",
+          "value": false,
+          "unit": ""
+        }
+      ],
+      "outputs": [
+        {
+          "name": "b_eff_top",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "b_eff_bot",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "d_web_eff",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "A_eff",
+          "type": "number",
+          "unit": "mm²"
+        },
+        {
+          "name": "y_bar_eff",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "I_z_eff",
+          "type": "number",
+          "unit": "mm⁴"
+        },
+        {
+          "name": "Z_e_eff",
+          "type": "number",
+          "unit": "mm³"
+        },
+        {
+          "name": "d_comp",
+          "type": "number",
+          "unit": "mm"
+        },
+        {
+          "name": "epsilon_235",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "lambda_p_flange",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "rho_flange",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "lambda_p_web",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "rho_web",
+          "type": "number",
+          "unit": ""
+        }
+      ],
+      "code": "// Effective (post local-buckling) section properties — port of\n// calculate_effective_section_properties() with effective_width_outstand() and\n// effective_depth_web_comp() inlined (both are called with the original's\n// default stress ratio psi = 1.0).\n// NOTE (verbatim from the original): the plate slenderness here uses\n// eps = sqrt(235/fy) — EC3 — while CLASSIFICATION uses sqrt(250/fy); and the\n// lambda_p denominators omit the EN 1993-1-5 Table 4.2 sqrt(k_sigma) factor\n// (0.43 for an outstand, 4.0 for an internal web), which makes rho smaller,\n// i.e. more conservative. Both quirks are preserved on purpose.\nconst bf_top = Number(inputs[\"bf_top\"]) || 0;\nconst tf_top = Number(inputs[\"tf_top\"]) || 0;\nconst bf_bot = Number(inputs[\"bf_bot\"]) || 0;\nconst tf_bot = Number(inputs[\"tf_bot\"]) || 0;\nconst d_web  = Number(inputs[\"d_web\"])  || 0;\nconst tw     = Number(inputs[\"tw\"])     || 0;\nconst fy     = Number(inputs[\"fy\"])     || 0;\nconst top_slender = Boolean(inputs[\"top_slender\"]);\nconst web_slender = Boolean(inputs[\"web_slender\"]);\n\nconst psi = 1.0;                                  // stress ratio, original default\nconst epsilon = Math.sqrt(235 / fy);              // NOTE: 235 here, 250 in classification\n\n// ── outstand compression flange: rho * b ──\n// The effective section always assumes the WELDED outstand (bf_top - tw)/2,\n// exactly as the original does.\nconst outstand = (bf_top - tw) / 2;\nconst lambda_p_flange = (outstand / tf_top) / (28.4 * epsilon * Math.sqrt(psi));\nconst rho_flange = lambda_p_flange <= 0.748 ? 1.0\n  : Math.min((lambda_p_flange - 0.188) / (lambda_p_flange * lambda_p_flange), 1.0);\n\nlet b_eff_top = bf_top;\nconst b_eff_bot = bf_bot;                          // tension flange: never reduced\nif (top_slender) b_eff_top = 2 * (rho_flange * outstand) + tw;\n\n// ── neutral axis of the partially effective section (flange reduced, web full) ──\nconst A_top_p = b_eff_top * tf_top;\nconst A_bot_p = b_eff_bot * tf_bot;\nconst A_web_p = d_web * tw;\nconst A_total_p = A_top_p + A_bot_p + A_web_p;\nconst y_bar_p = (A_bot_p * (tf_bot / 2) + A_web_p * (tf_bot + d_web / 2) + A_top_p * (tf_bot + d_web + tf_top / 2)) / A_total_p;\nconst overall_depth = tf_bot + d_web + tf_top;\nconst d_comp = overall_depth - y_bar_p - tf_top;    // web depth in compression\n\n// ── slender web: rho * d_comp for the compression part, tension part kept whole ──\nconst lambda_p_web = (d_comp / tw) / (28.4 * epsilon * Math.sqrt(psi));\nconst rho_web = lambda_p_web <= 0.673 ? 1.0\n  : Math.min((lambda_p_web - 0.055 * (3 + psi)) / (lambda_p_web * lambda_p_web), 1.0);\n\nlet d_web_eff = d_web;\nif (web_slender) {\n  const d_comp_eff = rho_web * d_comp;\n  const d_tension = d_web - d_comp;\n  d_web_eff = d_comp_eff + d_tension;\n}\n\n// ── recompute the section with the effective dimensions ──\nconst A_top = b_eff_top * tf_top;\nconst A_bot = b_eff_bot * tf_bot;\nconst A_web = d_web_eff * tw;\nconst A_eff = A_top + A_bot + A_web;\n\nconst y_bot_flange_centroid = tf_bot / 2;\nconst y_web_centroid = tf_bot + d_web_eff / 2;\nconst y_top_flange_centroid = tf_bot + d_web_eff + tf_top / 2;\n\nconst y_bar_eff = (A_bot * y_bot_flange_centroid + A_web * y_web_centroid + A_top * y_top_flange_centroid) / A_eff;\n\nconst overall_depth_eff = tf_bot + d_web_eff + tf_top;\nconst y_top_extreme = overall_depth_eff - y_bar_eff;\n\nconst I_bot = (b_eff_bot * Math.pow(tf_bot, 3) / 12) + A_bot * ((y_bar_eff - y_bot_flange_centroid) * (y_bar_eff - y_bot_flange_centroid));\nconst I_web = (tw * Math.pow(d_web_eff, 3) / 12) + A_web * ((y_bar_eff - y_web_centroid) * (y_bar_eff - y_web_centroid));\nconst I_top = (b_eff_top * Math.pow(tf_top, 3) / 12) + A_top * ((y_bar_eff - y_top_flange_centroid) * (y_bar_eff - y_top_flange_centroid));\nconst I_z_eff = I_bot + I_web + I_top;\n\nconst Z_e_eff = I_z_eff / y_top_extreme;\n\nreturn { \"b_eff_top\": b_eff_top, \"b_eff_bot\": b_eff_bot, \"d_web_eff\": d_web_eff, \"A_eff\": A_eff, \"y_bar_eff\": y_bar_eff, \"I_z_eff\": I_z_eff, \"Z_e_eff\": Z_e_eff, \"d_comp\": d_comp, \"epsilon_235\": epsilon, \"lambda_p_flange\": lambda_p_flange, \"rho_flange\": rho_flange, \"lambda_p_web\": lambda_p_web, \"rho_web\": rho_web };"
+    },
+    {
+      "id": "code_ltb_capacity",
+      "label": "LTB Design Capacity",
+      "description": "IS 800:2007 / IRC:24 lateral-torsional buckling: M_cr, λ_LT = √(M_eff/M_cr), φ_LT and χ_LT from curve c (α 0.49) or d (α 0.76), f_bd = χ_LT·fy/γm0, then M_d and the laterally-supported M_d. λ_LT ≤ 0.4 → LTB does not govern. class_override \"auto\" reproduces section_class=None.",
+      "category": "Steel",
+      "inputs": [
+        {
+          "name": "I_y_gross",
+          "type": "number",
+          "value": 4665682000,
+          "unit": "mm⁴"
+        },
+        {
+          "name": "h_f",
+          "type": "number",
+          "value": 1561.5,
+          "unit": "mm"
+        },
+        {
+          "name": "tf_top",
+          "type": "number",
+          "value": 32,
+          "unit": "mm"
+        },
+        {
+          "name": "r_y",
+          "type": "number",
+          "value": 218.350887695397,
+          "unit": "mm"
+        },
+        {
+          "name": "Z_e_gross",
+          "type": "number",
+          "value": 44912504.3052063,
+          "unit": "mm³"
+        },
+        {
+          "name": "Z_p",
+          "type": "number",
+          "value": 57909145,
+          "unit": "mm³"
+        },
+        {
+          "name": "Z_e_eff",
+          "type": "number",
+          "value": 44912504.3052063,
+          "unit": "mm³"
+        },
+        {
+          "name": "L_lt",
+          "type": "number",
+          "value": 8925,
+          "unit": "mm"
+        },
+        {
+          "name": "fy",
+          "type": "number",
+          "value": 390,
+          "unit": "MPa"
+        },
+        {
+          "name": "gamma_m0",
+          "type": "number",
+          "value": 1.1,
+          "unit": ""
+        },
+        {
+          "name": "curve",
+          "type": "string",
+          "value": "d",
+          "unit": ""
+        },
+        {
+          "name": "overall_class",
+          "type": "string",
+          "value": "Semi-compact",
+          "unit": ""
+        },
+        {
+          "name": "class_override",
+          "type": "string",
+          "value": "auto",
+          "unit": ""
+        }
+      ],
+      "outputs": [
+        {
+          "name": "section_class",
+          "type": "string",
+          "unit": ""
+        },
+        {
+          "name": "beta_b",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "Z_used",
+          "type": "number",
+          "unit": "mm³"
+        },
+        {
+          "name": "term1",
+          "type": "number",
+          "unit": "N·mm"
+        },
+        {
+          "name": "mcr_ratio",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "mcr_factor",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "M_cr_kNm",
+          "type": "number",
+          "unit": "kNm"
+        },
+        {
+          "name": "M_eff_Nmm",
+          "type": "number",
+          "unit": "N·mm"
+        },
+        {
+          "name": "lambda_LT",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "phi_LT",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "chi_LT",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "alpha_LT",
+          "type": "number",
+          "unit": ""
+        },
+        {
+          "name": "alpha_str",
+          "type": "string",
+          "unit": ""
+        },
+        {
+          "name": "f_bd",
+          "type": "number",
+          "unit": "MPa"
+        },
+        {
+          "name": "M_d_kNm",
+          "type": "number",
+          "unit": "kNm"
+        },
+        {
+          "name": "M_d_no_ltb_kNm",
+          "type": "number",
+          "unit": "kNm"
+        },
+        {
+          "name": "ltb_governs",
+          "type": "boolean",
+          "unit": ""
+        },
+        {
+          "name": "Status",
+          "type": "string",
+          "unit": ""
+        }
+      ],
+      "code": "// Design flexural capacity with lateral-torsional buckling — port of\n// ltb_moment_capacity_welded() from the classification step onwards\n// (the gross properties come from the \"Gross I-Section Props\" node, r_y from\n// the built-in Radius of Gyration node, Z_e_eff from the effective-section node).\n// Units: mm / MPa / N-mm in, kNm out.\nconst I_y_gross = Number(inputs[\"I_y_gross\"]) || 0;\nconst h_f       = Number(inputs[\"h_f\"])       || 0;   // flange centroid distance\nconst tf_top    = Number(inputs[\"tf_top\"])    || 0;   // t_f in the M_cr formula\nconst r_y       = Number(inputs[\"r_y\"])       || 0;\nconst Z_e_gross = Number(inputs[\"Z_e_gross\"]) || 0;\nconst Z_p       = Number(inputs[\"Z_p\"])       || 0;\nconst Z_e_eff   = Number(inputs[\"Z_e_eff\"])   || 0;\nconst L_lt      = Number(inputs[\"L_lt\"])      || 0;   // mm, unbraced length\nconst fy        = Number(inputs[\"fy\"])        || 0;\nconst gamma_m0  = Number(inputs[\"gamma_m0\"])  || 1.10;\nconst curve     = String(inputs[\"curve\"]);            // 'c' or 'd'\nconst overall_class = String(inputs[\"overall_class\"]);\nconst override_raw  = String(inputs[\"class_override\"]).trim();\n\nconst E = 2e5;                                  // MPa, hardcoded in the original\n\n// ── section class ──  \"auto\" / \"\" / \"none\" reproduces section_class=None\nconst is_auto = override_raw === \"\" || override_raw.toLowerCase() === \"auto\" || override_raw.toLowerCase() === \"none\";\nconst section_class = is_auto ? overall_class : override_raw;\nconst cls = section_class.toLowerCase();\nconst slender = cls === \"slender\";\nconst plast_compact = cls === \"plastic\" || cls === \"compact\";\n\n// ── Z_used and beta_b ──\nlet Z_used = 0.0;\nlet beta_b = 1.0;\nif (slender) { Z_used = Z_e_eff; beta_b = 1.0; }\nelse {\n  Z_used = plast_compact ? Z_p : Z_e_gross;\n  beta_b = plast_compact ? 1.0 : Z_e_gross / Z_p;\n}\n\n// ── elastic critical LTB moment (IS 800 / IRC:24 formula) ──\nconst term1 = (Math.PI * Math.PI * E * I_y_gross * h_f) / (2 * L_lt * L_lt);\nconst mcr_ratio = (L_lt / r_y) / (h_f / tf_top);\nconst mcr_factor = Math.sqrt(1 + (1 / 20) * (mcr_ratio * mcr_ratio));\nconst M_cr = term1 * mcr_factor;                // N-mm\nconst M_cr_kNm = M_cr / 1e6;\n\n// ── non-dimensional slenderness lambda_LT ──\nconst M_eff_Nmm = slender ? Z_e_eff * fy : (plast_compact ? beta_b * Z_p * fy : Z_e_gross * fy);\nconst lambda_LT = Math.sqrt(M_eff_Nmm / M_cr);\n\n// ── reduction factor chi_LT (buckling curve c or d) ──\nlet chi_LT = 1.0;\nlet phi_LT = 0.0;\nlet alpha_LT = 0.0;                             // None in the original when LTB does not govern\nconst ltb_governs = lambda_LT > 0.4;\nif (lambda_LT > 0.4) {\n  if (curve === \"c\") alpha_LT = 0.49;\n  else if (curve === \"d\") alpha_LT = 0.76;\n  else throw new Error(\"curve must be 'c' or 'd' (got '\" + curve + \"')\");\n  phi_LT = 0.5 * (1 + alpha_LT * (lambda_LT - 0.2) + lambda_LT * lambda_LT);\n  chi_LT = 1.0 / (phi_LT + Math.sqrt(phi_LT * phi_LT - lambda_LT * lambda_LT));\n  chi_LT = Math.min(chi_LT, 1.0);\n}\n\n// ── design bending stress and moments ──\nconst f_bd = chi_LT * fy / gamma_m0;\nconst M_d = slender ? Z_e_eff * f_bd : beta_b * Z_p * f_bd;\nconst M_d_kNm = M_d / 1e6;\n\nconst M_d_no_ltb = slender ? Z_e_eff * fy / gamma_m0 : beta_b * Z_p * fy / gamma_m0;\nconst M_d_no_ltb_kNm = M_d_no_ltb / 1e6;\n\nconst alpha_str = ltb_governs ? String(alpha_LT) + \"  (curve \" + curve + \")\" : \"n/a  (λ_LT ≤ 0.4)\";\nconst Status = (ltb_governs\n  ? \"LTB governs — λ_LT = \" + lambda_LT.toFixed(4) + \" > 0.4, χ_LT = \" + chi_LT.toFixed(4)\n  : \"LTB does not govern — λ_LT = \" + lambda_LT.toFixed(4) + \" ≤ 0.4, χ_LT = 1.0\")\n  + \"  |  class: \" + section_class;\n\nreturn { \"section_class\": section_class, \"beta_b\": beta_b, \"Z_used\": Z_used, \"term1\": term1, \"mcr_ratio\": mcr_ratio, \"mcr_factor\": mcr_factor, \"M_cr_kNm\": M_cr_kNm, \"M_eff_Nmm\": M_eff_Nmm, \"lambda_LT\": lambda_LT, \"phi_LT\": phi_LT, \"chi_LT\": chi_LT, \"alpha_LT\": alpha_LT, \"alpha_str\": alpha_str, \"f_bd\": f_bd, \"M_d_kNm\": M_d_kNm, \"M_d_no_ltb_kNm\": M_d_no_ltb_kNm, \"ltb_governs\": ltb_governs, \"Status\": Status };"
+    }
+  ]
+}
