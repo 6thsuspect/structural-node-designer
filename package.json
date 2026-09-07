@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "tsc -p tsconfig.feature-tests.json && node --test \"$(pwd)/node_modules/.feature-tests/features/calculation-trace/tests/calculationTrace.test.js\" \"$(pwd)/node_modules/.feature-tests/features/node-groups/tests/nodeGroups.test.js\" \"$(pwd)/node_modules/.feature-tests/features/canvas-fit/tests/canvasFit.test.js\" \"$(pwd)/node_modules/.feature-tests/features/canvas-shapes/tests/shapes.test.js\""
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",

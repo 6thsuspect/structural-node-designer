@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "allowImportingTsExtensions": false,
+    "esModuleInterop": true,
+    "sourceMap": false,
+    "declaration": false,
+    "outDir": "node_modules/.feature-tests",
+    "rootDir": "src"
+  },
+  "include": [
+    "src/features/calculation-trace/tests/**/*.ts",
+    "src/features/node-groups/tests/**/*.ts",
+    "src/features/canvas-fit/tests/**/*.ts",
+    "src/features/canvas-shapes/tests/**/*.ts"
+  ]
+}

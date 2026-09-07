@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { NodeDefinition, Theme } from '../types';
 import { getCategories, getNodesByCategory, CATEGORY_COLORS, CATEGORY_ICONS, getAllNodes } from '../nodeDefinitions';
+import { SHAPE_CATALOG, type ShapeCatalogEntry } from '../features/canvas-shapes';
 
 interface Props {
   theme: Theme;
@@ -33,10 +34,41 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
     );
   }, [searchQuery]);
 
+  /* ── Shapes feature: shapes appear as a category inside the node list ──
+     (search also matches shapes, shown below the node results) */
+  const filteredShapes = useMemo(() => {
+    if (!searchQuery) return null;
+    const q = searchQuery.toLowerCase();
+    return SHAPE_CATALOG.filter(s => s.label.toLowerCase().includes(q) || s.type.includes(q));
+  }, [searchQuery]);
+
   const handleDragStart = (e: React.DragEvent, nodeDef: NodeDefinition) => {
     e.dataTransfer.setData('nodeType', nodeDef.type);
     e.dataTransfer.effectAllowed = 'copy';
   };
+
+  /* ── Shapes feature: drag a shape from the Shapes tab onto the canvas ── */
+  const handleShapeDragStart = (e: React.DragEvent, shape: ShapeCatalogEntry) => {
+    e.dataTransfer.setData('shapeType', shape.type);
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  const renderShapeItem = (shape: ShapeCatalogEntry) => (
+    <div
+      key={shape.type}
+      draggable
+      onDragStart={(e) => handleShapeDragStart(e, shape)}
+      className="flex items-center gap-2 px-3 py-1.5 rounded-md cursor-grab active:cursor-grabbing transition-all group text-sm"
+      style={{ color: colors.text }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.hover; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+      title={shape.description}
+    >
+      <span className="text-xs w-5 text-center flex-shrink-0" style={{ color: colors.accent }}>{shape.icon}</span>
+      <span className="truncate flex-1">{shape.label}</span>
+      <span className="text-[10px] opacity-40 group-hover:opacity-70 transition-opacity">drag</span>
+    </div>
+  );
 
   const renderNodeItem = (nodeDef: NodeDefinition) => (
     <div
@@ -107,7 +139,7 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
         </div>
       </div>
 
-      {/* Node List */}
+      {/* Node List (with the Shapes category at the end) */}
       <div className="flex-1 overflow-y-auto py-1" style={{ scrollbarWidth: 'thin' }}>
         {filteredNodes ? (
           <div className="px-2">
@@ -120,9 +152,18 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
                 No nodes found
               </div>
             )}
+            {(filteredShapes?.length ?? 0) > 0 && (
+              <>
+                <div className="px-2 py-1 mt-2 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.accent }}>
+                  Shapes ({filteredShapes!.length})
+                </div>
+                {filteredShapes!.map(renderShapeItem)}
+              </>
+            )}
           </div>
         ) : (
-          categories.map(cat => (
+          <>
+          {categories.map(cat => (
             <div key={cat} className="mb-0.5">
               <button
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold transition-colors"
@@ -151,7 +192,34 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
                 </div>
               )}
             </div>
-          ))
+          ))}
+          {/* Shapes feature: "Shapes" category — drag a shape onto the canvas */}
+          <div className="mb-0.5">
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold transition-colors"
+              style={{ color: colors.accent, borderBottom: `1px solid ${colors.border}` }}
+              onClick={() => setExpandedCategory(expandedCategory === 'Shapes' ? null : 'Shapes')}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.hover; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >
+              <span className="text-sm">◼</span>
+              <span className="flex-1 text-left">Shapes</span>
+              <span className="text-xs opacity-50">{SHAPE_CATALOG.length}</span>
+              <span className="text-xs transition-transform" style={{
+                transform: expandedCategory === 'Shapes' ? 'rotate(90deg)' : 'rotate(0deg)',
+              }}>▶</span>
+            </button>
+            {expandedCategory === 'Shapes' && (
+              <div className="px-1 py-1">
+                {SHAPE_CATALOG.map(renderShapeItem)}
+                <p className="px-3 pt-2 pb-1 text-[10px] leading-relaxed" style={{ color: colors.text, opacity: 0.45 }}>
+                  Drag onto canvas • click to select • drag corners to resize (Ctrl = fixed ratio)
+                  • right-click to freeze, edit size, or set draw order
+                </p>
+              </div>
+            )}
+          </div>
+          </>
         )}
       </div>
 

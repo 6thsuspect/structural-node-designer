@@ -1,5 +1,24 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
-import { CanvasNode, Connection, ConnectingState, Theme } from '../types';
+import { CanvasNode, Connection, ConnectingState, Theme, SelectionBox, NodeGroup, CanvasShape, ShapeType } from '../types';
+import {
+  computeGroupBounds,
+  getGroupOfShape,
+  groupMemberIds,
+  groupShapeIds,
+  hasGroupMembership,
+  nodesInBox,
+  normalizeMarquee,
+} from '../features/node-groups';
+import { computeContentBounds, computeFitView } from '../features/canvas-fit';
+import {
+  DEFAULT_SHAPE_FILL_OPACITY,
+  MIN_SHAPE_SIZE,
+  getShapeDefinition,
+  shapePolygonPoints,
+  shapeRatioResizeBox,
+  shapeResizeBox,
+  type ShapeResizeHandle,
+} from '../features/canvas-shapes';
 
 const PORT_RADIUS = 7;
 const PORT_HEIGHT = 28;
@@ -41,6 +60,52 @@ interface Props {
   onZoomChange: (z: number) => void;
   onPanChange: (x: number, y: number) => void;
   onDropNode: (type: string, x: number, y: number) => void;
+  /* ── Calculation Trace integration (optional — feature is inert when absent) ── */
+  /** Opens the read-only Calculation Trace for a node. */
+  onViewTrace?: (nodeId: string) => void;
+  /** Pan/zoom + temporary highlight request (token changes per request). */
+  focusTarget?: { nodeId: string; token: number } | null;
+  /** Zoom-to-fit request (token changes per request; 0/undefined = none yet). */
+  fitSignal?: number;
+  /* ── Node Groups integration (optional — feature is inert when absent) ── */
+  /** Current multi-selection (marquee / group-aware single selection). */
+  selectedNodeIds?: string[];
+  /** Node groups to render outlines for and drag together. */
+  groups?: NodeGroup[];
+  /** Set an explicit multi-selection (from the marquee box). */
+  onSelectNodes?: (nodeIds: string[]) => void;
+  /** Move several nodes (and their group's shapes) by a delta. */
+  onMoveNodes?: (memberIds: string[], dx: number, dy: number, shapeIds?: string[]) => void;
+  /** Group / ungroup the given nodes AND shapes (mixed groups). */
+  onGroupSelection?: (nodeIds: string[], shapeIds: string[]) => void;
+  onUngroupSelection?: (nodeIds: string[], shapeIds: string[]) => void;
+  /** Per-item draw order for a node (front layer toggle). */
+  onUpdateNodeFront?: (nodeId: string, front: boolean) => void;
+  /** Delete several nodes at once (multi-selection Delete key). */
+  onMultiDelete?: (nodeIds: string[]) => void;
+  /* ── Shapes integration (optional — feature is inert when absent) ── */
+  /** Shapes to render (layered by each shape's own `front` flag). */
+  shapes?: CanvasShape[];
+  /** The currently selected shape id (primary — resize handles + panel). */
+  selectedShapeId?: string | null;
+  /** The full shape selection (marquee / ctrl+right-click) — all are highlighted. */
+  selectedShapeIds?: string[];
+  /** Select a single shape (click; null clears). Mutually exclusive with node selection. */
+  onSelectShape?: (shapeId: string | null) => void;
+  /** Set the exact shape selection (marquee / ctrl+right-click toggling). */
+  onSelectShapes?: (shapeIds: string[], clearNodes: boolean, primaryId?: string) => void;
+  /** Move a shape to a new top-left position (drag). */
+  onMoveShape?: (shapeId: string, x: number, y: number) => void;
+  /** Replace a shape's bounding box (corner-handle resize). */
+  onResizeShape?: (shapeId: string, box: { x: number; y: number; width: number; height: number }) => void;
+  /** Patch any shape field (e.g. per-shape draw-order front flag). */
+  onUpdateShape?: (shapeId: string, patch: Partial<CanvasShape>) => void;
+  /** Drop a new shape from the Toolbox "Shapes" category. */
+  onDropShape?: (type: ShapeType, x: number, y: number) => void;
+  /** Delete a shape. */
+  onDeleteShape?: (shapeId: string) => void;
+  /** Toggle a shape's frozen (size-locked) state. */
+  onToggleShapeFrozen?: (shapeId: string) => void;
 }
 
 function getPortPosition(node: CanvasNode, portId: string, isOutput: boolean): { x: number; y: number } {
@@ -70,20 +135,80 @@ export default function NodeCanvas({
   onMoveNode, onSelectNode, onStartConnecting, onUpdateConnecting, onFinishConnecting,
   onDeleteNode, onRemoveConnection, onUpdateInput, onEditNodeCode, onEditFormula,
   onZoomChange, onPanChange, onDropNode,
+  onViewTrace, focusTarget,
+  selectedNodeIds, groups, onSelectNodes, onMoveNodes, onGroupSelection, onUngroupSelection, onUpdateNodeFront, onMultiDelete,
+  fitSignal,
+  shapes, selectedShapeId, selectedShapeIds, onSelectShapes, onSelectShape, onMoveShape, onResizeShape, onUpdateShape,
+  onDropShape, onDeleteShape, onToggleShapeFrozen,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const colors = themeColors[theme];
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [dragNode, setDragNode] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  // memberIds = the full drag set (the node's whole group when grouped, else just itself).
+  // memberShapeIds = the group's shapes (mixed groups move together too).
+  const [dragNode, setDragNode] = useState<{ id: string; offsetX: number; offsetY: number; memberIds: string[]; memberShapeIds: string[] } | null>(null);
   const [editingPort, setEditingPort] = useState<{ nodeId: string; portId: string } | null>(null);
+  /* ── Shapes feature: drag + corner-resize interaction state ── */
+  const [dragShape, setDragShape] = useState<{ id: string; offsetX: number; offsetY: number; memberNodeIds: string[]; memberShapeIds: string[] } | null>(null);
+  // ratio = the shape's aspect ratio captured at drag start (Ctrl = fixed ratio).
+  const [shapeResize, setShapeResize] = useState<{ id: string; handle: ShapeResizeHandle; ratio: number } | null>(null);
+  const [shapeMenu, setShapeMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  /* ── Shapes feature: "Edit dimensions" popover (right-click menu) ── */
+  const [shapeSizeEditor, setShapeSizeEditor] = useState<{ id: string; x: number; y: number; width: number; height: number } | null>(null);
+  /* ── Node Groups: outline + name shown ONLY while hovering the group ── */
+  const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
+  /* ── Node Groups feature: marquee (rubber-band) selection box ── */
+  const [marquee, setMarquee] = useState<SelectionBox | null>(null);
+  const marqueeShiftRef = useRef(false);
   // Node context menu is anchored to the node (not a fixed screen point), so it
   // follows the node while the canvas is panned or zoomed.
   const [contextMenu, setContextMenu] = useState<{ nodeId: string } | null>(null);
   // ─── NEW: connection context menu state ───
   const [connMenu, setConnMenu] = useState<{ x: number; y: number; connId: string } | null>(null);
+  // ── Node Groups feature: right-click context menu for the current multi-selection ──
+  const [selMenu, setSelMenu] = useState<{ x: number; y: number } | null>(null);
   // ─── NEW: hovered node for visual feedback (no blink) ───
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  // ─── Calculation Trace: temporary highlight while panning to a traced node ───
+  const [traceHighlightId, setTraceHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusTarget) return;
+    const node = nodes.find(n => n.id === focusTarget.nodeId);
+    if (!node) return;
+    // Pan so the node is centered (canvas is not modified — view transform only).
+    const svg = svgRef.current;
+    if (svg) {
+      const cx = svg.clientWidth / 2;
+      const cy = svg.clientHeight / 2;
+      onPanChange(cx - (node.x + node.width / 2) * zoom, cy - (node.y + node.height / 2) * zoom);
+    }
+    setTraceHighlightId(node.id);
+    const t = window.setTimeout(() => {
+      setTraceHighlightId(current => (current === node.id ? null : current));
+    }, 2500);
+    return () => window.clearTimeout(t);
+    // Re-run only when a new focus request arrives (token changes per request).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTarget]);
+
+  /* ── Zoom to Fit: zoom + pan so ALL nodes are visible and centered ──
+     Triggered by the toolbar button via a changing token (same pattern as
+     focusTarget). Uses the existing onZoomChange/onPanChange — no new view
+     state, and the zoom respects the app's existing 0.1–5 limits. */
+  useEffect(() => {
+    if (!fitSignal) return;
+    // Shapes are canvas items too — fit them along with the nodes.
+    const bounds = computeContentBounds([...nodes, ...(shapes ?? [])]);
+    const svg = svgRef.current;
+    if (!bounds || !svg) return;
+    const view = computeFitView(bounds, svg.clientWidth, svg.clientHeight);
+    if (!view) return;
+    onZoomChange(view.zoom);
+    onPanChange(view.panX, view.panY);
+    // Re-run only when a new fit request arrives (token changes per request).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitSignal]);
 
   const screenToCanvas = useCallback((sx: number, sy: number) => {
     const svg = svgRef.current;
@@ -108,6 +233,9 @@ export default function NodeCanvas({
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     setContextMenu(null);
     setConnMenu(null);
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - panX, y: e.clientY - panY });
@@ -115,26 +243,118 @@ export default function NodeCanvas({
     } else if (e.button === 0) {
       const target = e.target as SVGElement;
       if (target === svgRef.current || target.classList.contains('canvas-bg')) {
-        onSelectNode(null);
+        if (connecting.isConnecting) return; // a wire is being dragged
+        // Marquee selection starts here; a tiny marquee (plain click) still
+        // clears the selection, preserving the previous click behavior.
+        const pos = screenToCanvas(e.clientX, e.clientY);
+        marqueeShiftRef.current = e.shiftKey;
+        setMarquee({ active: true, startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y });
       }
     }
-  }, [panX, panY]);
+  }, [panX, panY, connecting.isConnecting, screenToCanvas]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) onPanChange(e.clientX - panStart.x, e.clientY - panStart.y);
+    if (marquee) {
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      setMarquee(prev => (prev ? { ...prev, endX: pos.x, endY: pos.y } : prev));
+    }
+    // Node Groups: which group's bounds contain the cursor? (topmost wins)
+    // The outline + name render only for the hovered group.
+    if ((groups ?? []).length > 0) {
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      const all = groups ?? [];
+      let found: string | null = null;
+      for (let i = all.length - 1; i >= 0; i--) {
+        const b = computeGroupBounds(all[i], nodes, shapes ?? []);
+        if (b && pos.x >= b.x && pos.x <= b.x + b.width && pos.y >= b.y && pos.y <= b.y + b.height) {
+          found = all[i].id;
+          break;
+        }
+      }
+      setHoveredGroupId(found);
+    }
     if (dragNode) {
       const pos = screenToCanvas(e.clientX, e.clientY);
-      onMoveNode(dragNode.id, pos.x - dragNode.offsetX, pos.y - dragNode.offsetY);
+      const targetX = pos.x - dragNode.offsetX;
+      const targetY = pos.y - dragNode.offsetY;
+      if (dragNode.memberIds.length > 1 && onMoveNodes) {
+        // Grouped node: move the whole group (nodes AND its shapes) by the delta.
+        const primary = nodes.find(n => n.id === dragNode.id);
+        if (primary) onMoveNodes(dragNode.memberIds, targetX - primary.x, targetY - primary.y, dragNode.memberShapeIds);
+      } else {
+        onMoveNode(dragNode.id, targetX, targetY);
+      }
+    }
+    if (dragShape) {
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      const targetX = pos.x - dragShape.offsetX;
+      const targetY = pos.y - dragShape.offsetY;
+      const total = dragShape.memberNodeIds.length + dragShape.memberShapeIds.length;
+      if (total > 1 && onMoveNodes) {
+        // Grouped shape: move the whole group (shapes AND its nodes) by the delta.
+        const primary = (shapes ?? []).find(s => s.id === dragShape.id);
+        if (primary) onMoveNodes(dragShape.memberNodeIds, targetX - primary.x, targetY - primary.y, dragShape.memberShapeIds);
+      } else if (onMoveShape) {
+        onMoveShape(dragShape.id, targetX, targetY);
+      }
+    }
+    if (shapeResize && onResizeShape) {
+      const s = (shapes ?? []).find(sh => sh.id === shapeResize.id);
+      // A frozen shape cannot be resized (handles aren't rendered, but guard anyway).
+      if (s && !s.frozen) {
+        const pos = screenToCanvas(e.clientX, e.clientY);
+        // Ctrl (or Cmd) held → keep the aspect ratio captured at drag start.
+        const box = (e.ctrlKey || e.metaKey)
+          ? shapeRatioResizeBox(s, shapeResize.handle, pos.x, pos.y, shapeResize.ratio)
+          : shapeResizeBox(s, shapeResize.handle, pos.x, pos.y);
+        onResizeShape(s.id, box);
+      }
     }
     if (connecting.isConnecting) {
       const pos = screenToCanvas(e.clientX, e.clientY);
       onUpdateConnecting(pos.x, pos.y);
     }
-  }, [isPanning, panStart, dragNode, connecting, screenToCanvas]);
+  }, [isPanning, panStart, dragNode, marquee, nodes, groups, connecting, screenToCanvas, onMoveNodes,
+      dragShape, onMoveShape, shapeResize, onResizeShape, shapes]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     setIsPanning(false);
     setDragNode(null);
+    setDragShape(null);
+    setShapeResize(null);
+    // Finish the marquee selection (if one was in progress).
+    if (marquee) {
+      const box = normalizeMarquee(marquee.startX, marquee.startY, marquee.endX, marquee.endY);
+      const small = (box.x2 - box.x1) * zoom < 5 && (box.y2 - box.y1) * zoom < 5;
+      if (small) {
+        // Plain click on empty canvas → clear selection (existing behavior).
+        // Shapes feature: also drop any shape selection.
+        if (!marqueeShiftRef.current) { onSelectNode(null); onSelectShapes?.([], false); }
+      } else {
+        const ids = nodesInBox(nodes, box);
+        // Shapes inside the box join the selection and are highlighted too.
+        const shapeIds = nodesInBox(shapes ?? [], box);
+        onSelectShapes?.(
+          marqueeShiftRef.current
+            ? Array.from(new Set([...(selectedShapeIds ?? []), ...shapeIds]))
+            : shapeIds,
+          false,
+        );
+        if (onSelectNodes) {
+          if (marqueeShiftRef.current) {
+            // Additive: union with the current selection.
+            onSelectNodes(Array.from(new Set([...(selectedNodeIds ?? []), ...ids])));
+          } else {
+            onSelectNodes(ids);
+          }
+        } else if (ids.length === 1) {
+          onSelectNode(ids[0]);
+        }
+      }
+      marqueeShiftRef.current = false;
+      setMarquee(null);
+    }
     if (connecting.isConnecting) {
       const target = e.target as SVGElement;
       const portData = target.closest('[data-port-id]');
@@ -144,17 +364,37 @@ export default function NodeCanvas({
         onFinishConnecting();
       }
     }
-  }, [connecting]);
+  }, [connecting, marquee, zoom, nodes, shapes, onSelectNodes, selectedNodeIds, selectedShapeIds, onSelectNode, onSelectShapes]);
 
   const handleNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
+    setSelMenu(null);
+    // Shift+click: toggle this node's (group's) membership in the selection.
+    if (e.shiftKey && onSelectNodes) {
+      const current = selectedNodeIds ?? [];
+      const members = groupMemberIds(groups ?? [], nodeId);
+      const memberSet = new Set(members);
+      const allIn = members.every(id => current.includes(id));
+      // Shapes feature: touching a node clears any shape selection.
+      onSelectShape?.(null);
+      if (allIn) onSelectNodes(current.filter(id => !memberSet.has(id)));
+      else onSelectNodes(Array.from(new Set([...current, ...members])));
+      return; // selection toggle only — no drag
+    }
     onSelectNode(nodeId);
+    onSelectShape?.(null);
     setConnMenu(null);
     setContextMenu(null);
     const pos = screenToCanvas(e.clientX, e.clientY);
     const node = nodes.find(n => n.id === nodeId);
-    if (node) setDragNode({ id: nodeId, offsetX: pos.x - node.x, offsetY: pos.y - node.y });
-  }, [nodes, screenToCanvas, onSelectNode]);
+    if (node) {
+      // Grouping feature: dragging a grouped node drags its whole group —
+      // including the group's shapes (mixed node+shape groups).
+      const memberIds = onMoveNodes ? groupMemberIds(groups ?? [], nodeId) : [nodeId];
+      const memberShapeIds = onMoveNodes ? groupShapeIds(groups ?? [], nodeId) : [];
+      setDragNode({ id: nodeId, offsetX: pos.x - node.x, offsetY: pos.y - node.y, memberIds, memberShapeIds });
+    }
+  }, [nodes, screenToCanvas, onSelectNode, groups, onMoveNodes, onSelectNodes, selectedNodeIds]);
 
   const handlePortMouseDown = useCallback((e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => {
     e.stopPropagation();
@@ -182,24 +422,118 @@ export default function NodeCanvas({
     e.preventDefault();
     e.stopPropagation();
     setConnMenu(null);
+    setSelMenu(null);
+    // Ctrl+right-click: toggle this node's (group's) membership in the current
+    // multi-selection — no menu (build a mixed node+shape selection one by one).
+    if (e.ctrlKey || e.metaKey) {
+      const current = selectedNodeIds ?? [];
+      const members = groupMemberIds(groups ?? [], nodeId);
+      const memberSet = new Set(members);
+      const allIn = members.every(id => current.includes(id));
+      onSelectNodes?.(
+        allIn ? current.filter(id => !memberSet.has(id)) : Array.from(new Set([...current, ...members])),
+      );
+      return;
+    }
+    // Right-clicking an unselected node selects it (group-aware) so the
+    // menu's Group/Ungroup actions have a well-defined target.
+    if (!(selectedNodeIds ?? []).includes(nodeId)) onSelectNode(nodeId);
+    onSelectShape?.(null);
     setContextMenu({ nodeId });
+  }, [selectedNodeIds, onSelectNode, onSelectNodes, groups]);
+
+  // Right-click on empty canvas with a selection (nodes and/or shapes) → menu.
+  const handleBackgroundContextMenu = useCallback((e: React.MouseEvent) => {
+    const current = (selectedNodeIds ?? []).length + (selectedShapeIds ?? []).length;
+    if (current === 0) return; // keep the native browser menu as before
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(null);
+    setShapeMenu(null);
+    const rect = svgRef.current?.getBoundingClientRect();
+    setSelMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
+  }, [selectedNodeIds, selectedShapeIds]);
+
+  /* ── Shapes feature: shape body drag (select + move; grouped shapes move
+     their whole group — nodes and shapes — with them) ── */
+  const handleShapeMouseDown = useCallback((e: React.MouseEvent, shape: CanvasShape) => {
+    e.stopPropagation();
+    setContextMenu(null);
+    setConnMenu(null);
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
+    onSelectShape?.(shape.id);
+    const pos = screenToCanvas(e.clientX, e.clientY);
+    const g = getGroupOfShape(groups ?? [], shape.id);
+    setDragShape({
+      id: shape.id,
+      offsetX: pos.x - shape.x,
+      offsetY: pos.y - shape.y,
+      memberNodeIds: g ? [...g.nodeIds] : [],
+      memberShapeIds: g ? [...(g.shapeIds ?? [shape.id])] : [shape.id],
+    });
+  }, [screenToCanvas, onSelectShape, groups]);
+
+  /* ── Shapes feature: begin a corner-handle resize (only rendered when
+     selected AND not frozen, so the guard is belt-and-braces). The aspect
+     ratio is captured now so Ctrl can lock it for the whole drag. ── */
+  const handleShapeHandleMouseDown = useCallback((e: React.MouseEvent, shape: CanvasShape, handle: ShapeResizeHandle) => {
+    e.stopPropagation();
+    if (shape.frozen) return;
+    setShapeResize({ id: shape.id, handle, ratio: shape.width / Math.max(1, shape.height) });
   }, []);
+
+  /* ── Shapes feature: right-click — Ctrl toggles selection (multi-select
+     shapes one by one); plain right-click opens the shape menu ── */
+  const handleShapeContextMenu = useCallback((e: React.MouseEvent, shapeId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(null);
+    setConnMenu(null);
+    setSelMenu(null);
+    setShapeSizeEditor(null);
+    if (e.ctrlKey || e.metaKey) {
+      const current = selectedShapeIds ?? [];
+      const next = current.includes(shapeId)
+        ? current.filter(id => id !== shapeId)
+        : [...current, shapeId];
+      onSelectShapes?.(next, false, next.includes(shapeId) ? shapeId : undefined);
+      return;
+    }
+    if (shapeId !== selectedShapeId) onSelectShape?.(shapeId);
+    const rect = svgRef.current?.getBoundingClientRect();
+    setShapeMenu({ id: shapeId, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
+  }, [selectedShapeId, selectedShapeIds, onSelectShape, onSelectShapes]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }, []);
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    const pos = screenToCanvas(e.clientX, e.clientY);
+    // Shapes feature: the Toolbox "Shapes" tab drops shapeType payloads.
+    const shapeType = e.dataTransfer.getData('shapeType') as ShapeType | '';
+    if (shapeType && onDropShape) { onDropShape(shapeType, pos.x, pos.y); return; }
     const type = e.dataTransfer.getData('nodeType');
-    if (type) { const pos = screenToCanvas(e.clientX, e.clientY); onDropNode(type, pos.x, pos.y); }
-  }, [screenToCanvas]);
+    if (type) onDropNode(type, pos.x, pos.y);
+  }, [screenToCanvas, onDropShape]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' && selectedNodeId && !editingPort) onDeleteNode(selectedNodeId);
-      if (e.key === 'Escape') { setContextMenu(null); setConnMenu(null); setEditingPort(null); }
+      if (e.key === 'Delete' && !editingPort) {
+        // Shapes feature: a selected shape is deleted before any node logic runs.
+        if (selectedShapeId && (shapes ?? []).some(s => s.id === selectedShapeId)) {
+          onDeleteShape?.(selectedShapeId);
+          return;
+        }
+        const multi = selectedNodeIds ?? [];
+        if (multi.length > 1 && onMultiDelete) onMultiDelete(multi);
+        else if (selectedNodeId) onDeleteNode(selectedNodeId);
+      }
+      if (e.key === 'Escape') { setContextMenu(null); setConnMenu(null); setSelMenu(null); setShapeMenu(null); setShapeSizeEditor(null); setEditingPort(null); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selectedNodeId, editingPort]);
+  }, [selectedNodeId, selectedNodeIds, editingPort, onMultiDelete, onDeleteNode, selectedShapeId, shapes, onDeleteShape]);
 
   // ─── Grid ───
   const renderGrid = () => {
@@ -432,6 +766,12 @@ export default function NodeCanvas({
           strokeOpacity={isHovered ? 0.6 : 1}
           style={{ transition: 'stroke-opacity 0.2s ease, stroke-width 0.2s ease' }}
         />
+        {/* Calculation Trace: temporary highlight ring (view-only, auto-clears) */}
+        {traceHighlightId === node.id && (
+          <rect x={-6} y={-6} width={node.width + 12} height={nodeH + 12} rx={12}
+            fill="none" stroke={colors.selected} strokeWidth={3}
+            className="animate-pulse pointer-events-none" />
+        )}
         {/* Header */}
         <rect width={node.width} height={HEADER_HEIGHT} rx={8} fill={headerColor} opacity={0.9} />
         <rect y={HEADER_HEIGHT - 8} width={node.width} height={8} fill={headerColor} opacity={0.9} />
@@ -451,6 +791,69 @@ export default function NodeCanvas({
     );
   };
 
+  /* ── Shapes feature: render one canvas shape ──
+     Geometry lives in a child <g> so the (translucent) fill stays clickable.
+     Every selected shape is highlighted; resize handles are on the PRIMARY
+     one only. Resize handles only exist when selected AND not frozen. */
+  const renderShape = (shape: CanvasShape) => {
+    const isSelected = shape.id === selectedShapeId || (selectedShapeIds ?? []).includes(shape.id);
+    const isPrimary = shape.id === selectedShapeId;
+    const def = getShapeDefinition(shape.type);
+    const shapeColor = shape.color || colors.conn;
+    const stroke = isSelected ? colors.selected : shapeColor;
+    let geometry: React.ReactNode;
+    if (shape.type === 'rectangle' || shape.type === 'square') {
+      geometry = <rect x={shape.x} y={shape.y} width={shape.width} height={shape.height} rx={3} />;
+    } else if (shape.type === 'circle') {
+      geometry = <ellipse
+        cx={shape.x + shape.width / 2} cy={shape.y + shape.height / 2}
+        rx={shape.width / 2} ry={shape.height / 2} />;
+    } else {
+      geometry = <polygon points={shapePolygonPoints(shape.type, shape.x, shape.y, shape.width, shape.height) || ''} />;
+    }
+    return (
+      <g key={shape.id}
+        onMouseDown={(e) => handleShapeMouseDown(e, shape)}
+        onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
+        style={{ cursor: dragShape?.id === shape.id ? 'grabbing' : 'move' }}>
+        <g fill={shapeColor} fillOpacity={shape.fillOpacity ?? DEFAULT_SHAPE_FILL_OPACITY} stroke={stroke} strokeWidth={isSelected ? 2.5 : 1.5}>
+          {geometry}
+          <title>{def?.description}{shape.frozen ? ' — size frozen (right-click to unfreeze)' : ''}</title>
+        </g>
+        {/* Frozen badge: the shape's size is locked */}
+        {shape.frozen && (
+          <text x={shape.x + shape.width - 6} y={shape.y + 18} textAnchor="end"
+            fontSize={14} pointerEvents="none" opacity={0.9}>❄️</text>
+        )}
+        {/* Corner resize handles (primary selection only, hidden while frozen) */}
+        {isPrimary && !shape.frozen && onResizeShape && (() => {
+          const hs = 10 / zoom;
+          const corners: [ShapeResizeHandle, number, number, string][] = [
+            ['nw', shape.x, shape.y, 'nwse-resize'],
+            ['ne', shape.x + shape.width, shape.y, 'nesw-resize'],
+            ['sw', shape.x, shape.y + shape.height, 'nesw-resize'],
+            ['se', shape.x + shape.width, shape.y + shape.height, 'nwse-resize'],
+          ];
+          return corners.map(([h, hx, hy, cursor]) => (
+            <rect key={h}
+              x={hx - hs / 2} y={hy - hs / 2} width={hs} height={hs} rx={1.5 / zoom}
+              fill={colors.nodeBg} stroke={colors.selected} strokeWidth={1.5 / zoom}
+              style={{ cursor }}
+              onMouseDown={(e) => handleShapeHandleMouseDown(e, shape, h)} />
+          ));
+        })()}
+      </g>
+    );
+  };
+
+  /* ── Node Groups + Shapes: the current COMBINED selection (nodes + shapes)
+     is the target of the Group/Ungroup actions in every menu ── */
+  const menuNodeIds = selectedNodeIds ?? [];
+  const menuShapeIds = selectedShapeIds ?? [];
+  const menuTotal = menuNodeIds.length + menuShapeIds.length;
+  const menuCanGroup = Boolean(onGroupSelection) && menuTotal >= 2;
+  const menuCanUngroup = Boolean(onUngroupSelection) && hasGroupMembership(groups ?? [], menuNodeIds, menuShapeIds);
+
   // ─── Context menu anchor ───
   // Compute where the open node context menu should sit, in container-relative
   // coordinates. This runs on every render, so the menu tracks the node as the
@@ -467,7 +870,9 @@ export default function NodeCanvas({
     const nw = node.width * zoom;
     const nh = node.height * zoom;
     const MENU_W = 208;
-    const MENU_H = 176;
+    // Height estimate includes optional items (draw order / trace / group /
+    // ungroup) so the on-screen clamping below keeps the whole menu visible.
+    const MENU_H = 214 + (onViewTrace ? 38 : 0) + (menuCanGroup ? 38 : 0) + (menuCanUngroup ? 38 : 0);
     const GAP = 8;
     // Prefer to the right of the node; flip to the left when it would overflow.
     let x = nx + nw + GAP;
@@ -484,20 +889,61 @@ export default function NodeCanvas({
     <div className="relative w-full h-full overflow-hidden" style={{ background: colors.bg }}>
       <svg ref={svgRef} className="w-full h-full"
         onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
+        onMouseLeave={() => setHoveredGroupId(null)}
+        onContextMenu={handleBackgroundContextMenu}
         onDragOver={handleDragOver} onDrop={handleDrop}
         style={{ cursor: isPanning ? 'grabbing' : dragNode ? 'move' : connecting.isConnecting ? 'crosshair' : 'default' }}>
         {renderGrid()}
         <g transform={`translate(${panX}, ${panY}) scale(${zoom})`}>
+          {/* Back layer: shapes not marked "front" (per-item draw order) */}
+          {(shapes ?? []).filter(s => !s.front).map(renderShape)}
+          {/* Node group outlines — shown ONLY while hovering the group */}
+          {(groups ?? []).filter(g => g.id === hoveredGroupId).map(g => {
+            const bounds = computeGroupBounds(g, nodes, shapes ?? []);
+            if (!bounds) return null;
+            return (
+              <g key={g.id} pointerEvents="none">
+                <rect
+                  x={bounds.x} y={bounds.y} width={bounds.width} height={bounds.height} rx={10}
+                  fill="none" stroke={colors.conn} strokeWidth={1.5 / zoom}
+                  strokeDasharray={`${6 / zoom} ${4 / zoom}`} opacity={0.55}
+                />
+                <text
+                  x={bounds.x + 8 / zoom} y={bounds.y - 5 / zoom}
+                  fontSize={11 / zoom} fontWeight="600" fontFamily="system-ui"
+                  fill={colors.conn} opacity={0.9}
+                >
+                  {g.name}
+                </text>
+              </g>
+            );
+          })}
           {connections.map(renderConnection)}
           {renderActiveConnection()}
-          {nodes.map(renderNode)}
+          {/* Default layer: nodes (always above wires, as before) */}
+          {nodes.filter(n => !n.front).map(renderNode)}
+          {/* Front layer: items marked "front" (nodes and shapes) */}
+          {nodes.filter(n => n.front).map(renderNode)}
+          {(shapes ?? []).filter(s => s.front).map(renderShape)}
+          {/* Marquee selection box (grouping feature) */}
+          {marquee?.active && (() => {
+            const box = normalizeMarquee(marquee.startX, marquee.startY, marquee.endX, marquee.endY);
+            return (
+              <rect
+                x={box.x1} y={box.y1} width={box.x2 - box.x1} height={box.y2 - box.y1}
+                fill={colors.conn} fillOpacity={0.08} stroke={colors.conn}
+                strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`}
+                pointerEvents="none"
+              />
+            );
+          })()}
         </g>
       </svg>
 
       {/* Zoom indicator */}
       <div className="absolute bottom-3 right-3 px-3 py-1 rounded-lg text-xs font-mono"
         style={{ background: colors.nodeBg, color: colors.text, border: `1px solid ${colors.nodeBorder}` }}>
-        {Math.round(zoom * 100)}% &bull; {nodes.length} nodes &bull; {connections.length} conns
+        {Math.round(zoom * 100)}% &bull; {nodes.length} nodes &bull; {connections.length} conns{shapes && shapes.length > 0 ? ` &bull; ${shapes.length} shapes` : ''}
       </div>
 
       {/* ─── NEW: Connection context menu ─── */}
@@ -520,13 +966,173 @@ export default function NodeCanvas({
             onClick={() => { onEditNodeCode(contextMenu.nodeId); setContextMenu(null); }}>🧮 Edit Node Code</button>
           <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
             onClick={() => { onEditFormula(contextMenu.nodeId); setContextMenu(null); }}>⚡ Edit Formula &amp; Inputs</button>
-          <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
+          {/* Shapes feature: per-item draw order (front layer) */}
+          {onUpdateNodeFront && (() => {
+            const n = nodes.find(nn => nn.id === contextMenu.nodeId);
+            const front = Boolean(n?.front);
+            return (
+              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                onClick={() => { onUpdateNodeFront(n!.id, !front); setContextMenu(null); }}>
+                {front ? '🔽 Send to back' : '🔼 Bring to front'}
+              </button>
+            );
+          })()}
+          {/* Node Groups integration — optional, inert when not provided.
+             Acts on the combined selection (nodes AND shapes). */}
+          {(menuCanGroup || menuCanUngroup) && (
+            <>
+              <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
+              {menuCanGroup && (
+                <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                  onClick={() => { onGroupSelection?.(menuNodeIds, menuShapeIds); setContextMenu(null); }}>📦 Group Selection (Ctrl+G)</button>
+              )}
+              {menuCanUngroup && (
+                <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                  onClick={() => { onUngroupSelection?.(menuNodeIds, menuShapeIds); setContextMenu(null); }}>📂 Ungroup (Ctrl+Shift+G)</button>
+              )}
+            </>
+          )}
+          {/* Calculation Trace integration — optional, inert when not provided */}
+          {onViewTrace && (
+            <>
+              <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
+              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                onClick={() => { onViewTrace(contextMenu.nodeId); setContextMenu(null); }}>🔎 View Calculation Trace</button>
+              <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
+            </>
+          )}
           <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
             onClick={() => { onDeleteNode(contextMenu.nodeId); setContextMenu(null); }}>🗑️ Delete Node</button>
           <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
             onClick={() => setContextMenu(null)}>✕ Cancel</button>
         </div>
       )}
+
+      {/* Node Groups: right-click menu for the current selection (nodes + shapes) */}
+      {selMenu && (
+        <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[210px]"
+          style={{ left: selMenu.x, top: selMenu.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
+          <div className="px-3 py-2 text-xs font-semibold" style={{ color: colors.sub, borderBottom: `1px solid ${colors.nodeBorder}` }}>
+            📦 Selection ({menuTotal} item{menuTotal === 1 ? '' : 's'})
+          </div>
+          {menuCanGroup && (
+            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+              onClick={() => { onGroupSelection?.(menuNodeIds, menuShapeIds); setSelMenu(null); }}>📦 Group Selection (Ctrl+G)</button>
+          )}
+          {menuCanUngroup && (
+            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+              onClick={() => { onUngroupSelection?.(menuNodeIds, menuShapeIds); setSelMenu(null); }}>📂 Ungroup (Ctrl+Shift+G)</button>
+          )}
+          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
+            onClick={() => { onSelectNode(null); onSelectShapes?.([], false); setSelMenu(null); }}>✕ Clear Selection</button>
+        </div>
+      )}
+
+      {/* Shapes feature: right-click menu for a shape (freeze size / delete) */}
+      {shapeMenu && (() => {
+        const s = (shapes ?? []).find(sh => sh.id === shapeMenu.id);
+        if (!s) return null;
+        return (
+          <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[210px]"
+            style={{ left: shapeMenu.x, top: shapeMenu.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
+            <div className="px-3 py-2 text-xs font-semibold" style={{ color: colors.sub, borderBottom: `1px solid ${colors.nodeBorder}` }}>
+              {getShapeDefinition(s.type)?.icon || '◼'} {getShapeDefinition(s.type)?.label || s.type}
+            </div>
+            {onToggleShapeFrozen && (
+              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                onClick={() => { onToggleShapeFrozen(s.id); setShapeMenu(null); }}>
+                {s.frozen ? '❄️ Unfreeze size' : '🧊 Freeze size'}
+              </button>
+            )}
+            {/* Edit exact dimensions (position is kept) */}
+            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+              onClick={() => {
+                setShapeSizeEditor({
+                  id: s.id,
+                  x: shapeMenu.x,
+                  y: shapeMenu.y,
+                  width: Math.round(s.width),
+                  height: Math.round(s.height),
+                });
+                setShapeMenu(null);
+              }}>✏️ Edit dimensions</button>
+            {/* Per-item draw order (front layer) */}
+            {onUpdateShape && (
+              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                onClick={() => { onUpdateShape(s.id, { front: !s.front }); setShapeMenu(null); }}>
+                {s.front ? '🔽 Send to back' : '🔼 Bring to front'}
+              </button>
+            )}
+            {/* Node Groups: group/ungroup acts on the combined selection */}
+            {(menuCanGroup || menuCanUngroup) && (
+              <>
+                <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
+                {menuCanGroup && (
+                  <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                    onClick={() => { onGroupSelection?.(menuNodeIds, menuShapeIds); setShapeMenu(null); }}>📦 Group Selection (Ctrl+G)</button>
+                )}
+                {menuCanUngroup && (
+                  <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                    onClick={() => { onUngroupSelection?.(menuNodeIds, menuShapeIds); setShapeMenu(null); }}>📂 Ungroup (Ctrl+Shift+G)</button>
+                )}
+              </>
+            )}
+            {onDeleteShape && (
+              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
+                onClick={() => { onDeleteShape(s.id); setShapeMenu(null); }}>🗑️ Delete Shape</button>
+            )}
+            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
+              onClick={() => setShapeMenu(null)}>✕ Cancel</button>
+          </div>
+        );
+      })()}
+
+      {/* Shapes feature: "Edit dimensions" popover (from the shape right-click menu) */}
+      {shapeSizeEditor && (() => {
+        const s = (shapes ?? []).find(sh => sh.id === shapeSizeEditor.id);
+        if (!s) return null;
+        const apply = () => {
+          onResizeShape?.(s.id, {
+            x: s.x, y: s.y,
+            width: Math.max(MIN_SHAPE_SIZE, shapeSizeEditor.width),
+            height: Math.max(MIN_SHAPE_SIZE, shapeSizeEditor.height),
+          });
+          setShapeSizeEditor(null);
+        };
+        return (
+          <div className="absolute z-50 rounded-xl shadow-2xl p-3 min-w-[200px] space-y-2"
+            style={{ left: shapeSizeEditor.x, top: shapeSizeEditor.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
+            <div className="text-xs font-semibold" style={{ color: colors.sub }}>✏️ Edit dimensions</div>
+            {s.frozen && (
+              <p className="text-[10px]" style={{ color: '#f59e0b' }}>🧊 Size is frozen — unfreeze to edit.</p>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-[10px]" style={{ color: colors.sub }}>
+                Width
+                <input
+                  type="number" min={MIN_SHAPE_SIZE} value={shapeSizeEditor.width} disabled={s.frozen}
+                  onChange={(e) => setShapeSizeEditor(prev => (prev ? { ...prev, width: parseFloat(e.target.value) || 0 } : prev))}
+                  className="w-full mt-0.5 px-2 py-1 rounded text-sm outline-none disabled:opacity-50"
+                  style={{ background: colors.inputBg, color: colors.text, border: `1px solid ${colors.nodeBorder}`, fontFamily: 'monospace' }} />
+              </label>
+              <label className="text-[10px]" style={{ color: colors.sub }}>
+                Height
+                <input
+                  type="number" min={MIN_SHAPE_SIZE} value={shapeSizeEditor.height} disabled={s.frozen}
+                  onChange={(e) => setShapeSizeEditor(prev => (prev ? { ...prev, height: parseFloat(e.target.value) || 0 } : prev))}
+                  className="w-full mt-0.5 px-2 py-1 rounded text-sm outline-none disabled:opacity-50"
+                  style={{ background: colors.inputBg, color: colors.text, border: `1px solid ${colors.nodeBorder}`, fontFamily: 'monospace' }} />
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button className="flex-1 px-3 py-1 rounded text-xs font-medium transition-all hover:opacity-80" style={{ background: colors.conn, color: '#0b1220' }}
+                onClick={apply} disabled={s.frozen}>Apply</button>
+              <button className="flex-1 px-3 py-1 rounded text-xs font-medium transition-all hover:bg-white/10" style={{ color: colors.sub }}
+                onClick={() => setShapeSizeEditor(null)}>Cancel</button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

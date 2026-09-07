@@ -10,6 +10,10 @@ Welcome to the documentation for **Structural Node Designer**, a Grasshopper-ins
 |----------|-------------|----------|
 | [PRD.md](./PRD.md) | Product Requirements Document - Vision, objectives, features | Product, Engineering |
 | [USER_GUIDE.md](./USER_GUIDE.md) | User manual - How to use the application | End Users |
+| [CALCULATION_TRACE.md](./CALCULATION_TRACE.md) | Calculation Trace feature - how to open, navigate, export | End Users, Developers |
+| [NODE_GROUPS.md](./NODE_GROUPS.md) | Node Groups - marquee selection, group/ungroup, move together | End Users, Developers |
+| [CANVAS_FIT.md](./CANVAS_FIT.md) | Zoom to Fit - the Fit button fits all nodes to the window, centered | End Users, Developers |
+| [CANVAS_SHAPES.md](./CANVAS_SHAPES.md) | Canvas Shapes - Shapes category, drag/drop, resize (Ctrl = ratio), freeze, color/opacity, per-item draw order, mixed groups | End Users, Developers |
 | [TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md) | Technical design - Architecture and implementation details | Developers |
 | [API_REFERENCE.md](./API_REFERENCE.md) | API documentation - Types, functions, components | Developers |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture - Component diagrams and data flow | Developers, Architects |

@@ -46,8 +46,18 @@ export function topologicalSort(nodes: CanvasNode[], connections: Connection[]):
 }
 
 export function detectCircularReferences(nodes: CanvasNode[], connections: Connection[]): boolean {
-  const sorted = topologicalSort(nodes, connections);
-  return sorted.length !== nodes.length;
+  // BUG FIX (minimal, additive feature support): `topologicalSort` returns ALL
+  // node ids (sorted prefix + cycle-affected remainder appended), so the old
+  // `sorted.length !== nodes.length` check could never be true and this
+  // function always reported "no cycle". A cycle exists exactly when the
+  // returned ordering violates at least one connection edge — which can only
+  // happen for the appended remainder. Same `topologicalSort` mechanism, no
+  // new solver.
+  const order = topologicalSort(nodes, connections);
+  const pos = new Map<string, number>(order.map((id, i) => [id, i]));
+  return connections.some(
+    c => (pos.get(c.fromNodeId) ?? -1) > (pos.get(c.toNodeId) ?? -1),
+  );
 }
 
 export function computeAllNodes(nodes: CanvasNode[], connections: Connection[]): CanvasNode[] {

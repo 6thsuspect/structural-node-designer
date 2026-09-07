@@ -8,11 +8,12 @@ import CustomFormulaModal, { CustomNodeData } from './components/CustomFormulaMo
 import QuickFormulaModal, { QuickNodeData } from './components/QuickFormulaModal';
 import NodeCodeModal, { CodeNodeData } from './components/NodeCodeModal';
 import SettingsModal from './components/SettingsModal';
+import { CalculationTracePanel, type FormulaProvider } from './features/calculation-trace';
 import { createDemoWorkflow } from './demoWorkflow';
 import { registerCustomNode, CATEGORY_COLORS, getNodeDefinition } from './nodeDefinitions';
 import { evaluateFormulaNode } from './formulaParser';
 import { generateNodeCode, extractOutputFormulas, buildQuickPrefill, buildCodePrefill } from './nodeCodegen';
-import { Theme, NodeDefinition, CanvasNode } from './types';
+import { Theme, NodeDefinition, CanvasNode, ShapeType } from './types';
 
 /* ─── theme palette helper ─── */
 const panelColors = (theme: Theme) => {
@@ -145,6 +146,50 @@ export default function App() {
   const selectedNode = editor.nodes.find(n => n.id === editor.selectedNodeId) || null;
   const editNode = editor.nodes.find(n => n.id === editNodeId) || selectedNode;
 
+  /* ── Shapes feature: the selected canvas shape (mutually exclusive with nodes —
+     the panel shows the node when a node is selected, else the primary shape) ── */
+  const selectedShape = selectedNode
+    ? null
+    : editor.shapes.find(s => s.id === editor.selectedShapeId) || null;
+
+  /* ── Zoom to Fit: token per request — NodeCanvas computes & applies the fit ── */
+  const [fitSignal, setFitSignal] = useState(0);
+
+  /* ── Calculation Trace feature (additive, read-only) ── */
+  const [traceNodeId, setTraceNodeId] = useState<string | null>(null);
+  const [traceFocus, setTraceFocus] = useState<{ nodeId: string; token: number } | null>(null);
+
+  /* Opens the trace panel for a node (context menu / properties button). */
+  const handleViewTrace = useCallback((nodeId: string) => {
+    setTraceNodeId(nodeId);
+  }, []);
+
+  /* "Locate" from a trace step: close the panel, then let the canvas
+     pan/zoom to the node and highlight it briefly. */
+  const handleTraceLocate = useCallback((nodeId: string) => {
+    setTraceNodeId(null);
+    setTraceFocus({ nodeId, token: Date.now() });
+  }, []);
+
+  /* Authoritative per-output formulas for CUSTOM nodes (quick / advanced /
+     code). Built-in nodes return undefined → the trace service falls back to
+     the existing description-based extraction. Read-only. */
+  const traceFormulaProvider = useCallback<FormulaProvider>((node) => {
+    const custom = customNodes.find(n => n.id === node.type);
+    if (custom) {
+      const formulas: Record<string, string> = {};
+      custom.outputs.forEach(o => { formulas[o.name] = o.formula; });
+      return { formulas, source: 'custom' };
+    }
+    const code = codeNodes.find(c => c.id === node.type);
+    if (code) {
+      const formulas: Record<string, string> = {};
+      buildCodePrefill(node, code.code).outputs.forEach(o => { formulas[o.name] = o.formula; });
+      return { formulas, source: 'custom' };
+    }
+    return undefined;
+  }, [customNodes, codeNodes]);
+
   /* ── Reconstruct editable code for any node (built-in, formula, or code) ── */
   const buildInitialCode = (node: CanvasNode): string => {
     const def = getNodeDefinition(node.type);
@@ -272,14 +317,15 @@ export default function App() {
       name: 'Structural Node Designer Project', version: '1.0',
       created: new Date().toISOString(), modified: new Date().toISOString(),
       canvas: { nodes:editor.nodes, connections:editor.connections, zoom:editor.zoom, panX:editor.panX, panY:editor.panY },
-      theme: editor.theme, customNodes, codeNodes,
+      theme: editor.theme, customNodes, codeNodes, groups: editor.groups,
+      shapes: editor.shapes,
     };
     const blob = new Blob([JSON.stringify(project, null, 2)], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'project.snd.json'; a.click();
     URL.revokeObjectURL(url);
-  }, [editor.nodes, editor.connections, editor.zoom, editor.panX, editor.panY, editor.theme, customNodes, codeNodes]);
+  }, [editor.nodes, editor.connections, editor.zoom, editor.panX, editor.panY, editor.theme, editor.groups, editor.shapes, customNodes, codeNodes]);
 
   /* ── keyboard shortcuts ── */
   useEffect(() => {
@@ -287,6 +333,13 @@ export default function App() {
       if ((e.ctrlKey||e.metaKey) && e.key==='z') { e.preventDefault(); editor.undo(); }
       if ((e.ctrlKey||e.metaKey) && e.key==='y') { e.preventDefault(); editor.redo(); }
       if ((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); handleSaveProject(); }
+      // Node Groups: Ctrl+G group selection, Ctrl+Shift+G ungroup.
+      // Mixed groups: the current selection includes nodes AND shapes.
+      if ((e.ctrlKey||e.metaKey) && e.key==='g') {
+        e.preventDefault();
+        if (e.shiftKey) editor.ungroupSelection(editor.selectedNodeIds, editor.selectedShapeIds);
+        else editor.groupSelection(editor.selectedNodeIds, editor.selectedShapeIds);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -340,6 +393,9 @@ export default function App() {
   }, [editor]);
 
   const handleDropNode = useCallback((type: string, x: number, y: number) => { editor.addNode(type, x, y); setShowSplash(false); }, [editor]);
+
+  /* ── Shapes feature: drop a shape from the Toolbox "Shapes" tab ── */
+  const handleDropShape = useCallback((type: ShapeType, x: number, y: number) => { editor.addShape(type, x, y); setShowSplash(false); }, [editor]);
 
   /* ═══ SPLASH ═══ */
   if (showSplash && editor.nodes.length === 0) {
@@ -402,7 +458,7 @@ export default function App() {
       <Toolbar theme={editor.theme} onThemeChange={editor.setTheme} onSave={handleSaveProject} onLoad={handleLoadFile} onClear={editor.clearAll}
         onUndo={editor.undo} onRedo={editor.redo} onReport={editor.generateReport}
         onZoomIn={() => editor.setZoom(Math.min(5, editor.zoom*1.2))} onZoomOut={() => editor.setZoom(Math.max(0.1, editor.zoom*0.8))}
-        onZoomFit={() => { editor.setZoom(1); editor.setPanX(0); editor.setPanY(0); }}
+        onZoomFit={() => setFitSignal(t => t + 1)}
         onLoadDemo={handleLoadDemo} onCreateCustomNode={() => setShowCustomFormulaModal(true)}
         onQuickFormula={() => setShowQuickFormulaModal(true)} onSettings={() => setShowSettings(true)} />
 
@@ -436,6 +492,17 @@ export default function App() {
             onEditNodeCode={handleOpenNodeCode} onEditFormula={handleOpenFormula}
             onZoomChange={editor.setZoom}
             onPanChange={(x,y) => { editor.setPanX(x); editor.setPanY(y); }} onDropNode={handleDropNode}
+            onViewTrace={handleViewTrace} focusTarget={traceFocus} fitSignal={fitSignal}
+            selectedNodeIds={editor.selectedNodeIds} groups={editor.groups}
+            onSelectNodes={editor.selectNodes} onMoveNodes={editor.moveNodesBy}
+            onGroupSelection={editor.groupSelection} onUngroupSelection={editor.ungroupSelection}
+            onUpdateNodeFront={editor.setNodeFront}
+            onMultiDelete={editor.deleteNodes}
+            shapes={editor.shapes} selectedShapeId={editor.selectedShapeId} selectedShapeIds={editor.selectedShapeIds}
+            onSelectShape={editor.selectShape} onSelectShapes={editor.setShapeSelection}
+            onMoveShape={editor.moveShape} onResizeShape={(id, box) => editor.updateShape(id, box)}
+            onUpdateShape={editor.updateShape}
+            onDropShape={handleDropShape} onDeleteShape={editor.deleteShape} onToggleShapeFrozen={editor.toggleShapeFrozen}
           />
         </div>
 
@@ -447,7 +514,10 @@ export default function App() {
               <PanelHeader title="Properties" icon="📋" theme={editor.theme} onToggle={() => setPropertiesOpen(false)} />
               <div className="flex-1 overflow-hidden">
                 <PropertiesPanel node={selectedNode} connections={editor.connections} theme={editor.theme}
-                  onUpdateInput={editor.updateNodeInput} onDeleteNode={editor.deleteNode} onDuplicateNode={editor.duplicateNode} />
+                  onUpdateInput={editor.updateNodeInput} onDeleteNode={editor.deleteNode} onDuplicateNode={editor.duplicateNode}
+                  onViewTrace={handleViewTrace} onUpdateNodeFront={editor.setNodeFront}
+                  shape={selectedShape} onUpdateShape={editor.updateShape} onDeleteShape={editor.deleteShape}
+                  onToggleShapeFrozen={editor.toggleShapeFrozen} />
               </div>
             </div>
           </>
@@ -471,6 +541,19 @@ export default function App() {
         onClose={() => { setShowNodeCodeModal(false); setEditNodeId(null); }}
         onSave={handleSaveNodeCode} />
       <SettingsModal isOpen={showSettings} theme={editor.theme} onThemeChange={editor.setTheme} onClose={() => setShowSettings(false)} onClearAll={editor.clearAll} />
+
+      {/* Calculation Trace (additive feature — read-only, on demand) */}
+      <CalculationTracePanel
+        isOpen={traceNodeId !== null}
+        theme={editor.theme}
+        nodes={editor.nodes}
+        connections={editor.connections}
+        rootNodeId={traceNodeId}
+        formulaProvider={traceFormulaProvider}
+        projectName="Structural Node Designer Project"
+        onClose={() => setTraceNodeId(null)}
+        onLocateNode={handleTraceLocate}
+      />
     </div>
   );
 }
