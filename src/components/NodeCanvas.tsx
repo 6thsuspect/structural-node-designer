@@ -1,6 +1,16 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { CanvasNode, Connection, ConnectingState, Theme, SelectionBox, NodeGroup, CanvasShape, ShapeType } from '../types';
 import {
+  beginPinch,
+  isDoubleTap,
+  isTap,
+  isValidConnectTarget,
+  twoPointers,
+  updatePinchView,
+  LONG_PRESS_MS,
+  type PinchGesture,
+} from '../features/touch-interactions';
+import {
   computeGroupBounds,
   getGroupOfShape,
   groupMemberIds,
@@ -24,6 +34,13 @@ import {
 const PORT_RADIUS = 7;
 const PORT_HEIGHT = 28;
 const HEADER_HEIGHT = 36;
+/* ─── Touch/pointer layer constants (see features/touch-interactions) ─── */
+// Invisible enlarged hit radius around each port, in canvas units, so ports can
+// be tapped with a finger. The VISUAL port circle is unchanged; on desktop the
+// extra hit area is disabled via CSS (see index.css) unless a wire is being
+// dragged, so the mouse behavior stays exactly as before.
+const PORT_TOUCH_HIT_RADIUS = 18;   // ≈36 px target at 100% zoom (PRD: 32–44 px)
+const PORT_TOUCH_HIT_MAX = 20;      // clamp so tiny zooms don't swallow the node
 
 /* ─── Port row layout constants (node width is fixed at 200) ─── */
 const LABEL_X = 16;             // input label left edge
@@ -116,6 +133,13 @@ interface Props {
   onDeleteShape?: (shapeId: string) => void;
   /** Toggle a shape's frozen (size-locked) state. */
   onToggleShapeFrozen?: (shapeId: string) => void;
+  /* ── Tap-to-place (mobile node library) — optional, inert when absent ── */
+  /** A node type waiting to be placed by tapping the canvas (mobile "Add Node"). */
+  placeNodeType?: string | null;
+  /** A shape type waiting to be placed by tapping the canvas. */
+  placeShapeType?: ShapeType | null;
+  /** Called with WORLD coordinates when a pending node/shape is placed by a tap. */
+  onPlaceAtWorld?: (x: number, y: number) => void;
 }
 
 function getPortPosition(node: CanvasNode, portId: string, isOutput: boolean): { x: number; y: number } {
@@ -224,6 +248,7 @@ export default function NodeCanvas({
   snapEnabled = false,
   shapes, selectedShapeId, selectedShapeIds, onSelectShapes, onSelectShape, onMoveShape, onResizeShape, onUpdateShape,
   onDropShape, onDeleteShape, onToggleShapeFrozen,
+  placeNodeType, placeShapeType, onPlaceAtWorld,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const colors = themeColors[theme];
@@ -249,6 +274,10 @@ export default function NodeCanvas({
   /* ── Node Groups feature: marquee (rubber-band) selection box ── */
   const [marquee, setMarquee] = useState<SelectionBox | null>(null);
   const marqueeShiftRef = useRef(false);
+  // Mirror of the marquee state so gesture handlers (mouse AND touch) always
+  // finish the freshest box without stale-closure races.
+  const marqueeRef = useRef<SelectionBox | null>(null);
+  useEffect(() => { marqueeRef.current = marquee; }, [marquee]);
   // Node context menu is anchored to the node (not a fixed screen point), so it
   // follows the node while the canvas is panned or zoomed.
   const [contextMenu, setContextMenu] = useState<{ nodeId: string } | null>(null);
@@ -317,6 +346,107 @@ export default function NodeCanvas({
     return { x: (sx - rect.left - panX) / zoom, y: (sy - rect.top - panY) / zoom };
   }, [zoom, panX, panY]);
 
+  /* ═══ Shared drag "apply" helpers ═══
+     One implementation of each drag move/finish, used by BOTH the mouse
+     handlers below and the touch/pen pointer layer — the same math runs for
+     every input device (single canonical world-coordinate conversion). */
+
+  /** Complete a marquee selection (additive = Shift on desktop, never on touch). */
+  const finishMarquee = useCallback((additive: boolean) => {
+    if (!marqueeRef.current) return;
+    const m = marqueeRef.current;
+    const box = normalizeMarquee(m.startX, m.startY, m.endX, m.endY);
+    const small = (box.x2 - box.x1) * zoom < 5 && (box.y2 - box.y1) * zoom < 5;
+    if (small) {
+      // Plain click on empty canvas → clear selection (existing behavior).
+      // Shapes feature: also drop any shape selection.
+      if (!additive) { onSelectNode(null); onSelectShapes?.([], false); setSelectedConnId(null); }
+    } else {
+      // A real marquee replaces the selection — a selected wire is dropped too.
+      setSelectedConnId(null);
+      const ids = nodesInBox(nodes, box);
+      // Shapes inside the box join the selection and are highlighted too.
+      const shapeIds = nodesInBox(shapes ?? [], box);
+      onSelectShapes?.(
+        additive
+          ? Array.from(new Set([...(selectedShapeIds ?? []), ...shapeIds]))
+          : shapeIds,
+        false,
+      );
+      if (onSelectNodes) {
+        if (additive) {
+          // Additive: union with the current selection.
+          onSelectNodes(Array.from(new Set([...(selectedNodeIds ?? []), ...ids])));
+        } else {
+          onSelectNodes(ids);
+        }
+      } else if (ids.length === 1) {
+        onSelectNode(ids[0]);
+      }
+    }
+    marqueeShiftRef.current = false;
+    setMarquee(null);
+  }, [zoom, nodes, shapes, onSelectNodes, selectedNodeIds, selectedShapeIds, onSelectNode, onSelectShapes]);
+
+  /** Move a node (or its whole group) to follow the pointer — mouse + touch. */
+  const applyNodeDragMove = useCallback((state: { id: string; offsetX: number; offsetY: number; memberIds: string[]; memberShapeIds: string[] }, clientX: number, clientY: number) => {
+    const pos = screenToCanvas(clientX, clientY);
+    const primary = nodes.find(n => n.id === state.id);
+    let targetX = pos.x - state.offsetX;
+    let targetY = pos.y - state.offsetY;
+    // Alignment snap: snap the dragged node's target to the nearest node's
+    // edges/center (true horizontal/vertical alignment) and show guides.
+    // For multi/group drags the snap is computed from the primary node and
+    // the whole set follows the snapped delta.
+    if (snapEnabled && primary) {
+      const snap = computeSnapGuides(targetX, targetY, primary, nodes, zoom);
+      targetX = snap.x;
+      targetY = snap.y;
+      setSnapGuides(
+        snap.vertical.length > 0 || snap.horizontal.length > 0
+          ? { vertical: snap.vertical, horizontal: snap.horizontal }
+          : null,
+      );
+    } else {
+      setSnapGuides(null);
+    }
+    if (state.memberIds.length > 1 && onMoveNodes) {
+      // Grouped node: move the whole group (nodes AND its shapes) by the delta.
+      if (primary) onMoveNodes(state.memberIds, targetX - primary.x, targetY - primary.y, state.memberShapeIds);
+    } else {
+      onMoveNode(state.id, targetX, targetY);
+    }
+  }, [nodes, screenToCanvas, snapEnabled, zoom, onMoveNodes, onMoveNode]);
+
+  /** Move a shape (or its whole mixed group) to follow the pointer. */
+  const applyShapeDragMove = useCallback((state: { id: string; offsetX: number; offsetY: number; memberNodeIds: string[]; memberShapeIds: string[] }, clientX: number, clientY: number) => {
+    const pos = screenToCanvas(clientX, clientY);
+    const targetX = pos.x - state.offsetX;
+    const targetY = pos.y - state.offsetY;
+    const total = state.memberNodeIds.length + state.memberShapeIds.length;
+    if (total > 1 && onMoveNodes) {
+      // Grouped shape: move the whole group (shapes AND its nodes) by the delta.
+      const primary = (shapes ?? []).find(s => s.id === state.id);
+      if (primary) onMoveNodes(state.memberNodeIds, targetX - primary.x, targetY - primary.y, state.memberShapeIds);
+    } else if (onMoveShape) {
+      onMoveShape(state.id, targetX, targetY);
+    }
+  }, [shapes, screenToCanvas, onMoveNodes, onMoveShape]);
+
+  /** Resize a shape from a corner handle. `ratioLock` = desktop Ctrl (touch: none). */
+  const applyShapeResizeMove = useCallback((state: { id: string; handle: ShapeResizeHandle; ratio: number }, clientX: number, clientY: number, ratioLock: boolean) => {
+    if (!onResizeShape) return;
+    const s = (shapes ?? []).find(sh => sh.id === state.id);
+    // A frozen shape cannot be resized (handles aren't rendered, but guard anyway).
+    if (s && !s.frozen) {
+      const pos = screenToCanvas(clientX, clientY);
+      const box = ratioLock
+        ? shapeRatioResizeBox(s, state.handle, pos.x, pos.y, state.ratio)
+        : shapeResizeBox(s, state.handle, pos.x, pos.y);
+      onResizeShape(s.id, box);
+    }
+  }, [shapes, screenToCanvas, onResizeShape]);
+
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const factor = e.deltaY > 0 ? 0.92 : 1.08;
@@ -375,64 +505,22 @@ export default function NodeCanvas({
       setHoveredGroupId(found);
     }
     if (dragNode) {
-      const pos = screenToCanvas(e.clientX, e.clientY);
-      const primary = nodes.find(n => n.id === dragNode.id);
-      let targetX = pos.x - dragNode.offsetX;
-      let targetY = pos.y - dragNode.offsetY;
-      // Alignment snap: snap the dragged node's target to the nearest node's
-      // edges/center (true horizontal/vertical alignment) and show guides.
-      // For multi/group drags the snap is computed from the primary node and
-      // the whole set follows the snapped delta.
-      if (snapEnabled && primary) {
-        const snap = computeSnapGuides(targetX, targetY, primary, nodes, zoom);
-        targetX = snap.x;
-        targetY = snap.y;
-        setSnapGuides(
-          snap.vertical.length > 0 || snap.horizontal.length > 0
-            ? { vertical: snap.vertical, horizontal: snap.horizontal }
-            : null,
-        );
-      } else {
-        setSnapGuides(null);
-      }
-      if (dragNode.memberIds.length > 1 && onMoveNodes) {
-        // Grouped node: move the whole group (nodes AND its shapes) by the delta.
-        if (primary) onMoveNodes(dragNode.memberIds, targetX - primary.x, targetY - primary.y, dragNode.memberShapeIds);
-      } else {
-        onMoveNode(dragNode.id, targetX, targetY);
-      }
+      applyNodeDragMove(dragNode, e.clientX, e.clientY);
     }
     if (dragShape) {
-      const pos = screenToCanvas(e.clientX, e.clientY);
-      const targetX = pos.x - dragShape.offsetX;
-      const targetY = pos.y - dragShape.offsetY;
-      const total = dragShape.memberNodeIds.length + dragShape.memberShapeIds.length;
-      if (total > 1 && onMoveNodes) {
-        // Grouped shape: move the whole group (shapes AND its nodes) by the delta.
-        const primary = (shapes ?? []).find(s => s.id === dragShape.id);
-        if (primary) onMoveNodes(dragShape.memberNodeIds, targetX - primary.x, targetY - primary.y, dragShape.memberShapeIds);
-      } else if (onMoveShape) {
-        onMoveShape(dragShape.id, targetX, targetY);
-      }
+      applyShapeDragMove(dragShape, e.clientX, e.clientY);
     }
-    if (shapeResize && onResizeShape) {
-      const s = (shapes ?? []).find(sh => sh.id === shapeResize.id);
-      // A frozen shape cannot be resized (handles aren't rendered, but guard anyway).
-      if (s && !s.frozen) {
-        const pos = screenToCanvas(e.clientX, e.clientY);
-        // Ctrl (or Cmd) held → keep the aspect ratio captured at drag start.
-        const box = (e.ctrlKey || e.metaKey)
-          ? shapeRatioResizeBox(s, shapeResize.handle, pos.x, pos.y, shapeResize.ratio)
-          : shapeResizeBox(s, shapeResize.handle, pos.x, pos.y);
-        onResizeShape(s.id, box);
-      }
+    if (shapeResize) {
+      // Ctrl (or Cmd) held → keep the aspect ratio captured at drag start.
+      applyShapeResizeMove(shapeResize, e.clientX, e.clientY, e.ctrlKey || e.metaKey);
     }
     if (connecting.isConnecting) {
       const pos = screenToCanvas(e.clientX, e.clientY);
       onUpdateConnecting(pos.x, pos.y);
     }
   }, [isPanning, panStart, dragNode, marquee, nodes, groups, connecting, screenToCanvas, onMoveNodes,
-      dragShape, onMoveShape, shapeResize, onResizeShape, shapes, snapEnabled]);
+      dragShape, onMoveShape, shapeResize, onResizeShape, shapes, snapEnabled,
+      applyNodeDragMove, applyShapeDragMove, applyShapeResizeMove]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     setIsPanning(false);
@@ -441,39 +529,7 @@ export default function NodeCanvas({
     setShapeResize(null);
     setSnapGuides(null);
     // Finish the marquee selection (if one was in progress).
-    if (marquee) {
-      const box = normalizeMarquee(marquee.startX, marquee.startY, marquee.endX, marquee.endY);
-      const small = (box.x2 - box.x1) * zoom < 5 && (box.y2 - box.y1) * zoom < 5;
-      if (small) {
-        // Plain click on empty canvas → clear selection (existing behavior).
-        // Shapes feature: also drop any shape selection.
-        if (!marqueeShiftRef.current) { onSelectNode(null); onSelectShapes?.([], false); setSelectedConnId(null); }
-      } else {
-        // A real marquee replaces the selection — a selected wire is dropped too.
-        setSelectedConnId(null);
-        const ids = nodesInBox(nodes, box);
-        // Shapes inside the box join the selection and are highlighted too.
-        const shapeIds = nodesInBox(shapes ?? [], box);
-        onSelectShapes?.(
-          marqueeShiftRef.current
-            ? Array.from(new Set([...(selectedShapeIds ?? []), ...shapeIds]))
-            : shapeIds,
-          false,
-        );
-        if (onSelectNodes) {
-          if (marqueeShiftRef.current) {
-            // Additive: union with the current selection.
-            onSelectNodes(Array.from(new Set([...(selectedNodeIds ?? []), ...ids])));
-          } else {
-            onSelectNodes(ids);
-          }
-        } else if (ids.length === 1) {
-          onSelectNode(ids[0]);
-        }
-      }
-      marqueeShiftRef.current = false;
-      setMarquee(null);
-    }
+    finishMarquee(marqueeShiftRef.current);
     if (connecting.isConnecting) {
       const target = e.target as SVGElement;
       const portData = target.closest('[data-port-id]');
@@ -532,6 +588,489 @@ export default function NodeCanvas({
       setDragNode({ id: nodeId, offsetX: pos.x - node.x, offsetY: pos.y - node.y, memberIds, memberShapeIds });
     }
   }, [nodes, screenToCanvas, onSelectNode, groups, onMoveNodes, onSelectNodes, selectedNodeIds]);
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Touch / pen pointer layer
+     Mouse input keeps flowing through the classic onMouseDown/Move/Up
+     handlers above — they are untouched. Touch and stylus flow through THIS
+     unified Pointer Events layer instead, so a finger never fakes mouse
+     events (preventDefault on pointerdown suppresses them). Both layers share
+     the same drag math (applyNodeDragMove etc.) and the same world-coordinate
+     conversion, so desktop and mobile always agree.
+
+     Gesture rules (PRD "Avoid Gesture Conflicts"):
+       Tap node              → select            Drag node    → move (8 px slop)
+       Tap empty canvas      → clear/place       Drag canvas  → pan
+       Tap port              → nothing (never an accidental wire)
+       Drag from port        → connection with live preview
+       Pinch / two fingers   → zoom around pinch midpoint + pan
+       Long-press node       → node context menu
+       Long-press shape/wire → shape/wire menu
+       Long-press canvas     → selection menu (with selection) or marquee
+       Double-tap Text shape → inline text edit
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  // All mutable gesture state lives in refs: pointermove must not depend on
+  // React commit timing. Active pointers are tracked by id (multi-touch safe).
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<PinchGesture | null>(null);
+  const pendingRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    target: Element;
+    moved: boolean;
+    cls: TouchTargetClass;
+  } | null>(null);
+  type TouchGesture =
+    | { kind: 'pan'; startClientX: number; startClientY: number; startPanX: number; startPanY: number }
+    | { kind: 'node'; id: string; offsetX: number; offsetY: number; memberIds: string[]; memberShapeIds: string[] }
+    | { kind: 'shape'; id: string; offsetX: number; offsetY: number; memberNodeIds: string[]; memberShapeIds: string[] }
+    | { kind: 'resize'; id: string; handle: ShapeResizeHandle; ratio: number }
+    | { kind: 'connect' }
+    | { kind: 'marquee' }
+    | { kind: 'dead' }; // interaction consumed (e.g. long-press) — moves/up are inert
+  const gestureRef = useRef<TouchGesture | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressAtRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const lastTouchDownAtRef = useRef(0);
+  const lastTapRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  // Port under the finger while a touch connection drags (drives highlight).
+  const [touchHoverPort, setTouchHoverPort] = useState<string | null>(null);
+
+  /** What did the finger come down on? Order matters: the inline value editor
+      lives inside a port group, and handles inside a shape group. */
+  type TouchTargetClass =
+    | { kind: 'editor'; action: string; nodeId: string; portId: string }
+    | { kind: 'port'; nodeId: string; portId: string; isOutput: boolean }
+    | { kind: 'shape-handle'; shapeId: string; handle: ShapeResizeHandle }
+    | { kind: 'shape'; shapeId: string }
+    | { kind: 'wire'; connId: string }
+    | { kind: 'node'; nodeId: string }
+    | { kind: 'empty' };
+
+  const classifyTouchTarget = (target: Element): TouchTargetClass => {
+    const editorEl = target.closest('[data-editor-action]');
+    if (editorEl) {
+      const portEl = editorEl.closest('[data-port-id]');
+      if (portEl) {
+        return {
+          kind: 'editor',
+          action: editorEl.getAttribute('data-editor-action') || 'edit',
+          nodeId: portEl.getAttribute('data-node-id') || '',
+          portId: portEl.getAttribute('data-port-id') || '',
+        };
+      }
+    }
+    const portEl = target.closest('[data-port-id]');
+    if (portEl) {
+      return {
+        kind: 'port',
+        nodeId: portEl.getAttribute('data-node-id') || '',
+        portId: portEl.getAttribute('data-port-id') || '',
+        isOutput: portEl.getAttribute('data-is-output') === 'true',
+      };
+    }
+    const handleEl = target.closest('[data-shape-handle]');
+    if (handleEl) {
+      return {
+        kind: 'shape-handle',
+        shapeId: handleEl.getAttribute('data-shape-id') || '',
+        handle: (handleEl.getAttribute('data-shape-handle') || 'se') as ShapeResizeHandle,
+      };
+    }
+    const shapeEl = target.closest('[data-shape-id]');
+    if (shapeEl) return { kind: 'shape', shapeId: shapeEl.getAttribute('data-shape-id') || '' };
+    const connEl = target.closest('[data-conn-id]');
+    if (connEl) return { kind: 'wire', connId: connEl.getAttribute('data-conn-id') || '' };
+    const nodeEl = target.closest('[data-node-id]');
+    if (nodeEl) return { kind: 'node', nodeId: nodeEl.getAttribute('data-node-id') || '' };
+    return { kind: 'empty' };
+  };
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  /** Commit an open inline editor (port value / text annotation) exactly the
+      way its own blur handler would — preventDefault on pointerdown would
+      otherwise swallow the focus change and leave the editor stuck open. */
+  const commitActiveInlineEditor = (target: Element) => {
+    const ae = document.activeElement as HTMLElement | null;
+    if (!ae || (ae !== target && !ae.contains(target))) return;
+    if (ae.tagName !== 'INPUT' && ae.tagName !== 'TEXTAREA') return;
+    if (!svgRef.current?.contains(ae)) return;
+    ae.blur(); // the existing onBlur commits the value and closes the editor
+  };
+
+  /** Cancel whatever one-finger gesture is running. `abortWire` also cancels
+      an in-progress connection (pinch start / pointercancel). */
+  const cancelTouchGesture = (abortWire: boolean) => {
+    clearLongPress();
+    const g = gestureRef.current;
+    if (g?.kind === 'connect' && abortWire && connecting.isConnecting) onFinishConnecting();
+    if (g?.kind === 'marquee') setMarquee(null);
+    if (g?.kind === 'node' || g?.kind === 'resize') setSnapGuides(null);
+    gestureRef.current = null;
+    pendingRef.current = null;
+    setTouchHoverPort(null);
+  };
+
+  /** Container-relative point for the *menu popovers (they position inside the
+      canvas div, exactly like the right-click menus). */
+  const containerPoint = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
+  };
+
+  /** Long-press (≈550 ms, cancelled by movement) → touch equivalent of the
+      desktop right-click menus. */
+  const armLongPress = (clientX: number, clientY: number, cls: TouchTargetClass) => {
+    clearLongPress();
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      longPressAtRef.current = { x: clientX, y: clientY, time: Date.now() };
+      pendingRef.current = null;
+      gestureRef.current = { kind: 'dead' };
+      try { navigator.vibrate?.(10); } catch { /* not supported — fine */ }
+      if (cls.kind === 'node') {
+        // Right-click parity: select first so Group/Ungroup targets are defined.
+        if (!(selectedNodeIds ?? []).includes(cls.nodeId)) onSelectNode(cls.nodeId);
+        onSelectShape?.(null);
+        setContextMenu({ nodeId: cls.nodeId });
+      } else if (cls.kind === 'shape') {
+        if (cls.shapeId !== selectedShapeId) onSelectShape?.(cls.shapeId);
+        const p = containerPoint(clientX, clientY);
+        setShapeMenu({ id: cls.shapeId, x: p.x, y: p.y });
+      } else if (cls.kind === 'wire') {
+        setContextMenu(null);
+        setSelMenu(null);
+        setShapeMenu(null);
+        setShapeSizeEditor(null);
+        onSelectNode(null);
+        setSelectedConnId(cls.connId);
+        const p = containerPoint(clientX, clientY);
+        setConnMenu({ x: p.x, y: p.y, connId: cls.connId });
+      } else if (cls.kind === 'empty') {
+        const selectionCount = (selectedNodeIds ?? []).length + (selectedShapeIds ?? []).length;
+        if (selectionCount > 0) {
+          // Selection + long-press on canvas ≙ desktop right-click selection menu.
+          const p = containerPoint(clientX, clientY);
+          setSelMenu({ x: p.x, y: p.y });
+        } else {
+          // No selection: long-press + drag = marquee (multi-select on touch).
+          const pos = screenToCanvas(clientX, clientY);
+          marqueeShiftRef.current = false;
+          setMarquee({ active: true, startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y });
+          gestureRef.current = { kind: 'marquee' };
+        }
+      }
+      // ports / value editors / resize handles: no long-press action
+    }, LONG_PRESS_MS);
+  };
+
+  /** Promote a still-held pointer that moved past the tap slop into a gesture. */
+  const promoteTouchGesture = (pending: NonNullable<typeof pendingRef.current>) => {
+    const cls = pending.cls;
+    if (cls.kind === 'empty' || cls.kind === 'editor' || cls.kind === 'wire') {
+      // One-finger pan (also from a wire/value box — never accidental input).
+      gestureRef.current = { kind: 'pan', startClientX: pending.startX, startClientY: pending.startY, startPanX: panX, startPanY: panY };
+    } else if (cls.kind === 'node') {
+      const node = nodes.find(n => n.id === cls.nodeId);
+      if (!node) { gestureRef.current = { kind: 'dead' }; return; }
+      const pos = screenToCanvas(pending.startX, pending.startY);
+      const memberIds = onMoveNodes ? groupMemberIds(groups ?? [], cls.nodeId) : [cls.nodeId];
+      const memberShapeIds = onMoveNodes ? groupShapeIds(groups ?? [], cls.nodeId) : [];
+      gestureRef.current = { kind: 'node', id: cls.nodeId, offsetX: pos.x - node.x, offsetY: pos.y - node.y, memberIds, memberShapeIds };
+      // Press feedback + parity with the mouse path (mousedown selects).
+      setSelMenu(null);
+      setSelectedConnId(null);
+      onSelectNode(cls.nodeId);
+      onSelectShape?.(null);
+      setContextMenu(null);
+    } else if (cls.kind === 'shape') {
+      const shape = (shapes ?? []).find(s => s.id === cls.shapeId);
+      if (!shape) { gestureRef.current = { kind: 'dead' }; return; }
+      const pos = screenToCanvas(pending.startX, pending.startY);
+      const g = getGroupOfShape(groups ?? [], cls.shapeId);
+      gestureRef.current = {
+        kind: 'shape',
+        id: cls.shapeId,
+        offsetX: pos.x - shape.x,
+        offsetY: pos.y - shape.y,
+        memberNodeIds: g ? [...g.nodeIds] : [],
+        memberShapeIds: g ? [...(g.shapeIds ?? [cls.shapeId])] : [cls.shapeId],
+      };
+      setContextMenu(null);
+      setConnMenu(null);
+      setSelMenu(null);
+      setShapeMenu(null);
+      setShapeSizeEditor(null);
+      setSelectedConnId(null);
+      onSelectShape?.(cls.shapeId);
+    } else if (cls.kind === 'shape-handle') {
+      const shape = (shapes ?? []).find(s => s.id === cls.shapeId);
+      if (!shape || shape.frozen) { gestureRef.current = { kind: 'dead' }; return; }
+      gestureRef.current = { kind: 'resize', id: cls.shapeId, handle: cls.handle, ratio: shape.width / Math.max(1, shape.height) };
+    } else if (cls.kind === 'port') {
+      // Connection drag: the preview wire follows the finger (world coords).
+      const pos = screenToCanvas(pending.startX, pending.startY);
+      setConnMenu(null);
+      setSelectedConnId(null);
+      onStartConnecting(cls.nodeId, cls.portId, cls.isOutput, pos.x, pos.y);
+      gestureRef.current = { kind: 'connect' };
+    }
+  };
+
+  /** Move the active touch gesture (called on every pointermove). */
+  const runTouchGestureMove = (clientX: number, clientY: number) => {
+    const g = gestureRef.current;
+    if (!g) return;
+    switch (g.kind) {
+      case 'pan':
+        onPanChange(g.startPanX + (clientX - g.startClientX), g.startPanY + (clientY - g.startClientY));
+        break;
+      case 'node':
+        applyNodeDragMove(g, clientX, clientY);
+        break;
+      case 'shape':
+        applyShapeDragMove(g, clientX, clientY);
+        break;
+      case 'resize':
+        applyShapeResizeMove(g, clientX, clientY, false); // touch has no Ctrl: free resize
+        break;
+      case 'connect': {
+        const pos = screenToCanvas(clientX, clientY);
+        onUpdateConnecting(pos.x, pos.y);
+        // Highlight the port under the finger (if any) for release feedback.
+        const el = document.elementFromPoint(clientX, clientY);
+        const portEl = el?.closest('[data-port-id]');
+        const key = portEl ? `${portEl.getAttribute('data-node-id')}:${portEl.getAttribute('data-port-id')}` : null;
+        setTouchHoverPort(prev => (prev === key ? prev : key));
+        break;
+      }
+      case 'marquee': {
+        const pos = screenToCanvas(clientX, clientY);
+        setMarquee(prev => (prev ? { ...prev, endX: pos.x, endY: pos.y } : prev));
+        break;
+      }
+      case 'dead':
+        break;
+    }
+  };
+
+  /** A completed tap (down→up within the slop): desktop click equivalents. */
+  const handleTouchTap = (target: Element, clientX: number, clientY: number) => {
+    const cls = classifyTouchTarget(target);
+    const now = Date.now();
+    const isDouble = isDoubleTap(lastTapRef.current, { x: clientX, y: clientY, time: now });
+    lastTapRef.current = { x: clientX, y: clientY, time: now };
+
+    if (cls.kind === 'editor') {
+      const node = nodes.find(n => n.id === cls.nodeId);
+      const port = node?.inputs.find(p => p.id === cls.portId);
+      if (!node || !port) return;
+      if (cls.action === 'toggle') onUpdateInput(node.id, port.id, !port.value);
+      else setEditingPort({ nodeId: node.id, portId: port.id });
+    } else if (cls.kind === 'port') {
+      // Tap on a port NEVER creates a connection (accidental-input guard).
+    } else if (cls.kind === 'wire') {
+      setContextMenu(null); setConnMenu(null); setSelMenu(null); setShapeMenu(null); setShapeSizeEditor(null);
+      onSelectNode(null);
+      setSelectedConnId(cls.connId);
+    } else if (cls.kind === 'shape') {
+      setContextMenu(null); setConnMenu(null); setSelMenu(null); setShapeMenu(null); setShapeSizeEditor(null);
+      setSelectedConnId(null);
+      onSelectShape?.(cls.shapeId);
+      if (isDouble) {
+        const shape = (shapes ?? []).find(s => s.id === cls.shapeId);
+        if (shape?.type === 'text') beginShapeTextEdit(shape); // double-tap ≙ double-click
+      }
+    } else if (cls.kind === 'node') {
+      setSelMenu(null);
+      setSelectedConnId(null);
+      onSelectNode(cls.nodeId);
+      onSelectShape?.(null);
+      setConnMenu(null);
+      setContextMenu(null);
+    } else if (cls.kind === 'empty') {
+      if (isDouble) return;
+      if ((placeNodeType || placeShapeType) && onPlaceAtWorld) {
+        // Tap-to-place: insert the pending node/shape exactly where tapped.
+        const pos = screenToCanvas(clientX, clientY);
+        onPlaceAtWorld(pos.x, pos.y);
+        return;
+      }
+      // Plain tap on empty canvas → clear the selection (existing behavior).
+      onSelectNode(null);
+      onSelectShapes?.([], false);
+      setSelectedConnId(null);
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return; // desktop mouse path is untouched
+    const target = e.target as unknown as Element;
+    if (!target) return;
+    // Native inputs in foreignObject keep native behavior (caret, selection…).
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    e.preventDefault(); // suppress compat mouse events + browser gestures
+    commitActiveInlineEditor(target);
+    const svg = svgRef.current;
+    if (!svg) return;
+    try { svg.setPointerCapture(e.pointerId); } catch { /* already released */ }
+    lastTouchDownAtRef.current = Date.now();
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // Parity with handleMouseDown: any new pointer interaction closes menus.
+    setContextMenu(null); setConnMenu(null); setSelMenu(null); setShapeMenu(null); setShapeSizeEditor(null);
+
+    // Second finger → pinch (cancel the one-finger gesture without side effects).
+    if (pointersRef.current.size === 2) {
+      cancelTouchGesture(true);
+      const pair = twoPointers(pointersRef.current);
+      if (pair) pinchRef.current = beginPinch({ zoom, panX, panY }, pair[0], pair[1]);
+      return;
+    }
+    if (pointersRef.current.size > 2) return; // extra fingers are ignored
+
+    const cls = classifyTouchTarget(target);
+    pendingRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, target, moved: false, cls };
+    gestureRef.current = null;
+    armLongPress(e.clientX, e.clientY, cls);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    const tracked = pointersRef.current.get(e.pointerId);
+    if (!tracked) return;
+    tracked.x = e.clientX;
+    tracked.y = e.clientY;
+
+    // Pinch: zoom + pan anchored at the fingers (see touch-interactions math).
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      const pair = twoPointers(pointersRef.current);
+      if (pair) {
+        const v = updatePinchView(pinchRef.current, pair[0], pair[1]);
+        onZoomChange(v.zoom);
+        onPanChange(v.panX, v.panY);
+      }
+      return;
+    }
+
+    const pending = pendingRef.current;
+    if (gestureRef.current) {
+      if (!pending || e.pointerId === pending.pointerId) runTouchGestureMove(e.clientX, e.clientY);
+      return;
+    }
+    if (!pending || e.pointerId !== pending.pointerId) return;
+    // Movement threshold: below the slop it is still a tap/long-press candidate.
+    if (!pending.moved && !isTap(pending.startX, pending.startY, e.clientX, e.clientY)) {
+      pending.moved = true;
+      clearLongPress();
+      promoteTouchGesture(pending);
+    }
+    if (gestureRef.current) runTouchGestureMove(e.clientX, e.clientY);
+  };
+
+  const finishTouchPointer = (e: React.PointerEvent) => {
+    const svg = svgRef.current;
+    try { svg?.releasePointerCapture(e.pointerId); } catch { /* wasn't captured */ }
+    const had = pointersRef.current.delete(e.pointerId);
+
+    // Pinch bookkeeping: when a pinch finger lifts, end the whole gesture (the
+    // remaining finger is NOT resumed into a pan — that would jump the view).
+    if (pinchRef.current) {
+      if (pointersRef.current.size < 2) {
+        pinchRef.current = null;
+        gestureRef.current = null;
+        pendingRef.current = null;
+        clearLongPress();
+      }
+      return;
+    }
+    if (e.type === 'pointercancel') {
+      // Browser took the pointer (notification, gesture takeover…): undo-safe.
+      cancelTouchGesture(true);
+      return;
+    }
+    if (!had) return;
+    clearLongPress();
+
+    const pending = pendingRef.current;
+    const gesture = gestureRef.current;
+    pendingRef.current = null;
+
+    if (pending && e.pointerId === pending.pointerId && !pending.moved && !gesture) {
+      gestureRef.current = null;
+      handleTouchTap(pending.target, e.clientX, e.clientY);
+      return;
+    }
+    gestureRef.current = null;
+    if (!gesture) return;
+    switch (gesture.kind) {
+      case 'connect': {
+        setTouchHoverPort(null);
+        if (!connecting.isConnecting) break;
+        // Hit-test the release point (pointer capture retargets e.target).
+        const el = document.elementFromPoint(e.clientX, e.clientY) as Element | null;
+        const portEl = el?.closest('[data-port-id]') as Element | null;
+        if (portEl) {
+          const nodeId = portEl.getAttribute('data-node-id') || '';
+          const portId = portEl.getAttribute('data-port-id') || '';
+          const isOutput = portEl.getAttribute('data-is-output') === 'true';
+          if (isValidConnectTarget(connecting.fromNodeId || '', connecting.fromIsOutput || false, nodeId, isOutput)) {
+            onFinishConnecting(nodeId, portId);   // valid target → create the wire
+          } else {
+            onFinishConnecting();                  // invalid target → cancel
+          }
+        } else {
+          onFinishConnecting();                    // released elsewhere → cancel
+        }
+        break;
+      }
+      case 'marquee':
+        finishMarquee(false); // touch marquee is always replace-selection
+        break;
+      case 'node':
+      case 'resize':
+        setSnapGuides(null);
+        break;
+      default:
+        break; // pan/shape/dead: nothing to finish
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    finishTouchPointer(e);
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    pointersRef.current.delete(e.pointerId);
+    finishTouchPointer(e);
+  };
+
+  /* Suppress the BROWSER's own long-press context menu on the canvas (Android
+     fires one natively) — our pointer layer opens the app menus instead.
+     Desktop right-clicks are unaffected (no recent touch pointerdown). */
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onNativeContextMenu = (ev: MouseEvent) => {
+      const touchRecent = Date.now() - lastTouchDownAtRef.current < 1500;
+      const lp = longPressAtRef.current;
+      const longPressRecent = !!lp && Date.now() - lp.time < 800;
+      if (touchRecent || longPressRecent) ev.preventDefault();
+    };
+    svg.addEventListener('contextmenu', onNativeContextMenu);
+    return () => svg.removeEventListener('contextmenu', onNativeContextMenu);
+  }, []);
+
+  /* ── End touch layer ── */
 
   const handlePortMouseDown = useCallback((e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => {
     e.stopPropagation();
@@ -771,6 +1310,7 @@ export default function NodeCanvas({
           stroke="transparent"
           strokeWidth={16}
           className="cursor-pointer"
+          data-conn-id={conn.id}
           onMouseDown={(e) => handleConnectionMouseDown(e, conn.id)}
           onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
         >
@@ -840,6 +1380,35 @@ export default function NodeCanvas({
         onMouseDown={(e) => handlePortMouseDown(e, node.id, port.id, isOutput)}
         onMouseUp={(e) => handlePortMouseUp(e, node.id, port.id)}
       >
+        {/* Invisible enlarged hit area so a finger can reliably grab the port.
+            The visuals stay the same size. On fine-pointer devices the extra
+            area is disabled by CSS (index.css) EXCEPT while a wire is being
+            dragged, when a larger release target helps every input type. */}
+        <circle
+          className="port-hit"
+          cx={x} cy={y}
+          r={Math.min(PORT_TOUCH_HIT_RADIUS / zoom, PORT_TOUCH_HIT_MAX)}
+          fill="transparent"
+          style={{ pointerEvents: connecting.isConnecting ? 'all' : undefined }}
+        />
+        {/* Connection-preview feedback: every port is ringed green (valid
+            target: opposite direction on another node) or red (invalid), so a
+            touch drag shows where a release will connect before it happens. */}
+        {connecting.isConnecting && connecting.fromNodeId && (() => {
+          const valid = isValidConnectTarget(connecting.fromNodeId!, connecting.fromIsOutput || false, node.id, isOutput);
+          const isHovered = touchHoverPort === `${node.id}:${port.id}`;
+          return (
+            <circle
+              cx={x} cy={y} r={PORT_RADIUS + 4}
+              fill="none"
+              stroke={valid ? '#22c55e' : '#ef4444'}
+              strokeWidth={isHovered ? 2.5 : 1.5}
+              strokeDasharray={valid ? undefined : '3 2'}
+              opacity={isHovered ? 1 : 0.75}
+              pointerEvents="none"
+            />
+          );
+        })()}
         {/* Port circle — FIX #2: transform-box fill-box so scale works on SVG circles */}
         <circle cx={x} cy={y} r={PORT_RADIUS}
           fill={connected ? portColor : colors.portBg}
@@ -866,6 +1435,7 @@ export default function NodeCanvas({
               <g>
                 <rect x={VALUE_BOX_X} y={y - 9} width={node.width - VALUE_BOX_X - 12} height={18} rx={3}
                   fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} className="cursor-text"
+                  data-editor-action="edit"
                   onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }} />
                 {editingPort?.nodeId === node.id && editingPort?.portId === port.id ? (
                   <foreignObject x={VALUE_TEXT_X - 3} y={y - 8} width={node.width - VALUE_TEXT_X - 6} height={16}>
@@ -876,6 +1446,7 @@ export default function NodeCanvas({
                   </foreignObject>
                 ) : (
                   <text x={VALUE_TEXT_X} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
+                    data-editor-action="edit"
                     onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }}>
                     {inputValueText}
                     <title>{valueText}</title>
@@ -887,6 +1458,7 @@ export default function NodeCanvas({
             {!connected && port.type === 'string' && (
               <g>
                 <rect x={VALUE_BOX_X} y={y - 9} width={node.width - VALUE_BOX_X - 12} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} className="cursor-text"
+                  data-editor-action="edit"
                   onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }} />
                 {editingPort?.nodeId === node.id && editingPort?.portId === port.id ? (
                   <foreignObject x={VALUE_TEXT_X - 3} y={y - 8} width={node.width - VALUE_TEXT_X - 6} height={16}>
@@ -897,6 +1469,7 @@ export default function NodeCanvas({
                   </foreignObject>
                 ) : (
                   <text x={VALUE_TEXT_X} y={y + 2} fill={colors.text} fontSize={10} fontFamily="monospace" className="cursor-text"
+                    data-editor-action="edit"
                     onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }}>
                     {inputValueText}
                     <title>{valueText}</title>
@@ -906,7 +1479,7 @@ export default function NodeCanvas({
             )}
             {/* Boolean toggle (unconnected) */}
             {!connected && port.type === 'boolean' && (
-              <g onClick={(e) => { e.stopPropagation(); onUpdateInput(node.id, port.id, !port.value); }} className="cursor-pointer">
+              <g data-editor-action="toggle" onClick={(e) => { e.stopPropagation(); onUpdateInput(node.id, port.id, !port.value); }} className="cursor-pointer">
                 <rect x={VALUE_BOX_X} y={y - 9} width={node.width - VALUE_BOX_X - 12} height={18} rx={3} fill={colors.inputBg} stroke={colors.nodeBorder} strokeWidth={0.5} />
                 <text x={VALUE_TEXT_X} y={y + 2} fill={port.value ? '#10b981' : colors.sub} fontSize={10} fontFamily="monospace">
                   {port.value ? '✓ TRUE' : '✗ FALSE'}
@@ -948,6 +1521,7 @@ export default function NodeCanvas({
 
     return (
       <g key={node.id} transform={`translate(${node.x}, ${node.y})`}
+        data-node-id={node.id}
         onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
         onContextMenu={(e) => handleNodeContextMenu(e, node.id)}
         onMouseEnter={() => setHoveredNodeId(node.id)}
@@ -1002,7 +1576,8 @@ export default function NodeCanvas({
       <rect key={h}
         x={hx - hs / 2} y={hy - hs / 2} width={hs} height={hs} rx={1.5 / zoom}
         fill={colors.nodeBg} stroke={colors.selected} strokeWidth={1.5 / zoom}
-        style={{ cursor }}
+        data-shape-id={shape.id} data-shape-handle={h}
+        style={{ cursor, touchAction: 'none' }}
         onMouseDown={(e) => handleShapeHandleMouseDown(e, shape, h)} />
     ));
   };
@@ -1025,6 +1600,7 @@ export default function NodeCanvas({
     };
     return (
       <g key={shape.id}
+        data-shape-id={shape.id}
         onMouseDown={(e) => handleShapeMouseDown(e, shape)}
         onDoubleClick={(e) => { e.stopPropagation(); beginShapeTextEdit(shape); }}
         onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
@@ -1109,6 +1685,7 @@ export default function NodeCanvas({
     }
     return (
       <g key={shape.id}
+        data-shape-id={shape.id}
         onMouseDown={(e) => handleShapeMouseDown(e, shape)}
         onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
         style={{ cursor: dragShape?.id === shape.id ? 'grabbing' : 'move' }}>
@@ -1168,8 +1745,9 @@ export default function NodeCanvas({
 
   return (
     <div className="relative w-full h-full overflow-hidden" style={{ background: colors.bg }}>
-      <svg ref={svgRef} className="w-full h-full"
+      <svg ref={svgRef} className="snd-canvas w-full h-full"
         onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
+        onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerCancel}
         onMouseLeave={() => setHoveredGroupId(null)}
         onContextMenu={handleBackgroundContextMenu}
         onDragOver={handleDragOver} onDrop={handleDrop}

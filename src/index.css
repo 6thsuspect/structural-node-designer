@@ -9,8 +9,60 @@
 html, body, #root {
   width: 100%;
   height: 100%;
+  /* 100dvh tracks mobile browser UI (address bar) expanding/collapsing;
+     the 100vh above is the fallback for older browsers. */
+  height: 100dvh;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Stop the whole app from rubber-banding / pull-to-refresh; interactive
+   areas opt into gestures explicitly (the canvas takes over below, panels
+   and sheets keep native scrolling). */
+body {
+  overscroll-behavior: none;
+}
+
+/* No gray/colored flash when tapping buttons on touch devices. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Touch support (pointer-events based — see src/features/touch-interactions)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* The node canvas owns ALL touch gestures (pan/pinch/drag/long-press are
+   implemented with Pointer Events). This disables browser scrolling, pinch
+   page zoom, pull-to-refresh and double-tap zoom on the canvas ONLY —
+   panels, dialogs, sheets and text editors keep native touch behavior. */
+.snd-canvas {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* no iOS long-press callout on canvas */
+}
+
+/* Enlarged invisible port hit areas: enabled for touch/pen (any coarse
+   pointer, incl. hybrid touch+laptop), disabled for mouse-only devices so
+   the desktop hit behavior stays exactly as before. While a wire is being
+   dragged NodeCanvas overrides this inline (helps every input type). */
+@media not all and (any-pointer: coarse) {
+  .snd-canvas .port-hit {
+    pointer-events: none;
+  }
+}
+
+/* Buttons/inputs: keep native double-tap-zoom off controls but allow normal
+   interaction; taps on controls fire click as usual. */
+button, select {
+  touch-action: manipulation;
+}
+
+/* Text entry keeps text selection + native touch scrolling/caret handling. */
+input, textarea {
+  user-select: auto;
+  -webkit-user-select: auto;
 }
 
 /* Scrollbar styling */
@@ -62,4 +114,34 @@ input[type="number"]:hover::-webkit-outer-spin-button {
 /* Port hover effects */
 circle:hover {
   filter: brightness(1.3);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Mobile sheets (bottom drawers) — slide-up animation + safe-area helper
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes snd-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes snd-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.snd-sheet {
+  animation: snd-sheet-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.snd-sheet-backdrop {
+  animation: snd-fade-in 0.18s ease-out;
+}
+
+.snd-safe-bottom {
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+
+.snd-safe-top {
+  padding-top: max(6px, env(safe-area-inset-top));
 }

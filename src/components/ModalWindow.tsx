@@ -3,7 +3,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 
@@ -195,10 +195,13 @@ export default function ModalWindow({
     return { x, y, w, h };
   };
 
-  // Global mouse listeners for drag / resize. They always read from dragRef,
-  // so they are attached once and simply no-op while no interaction is active.
+  // Global pointer listeners for drag / resize (pointer events cover mouse,
+  // touch AND stylus with one path). They always read from dragRef, so they
+  // are attached once and simply no-op while no interaction is active. The
+  // originating element captures the pointer, so a finger that slides off the
+  // title bar keeps dragging the window instead of scrolling the page.
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       const d = dragRef.current;
       if (!d) return;
       const dx = e.clientX - d.startX;
@@ -217,11 +220,13 @@ export default function ModalWindow({
         document.body.style.cursor = '';
       }
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minWidth, minHeight]);
@@ -233,15 +238,18 @@ export default function ModalWindow({
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const begin = (e: ReactMouseEvent, type: 'move' | 'resize', dir?: string) => {
+  const begin = (e: ReactPointerEvent, type: 'move' | 'resize', dir?: string) => {
     e.preventDefault();
     e.stopPropagation();
     dragRef.current = { type, dir, startX: e.clientX, startY: e.clientY, startRect: rect };
+    // Pointer capture keeps the drag alive when the finger/cursor leaves the
+    // title bar (essential for touch — otherwise the browser hijacks the move).
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ok */ }
     document.body.style.userSelect = 'none';
     document.body.style.cursor = type === 'move' ? 'move' : cursorFor(dir);
   };
 
-  const handleOverlayClick = (e: ReactMouseEvent) => {
+  const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return;
     // Ignore the click that immediately follows a drag/resize release.
     if (Date.now() - lastInteractRef.current < 300) return;
@@ -257,9 +265,9 @@ export default function ModalWindow({
         {/* Title bar — drag handle */}
         <div
           className="flex items-center gap-3 px-6 py-4 flex-shrink-0 select-none"
-          style={{ borderBottom: `1px solid ${border}`, cursor: 'move' }}
+          style={{ borderBottom: `1px solid ${border}`, cursor: 'move', touchAction: 'none' }}
           title={resizable ? 'Drag to move • drag edges to resize' : 'Drag to move'}
-          onMouseDown={(e) => begin(e, 'move')}
+          onPointerDown={(e) => begin(e, 'move')}
         >
           {icon && <span className="text-2xl">{icon}</span>}
           <div className="flex-1 min-w-0">
@@ -267,7 +275,7 @@ export default function ModalWindow({
             {subtitle && <div className="text-xs mt-0.5">{subtitle}</div>}
           </div>
           <button
-            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={onClose}
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors flex-shrink-0"
             style={{ color: text }}
@@ -290,7 +298,7 @@ export default function ModalWindow({
 
         {/* Resize handles (fixed-size dialogs render none) */}
         {resizable && HANDLE_DIRS.map((dir) => (
-          <div key={dir} onMouseDown={(e) => begin(e, 'resize', dir)} style={handleStyle(dir)} />
+          <div key={dir} onPointerDown={(e) => begin(e, 'resize', dir)} style={handleStyle(dir)} />
         ))}
       </div>
     </div>
