@@ -63,3 +63,49 @@ input[type="number"]:hover::-webkit-outer-spin-button {
 circle:hover {
   filter: brightness(1.3);
 }
+
+/* Panel resize grips are only 6px wide — give fingers a slightly wider
+   invisible grab area. The mouse hit area is untouched. */
+@media (pointer: coarse) {
+  .resize-grip {
+    position: relative;
+  }
+  .resize-grip::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -5px;
+    right: -5px;
+  }
+}
+
+/* ── Touch compatibility (canvas only) ─────────────────────────────────────
+   The node canvas is a direct-manipulation surface: finger input must reach
+   the existing handlers instead of being consumed by the browser's own
+   scroll/zoom gestures. Scoped to the canvas element only — panels, dialogs,
+   menus, forms and text fields keep their normal touch behaviour (scrolling
+   and text selection are untouched). */
+.canvas-surface {
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+/* Invisible, finger-sized hit areas for ports / resize handles. They add no
+   pixels to the drawing and stay completely inert for a mouse (`pointer: fine`
+   keeps them at pointer-events:none), so desktop hit areas are unchanged. */
+.touch-hit {
+  pointer-events: none;
+}
+
+@media (pointer: coarse) {
+  .touch-hit {
+    pointer-events: all;
+  }
+}
+
+/* Hybrid devices (touch + mouse): switch the larger hit areas on as soon as a
+   finger has been used on the canvas, and back off when the mouse is used. */
+.canvas-surface.touch-input .touch-hit {
+  pointer-events: all;
+}

@@ -1,5 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { NodeDefinition, Theme } from '../types';
+import {
+  TOOLBOX_TOUCH_DROP_EVENT,
+  TAP_MOVE_THRESHOLD,
+  type ToolboxTouchDropDetail,
+} from '../features/touch-input';
 import { getCategories, getNodesByCategory, CATEGORY_COLORS, CATEGORY_ICONS, getAllNodes } from '../nodeDefinitions';
 import { SHAPE_CATALOG, type ShapeCatalogEntry } from '../features/canvas-shapes';
 
@@ -22,6 +27,75 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
   const [expandedCategory, setExpandedCategory] = useState<string | null>('Inputs');
   const colors = themeStyles[theme];
   const categories = getCategories();
+
+  /* ── Touch support ──
+     Dragging a node/shape onto the canvas uses HTML5 drag & drop, which a
+     touchscreen never generates. The finger drag below mirrors that mouse drag
+     and finishes in the very same drop (NodeCanvas handles the event through
+     its existing handler). The mouse keeps using its untouched native drag;
+     `touchAction: 'pan-y'` on the items keeps the list scrollable by finger. */
+  const [touchGhost, setTouchGhost] = useState<{ icon: string; label: string; x: number; y: number } | null>(null);
+  const touchDragRef = useRef<{
+    pointerId: number; startX: number; startY: number;
+    nodeType?: string; shapeType?: string; icon: string; label: string; active: boolean;
+  } | null>(null);
+
+  const beginTouchDrag = (
+    e: React.PointerEvent,
+    item: { nodeType?: string; shapeType?: string; icon: string; label: string },
+  ) => {
+    if (e.pointerType === 'mouse') return; // mouse → native HTML5 drag & drop
+    touchDragRef.current = {
+      pointerId: e.pointerId, startX: e.clientX, startY: e.clientY,
+      nodeType: item.nodeType, shapeType: item.shapeType, icon: item.icon, label: item.label,
+      active: false,
+    };
+  };
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const drag = touchDragRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      if (!drag.active) {
+        // Vertical movement belongs to the scrollable list (touch-action: pan-y),
+        // a sideways movement is the start of a Toolbox → canvas drag.
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+        if (Math.abs(dx) < TAP_MOVE_THRESHOLD || Math.abs(dx) <= Math.abs(dy)) return;
+        drag.active = true;
+      }
+      setTouchGhost({ icon: drag.icon, label: drag.label, x: e.clientX, y: e.clientY });
+    };
+    const onUp = (e: PointerEvent) => {
+      const drag = touchDragRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      touchDragRef.current = null;
+      setTouchGhost(null);
+      if (!drag.active) return; // a finger tap on a list item does nothing (as with a mouse)
+      // Only a release over the canvas adds the item.
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (!el || !el.closest('[data-canvas]')) return;
+      const detail: ToolboxTouchDropDetail = {
+        nodeType: drag.nodeType, shapeType: drag.shapeType,
+        clientX: e.clientX, clientY: e.clientY,
+      };
+      window.dispatchEvent(new CustomEvent<ToolboxTouchDropDetail>(TOOLBOX_TOUCH_DROP_EVENT, { detail }));
+    };
+    const onCancel = (e: PointerEvent) => {
+      const drag = touchDragRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      touchDragRef.current = null;
+      setTouchGhost(null);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+    };
+  }, []);
 
   const filteredNodes = useMemo(() => {
     if (!searchQuery) return null;
@@ -58,8 +132,9 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
       key={shape.type}
       draggable
       onDragStart={(e) => handleShapeDragStart(e, shape)}
+      onPointerDown={(e) => beginTouchDrag(e, { shapeType: shape.type, icon: shape.icon, label: shape.label })}
       className="flex items-center gap-2 px-3 py-1.5 rounded-md cursor-grab active:cursor-grabbing transition-all group text-sm"
-      style={{ color: colors.text }}
+      style={{ color: colors.text, touchAction: 'pan-y' }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.hover; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       title={shape.description}
@@ -75,8 +150,9 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
       key={nodeDef.type}
       draggable
       onDragStart={(e) => handleDragStart(e, nodeDef)}
+      onPointerDown={(e) => beginTouchDrag(e, { nodeType: nodeDef.type, icon: nodeDef.icon || '●', label: nodeDef.label })}
       className="flex items-center gap-2 px-3 py-1.5 rounded-md cursor-grab active:cursor-grabbing transition-all group text-sm"
-      style={{ color: colors.text }}
+      style={{ color: colors.text, touchAction: 'pan-y' }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.background = colors.hover;
       }}
@@ -230,6 +306,23 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
       >
         Drag nodes to canvas • {getAllNodes().length} nodes available
       </div>
+
+      {/* Touch support: the drag preview that follows the finger (the mouse
+          drag shows the browser's own drag image instead). View only. */}
+      {touchGhost && (
+        <div
+          className="rounded-md shadow-lg"
+          style={{
+            position: 'fixed', left: touchGhost.x + 14, top: touchGhost.y + 14, zIndex: 9999,
+            pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: 6,
+            padding: '4px 10px', fontSize: 12, opacity: 0.9,
+            background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+          }}
+        >
+          <span>{touchGhost.icon}</span>
+          <span>{touchGhost.label}</span>
+        </div>
+      )}
     </div>
   );
 }

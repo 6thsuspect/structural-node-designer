@@ -20,10 +20,24 @@ import {
   shapeResizeBox,
   type ShapeResizeHandle,
 } from '../features/canvas-shapes';
+import {
+  TOOLBOX_TOUCH_DROP_EVENT,
+  isWithinTapThreshold,
+  type ToolboxTouchDropDetail,
+} from '../features/touch-input';
 
 const PORT_RADIUS = 7;
 const PORT_HEIGHT = 28;
 const HEADER_HEIGHT = 36;
+
+/* ─── Touch support ───
+   Fingers are far less precise than a mouse cursor, so the ports and the shape
+   resize handles get a larger INVISIBLE hit area (see `.touch-hit` in
+   index.css). Nothing is drawn differently, and the areas are inert for a
+   mouse, so the desktop hit areas stay exactly as they are. */
+const TOUCH_PORT_RADIUS = 13;      // vs the 7px visible port circle
+const TOUCH_HANDLE_PAD = 8;        // extra canvas units around a resize handle
+const TOUCH_DOUBLE_TAP_MS = 350;   // finger double-tap → existing double-click
 
 /* ─── Port row layout constants (node width is fixed at 200) ─── */
 const LABEL_X = 16;             // input label left edge
@@ -261,6 +275,13 @@ export default function NodeCanvas({
   const [selMenu, setSelMenu] = useState<{ x: number; y: number } | null>(null);
   // ─── NEW: hovered node for visual feedback (no blink) ───
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  /* ── Touch support: only the first finger drives a touch gesture (extra
+     fingers are ignored — no new multi-touch gestures are introduced), and a
+     finger that never travels is a tap, the touch equivalent of a click. ── */
+  const touchPointerIdRef = useRef<number | null>(null);
+  const touchTapRef = useRef<{ x: number; y: number } | null>(null);
+  /* ── Touch support: last tap on a Text shape → the existing double-click ── */
+  const lastTapRef = useRef<{ id: string; time: number } | null>(null);
   // ─── Calculation Trace: temporary highlight while panning to a traced node ───
   const [traceHighlightId, setTraceHighlightId] = useState<string | null>(null);
   /* ── Alignment snap: live smart guides while a node is dragged (canvas coords) ── */
@@ -330,7 +351,44 @@ export default function NodeCanvas({
     onPanChange(mx - (mx - panX) * (newZoom / zoom), my - (my - panY) * (newZoom / zoom));
   }, [zoom, panX, panY]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  /* ── Touch support ──
+     Every canvas interaction now runs on Pointer Events, which carry mouse,
+     finger and pen input through the same handlers — the existing actions,
+     coordinates and state are unchanged. Two small finger-specific bits are
+     added on top: extra fingers are ignored while a gesture runs, and the
+     canvas marks itself once a finger is used so the larger invisible hit
+     areas switch on (see `.touch-hit` in index.css). */
+  const handlePointerDownCapture = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') {
+      // Mouse input → back to the unchanged desktop hit areas.
+      svgRef.current?.classList.remove('touch-input');
+      return;
+    }
+    if (touchPointerIdRef.current !== null && touchPointerIdRef.current !== e.pointerId) {
+      e.stopPropagation(); // ignore the extra finger
+      return;
+    }
+    touchPointerIdRef.current = e.pointerId;
+    svgRef.current?.classList.add('touch-input');
+  };
+
+  /* Touch support: release the finger-gesture slot in the capture phase, so a
+     new gesture can always start even if a pointerup is ever swallowed. */
+  useEffect(() => {
+    const endTouchGesture = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' && touchPointerIdRef.current === e.pointerId) {
+        touchPointerIdRef.current = null;
+      }
+    };
+    window.addEventListener('pointerup', endTouchGesture, true);
+    window.addEventListener('pointercancel', endTouchGesture, true);
+    return () => {
+      window.removeEventListener('pointerup', endTouchGesture, true);
+      window.removeEventListener('pointercancel', endTouchGesture, true);
+    };
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
     setContextMenu(null);
     setConnMenu(null);
     setSelMenu(null);
@@ -344,6 +402,16 @@ export default function NodeCanvas({
       const target = e.target as SVGElement;
       if (target === svgRef.current || target.classList.contains('canvas-bg')) {
         if (connecting.isConnecting) return; // a wire is being dragged
+        /* Touch support: a finger dragged on the empty canvas pans it — the
+           same pan action the mouse reaches with the middle button or
+           Alt+drag (a touchscreen has neither). A finger that does not travel
+           is a tap and still clears the selection on release, like a click. */
+        if (e.pointerType !== 'mouse') {
+          setIsPanning(true);
+          setPanStart({ x: e.clientX - panX, y: e.clientY - panY });
+          touchTapRef.current = { x: e.clientX, y: e.clientY };
+          return;
+        }
         // Marquee selection starts here; a tiny marquee (plain click) still
         // clears the selection, preserving the previous click behavior.
         const pos = screenToCanvas(e.clientX, e.clientY);
@@ -353,8 +421,15 @@ export default function NodeCanvas({
     }
   }, [panX, panY, connecting.isConnecting, screenToCanvas]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning) onPanChange(e.clientX - panStart.x, e.clientY - panStart.y);
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (isPanning) {
+      /* Touch support: pan only once the finger has travelled past the tap
+         threshold — below that the gesture is still a tap (a click). */
+      const tap = touchTapRef.current;
+      if (tap && isWithinTapThreshold(tap, { x: e.clientX, y: e.clientY })) return;
+      if (tap) touchTapRef.current = null;
+      onPanChange(e.clientX - panStart.x, e.clientY - panStart.y);
+    }
     if (marquee) {
       const pos = screenToCanvas(e.clientX, e.clientY);
       setMarquee(prev => (prev ? { ...prev, endX: pos.x, endY: pos.y } : prev));
@@ -434,12 +509,20 @@ export default function NodeCanvas({
   }, [isPanning, panStart, dragNode, marquee, nodes, groups, connecting, screenToCanvas, onMoveNodes,
       dragShape, onMoveShape, shapeResize, onResizeShape, shapes, snapEnabled]);
 
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
     setIsPanning(false);
     setDragNode(null);
     setDragShape(null);
     setShapeResize(null);
     setSnapGuides(null);
+    /* Touch support: a finger that never travelled is a tap, i.e. exactly the
+       mouse's plain click on the empty canvas — it clears the selection. */
+    if (touchTapRef.current) {
+      touchTapRef.current = null;
+      onSelectNode(null);
+      onSelectShapes?.([], false);
+      setSelectedConnId(null);
+    }
     // Finish the marquee selection (if one was in progress).
     if (marquee) {
       const box = normalizeMarquee(marquee.startX, marquee.startY, marquee.endX, marquee.endY);
@@ -475,17 +558,45 @@ export default function NodeCanvas({
       setMarquee(null);
     }
     if (connecting.isConnecting) {
-      const target = e.target as SVGElement;
-      const portData = target.closest('[data-port-id]');
+      /* Touch support: the browser captures a touch pointer to the element the
+         finger started on, so the event target is not the element under the
+         finger — resolve the released-on port by position instead (same hit
+         areas, same connection logic, same preview). */
+      const target = (e.pointerType === 'mouse'
+        ? e.target
+        : document.elementFromPoint(e.clientX, e.clientY)) as Element | null;
+      const portData = target?.closest('[data-port-id]');
       if (portData) {
         onFinishConnecting(portData.getAttribute('data-node-id') || '', portData.getAttribute('data-port-id') || '');
       } else {
         onFinishConnecting();
       }
     }
-  }, [connecting, marquee, zoom, nodes, shapes, onSelectNodes, selectedNodeIds, selectedShapeIds, onSelectNode, onSelectShapes]);
+    /* Touch support: free the finger-gesture slot so a new gesture can start. */
+    if (e.pointerType !== 'mouse' && touchPointerIdRef.current === e.pointerId) {
+      touchPointerIdRef.current = null;
+    }
+  }, [connecting, marquee, zoom, nodes, shapes, onSelectNodes, selectedNodeIds, selectedShapeIds, onSelectNode, onSelectShapes, onFinishConnecting]);
 
-  const handleNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
+  /* ── Touch support: the browser can cancel a pointer mid-gesture (system
+     gesture, app switch, phone call). End the interaction cleanly instead of
+     leaving a node or a connection wire stuck to the finger. ── */
+  const handlePointerCancel = useCallback((e: React.PointerEvent) => {
+    setIsPanning(false);
+    setDragNode(null);
+    setDragShape(null);
+    setShapeResize(null);
+    setSnapGuides(null);
+    setMarquee(null);
+    marqueeShiftRef.current = false;
+    touchTapRef.current = null;
+    if (connecting.isConnecting) onFinishConnecting();
+    if (e.pointerType !== 'mouse' && touchPointerIdRef.current === e.pointerId) {
+      touchPointerIdRef.current = null;
+    }
+  }, [connecting.isConnecting, onFinishConnecting]);
+
+  const handleNodePointerDown = useCallback((e: React.PointerEvent, nodeId: string) => {
     e.stopPropagation();
     // Left button only: right-click selection is handled in onContextMenu, so a
     // right-press must not alter the selection here.
@@ -533,7 +644,7 @@ export default function NodeCanvas({
     }
   }, [nodes, screenToCanvas, onSelectNode, groups, onMoveNodes, onSelectNodes, selectedNodeIds]);
 
-  const handlePortMouseDown = useCallback((e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => {
+  const handlePortPointerDown = useCallback((e: React.PointerEvent, nodeId: string, portId: string, isOutput: boolean) => {
     e.stopPropagation();
     // Left button only: right-clicking a port must not start a connection wire
     // (right-clicks select via the node's onContextMenu instead).
@@ -544,14 +655,19 @@ export default function NodeCanvas({
     onStartConnecting(nodeId, portId, isOutput, pos.x, pos.y);
   }, [screenToCanvas]);
 
-  const handlePortMouseUp = useCallback((e: React.MouseEvent, nodeId: string, portId: string) => {
+  const handlePortPointerUp = useCallback((e: React.PointerEvent, nodeId: string, portId: string) => {
+    /* Touch support: the browser captures a touch pointer to the element the
+       finger started on, so this handler would always see the SOURCE port.
+       Finger releases are resolved by position in the canvas-level pointerup
+       (document.elementFromPoint) and run through the same onFinishConnecting. */
+    if (e.pointerType !== 'mouse') return;
     e.stopPropagation();
     if (connecting.isConnecting) onFinishConnecting(nodeId, portId);
   }, [connecting]);
 
   /* ── Left-click a wire: select ONLY it (any node/shape selection is dropped).
      The menu no longer opens here — right-click shows the wire options. ── */
-  const handleConnectionMouseDown = useCallback((e: React.MouseEvent, connId: string) => {
+  const handleConnectionPointerDown = useCallback((e: React.PointerEvent, connId: string) => {
     e.stopPropagation();
     // Left button only: right-clicks open the wire menu instead.
     if (e.button !== 0) return;
@@ -615,13 +731,35 @@ export default function NodeCanvas({
     setSelMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
   }, [selectedNodeIds, selectedShapeIds, selectedConn]);
 
+  /* ── Text annotations: inline edit lifecycle (double-click → textarea) ── */
+  const beginShapeTextEdit = useCallback((shape: CanvasShape) => {
+    textEditCancelRef.current = false;
+    setEditingTextValue(shape.text ?? '');
+    setEditingShapeText(shape.id);
+    setSelectedConnId(null);
+    if (shape.id !== selectedShapeId) onSelectShape?.(shape.id);
+  }, [selectedShapeId, onSelectShape]);
+
   /* ── Shapes feature: shape body drag (select + move; grouped shapes move
      their whole group — nodes and shapes — with them) ── */
-  const handleShapeMouseDown = useCallback((e: React.MouseEvent, shape: CanvasShape) => {
+  const handleShapePointerDown = useCallback((e: React.PointerEvent, shape: CanvasShape) => {
     e.stopPropagation();
     // Left button only: right-click selection is handled in onContextMenu, so a
     // right-press must not alter the selection here.
     if (e.button !== 0) return;
+    /* Touch support: touchscreens do not reliably emit the double-click that
+       opens the inline editor on a Text shape, so two quick finger taps do the
+       same thing (the first tap still behaves exactly like a single click). */
+    if (e.pointerType !== 'mouse' && shape.type === 'text') {
+      const now = Date.now();
+      const lastTap = lastTapRef.current;
+      if (lastTap && lastTap.id === shape.id && now - lastTap.time < TOUCH_DOUBLE_TAP_MS) {
+        lastTapRef.current = null;
+        beginShapeTextEdit(shape);
+        return; // the second tap opens the editor instead of starting a drag
+      }
+      lastTapRef.current = { id: shape.id, time: now };
+    }
     setContextMenu(null);
     setConnMenu(null);
     setSelMenu(null);
@@ -638,12 +776,12 @@ export default function NodeCanvas({
       memberNodeIds: g ? [...g.nodeIds] : [],
       memberShapeIds: g ? [...(g.shapeIds ?? [shape.id])] : [shape.id],
     });
-  }, [screenToCanvas, onSelectShape, groups]);
+  }, [screenToCanvas, onSelectShape, groups, beginShapeTextEdit]);
 
   /* ── Shapes feature: begin a corner-handle resize (only rendered when
      selected AND not frozen, so the guard is belt-and-braces). The aspect
      ratio is captured now so Ctrl can lock it for the whole drag. ── */
-  const handleShapeHandleMouseDown = useCallback((e: React.MouseEvent, shape: CanvasShape, handle: ShapeResizeHandle) => {
+  const handleShapeHandlePointerDown = useCallback((e: React.PointerEvent, shape: CanvasShape, handle: ShapeResizeHandle) => {
     e.stopPropagation();
     // Left button only: right-clicks open the shape menu instead of resizing.
     if (e.button !== 0) return;
@@ -662,15 +800,6 @@ export default function NodeCanvas({
     if (shapeId !== selectedShapeId) onSelectShape?.(shapeId);
     const rect = svgRef.current?.getBoundingClientRect();
     setShapeMenu({ id: shapeId, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
-  }, [selectedShapeId, onSelectShape]);
-
-  /* ── Text annotations: inline edit lifecycle (double-click → textarea) ── */
-  const beginShapeTextEdit = useCallback((shape: CanvasShape) => {
-    textEditCancelRef.current = false;
-    setEditingTextValue(shape.text ?? '');
-    setEditingShapeText(shape.id);
-    setSelectedConnId(null);
-    if (shape.id !== selectedShapeId) onSelectShape?.(shape.id);
   }, [selectedShapeId, onSelectShape]);
 
   const commitShapeTextEdit = useCallback(() => {
@@ -695,6 +824,22 @@ export default function NodeCanvas({
     const type = e.dataTransfer.getData('nodeType');
     if (type) onDropNode(type, pos.x, pos.y);
   }, [screenToCanvas, onDropShape]);
+
+  /* ── Touch support: HTML5 drag & drop (what a mouse drag out of the Toolbox
+     uses) never fires for a finger. The Toolbox forwards finger drops as a
+     lightweight event which runs the SAME drop handlers as the mouse above, so
+     the node/shape is placed with the same canvas coordinate conversion. ── */
+  useEffect(() => {
+    const onToolboxTouchDrop = (ev: Event) => {
+      const detail = (ev as CustomEvent<ToolboxTouchDropDetail>).detail;
+      if (!detail) return;
+      const pos = screenToCanvas(detail.clientX, detail.clientY);
+      if (detail.shapeType && onDropShape) { onDropShape(detail.shapeType as ShapeType, pos.x, pos.y); return; }
+      if (detail.nodeType) onDropNode(detail.nodeType, pos.x, pos.y);
+    };
+    window.addEventListener(TOOLBOX_TOUCH_DROP_EVENT, onToolboxTouchDrop);
+    return () => window.removeEventListener(TOOLBOX_TOUCH_DROP_EVENT, onToolboxTouchDrop);
+  }, [screenToCanvas, onDropShape, onDropNode]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -771,7 +916,7 @@ export default function NodeCanvas({
           stroke="transparent"
           strokeWidth={16}
           className="cursor-pointer"
-          onMouseDown={(e) => handleConnectionMouseDown(e, conn.id)}
+          onPointerDown={(e) => handleConnectionPointerDown(e, conn.id)}
           onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
         >
           <title>{`${fromNode.label} → ${toNode.label}`}</title>
@@ -837,9 +982,13 @@ export default function NodeCanvas({
         data-port-id={port.id}
         data-is-output={isOutput}
         className="cursor-crosshair"
-        onMouseDown={(e) => handlePortMouseDown(e, node.id, port.id, isOutput)}
-        onMouseUp={(e) => handlePortMouseUp(e, node.id, port.id)}
+        onPointerDown={(e) => handlePortPointerDown(e, node.id, port.id, isOutput)}
+        onPointerUp={(e) => handlePortPointerUp(e, node.id, port.id)}
       >
+        {/* Touch support: invisible finger-sized hit area around the visible
+            port circle. It draws nothing and is inert for a mouse, so the
+            desktop hit area is unchanged. */}
+        <circle className="touch-hit" cx={x} cy={y} r={TOUCH_PORT_RADIUS} fill="transparent" />
         {/* Port circle — FIX #2: transform-box fill-box so scale works on SVG circles */}
         <circle cx={x} cy={y} r={PORT_RADIUS}
           fill={connected ? portColor : colors.portBg}
@@ -948,7 +1097,7 @@ export default function NodeCanvas({
 
     return (
       <g key={node.id} transform={`translate(${node.x}, ${node.y})`}
-        onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+        onPointerDown={(e) => handleNodePointerDown(e, node.id)}
         onContextMenu={(e) => handleNodeContextMenu(e, node.id)}
         onMouseEnter={() => setHoveredNodeId(node.id)}
         onMouseLeave={() => setHoveredNodeId(null)}>
@@ -999,11 +1148,21 @@ export default function NodeCanvas({
       ['se', shape.x + shape.width, shape.y + shape.height, 'nwse-resize'],
     ];
     return corners.map(([h, hx, hy, cursor]) => (
-      <rect key={h}
-        x={hx - hs / 2} y={hy - hs / 2} width={hs} height={hs} rx={1.5 / zoom}
-        fill={colors.nodeBg} stroke={colors.selected} strokeWidth={1.5 / zoom}
-        style={{ cursor }}
-        onMouseDown={(e) => handleShapeHandleMouseDown(e, shape, h)} />
+      <g key={h}>
+        {/* Touch support: invisible finger-sized grab area — same handler,
+            nothing drawn, inert for a mouse. */}
+        <rect
+          className="touch-hit"
+          x={hx - (hs + TOUCH_HANDLE_PAD) / 2} y={hy - (hs + TOUCH_HANDLE_PAD) / 2}
+          width={hs + TOUCH_HANDLE_PAD} height={hs + TOUCH_HANDLE_PAD}
+          fill="transparent"
+          onPointerDown={(e) => handleShapeHandlePointerDown(e, shape, h)} />
+        <rect
+          x={hx - hs / 2} y={hy - hs / 2} width={hs} height={hs} rx={1.5 / zoom}
+          fill={colors.nodeBg} stroke={colors.selected} strokeWidth={1.5 / zoom}
+          style={{ cursor }}
+          onPointerDown={(e) => handleShapeHandlePointerDown(e, shape, h)} />
+      </g>
     ));
   };
 
@@ -1025,7 +1184,7 @@ export default function NodeCanvas({
     };
     return (
       <g key={shape.id}
-        onMouseDown={(e) => handleShapeMouseDown(e, shape)}
+        onPointerDown={(e) => handleShapePointerDown(e, shape)}
         onDoubleClick={(e) => { e.stopPropagation(); beginShapeTextEdit(shape); }}
         onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
         style={{ cursor: dragShape?.id === shape.id ? 'grabbing' : 'move' }}>
@@ -1043,7 +1202,7 @@ export default function NodeCanvas({
               autoFocus
               onChange={(e) => setEditingTextValue(e.target.value)}
               onBlur={commitShapeTextEdit}
-              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') cancelShapeTextEdit();
@@ -1063,7 +1222,7 @@ export default function NodeCanvas({
             {/* Handlers are attached directly: HTML-in-SVG event bubbling is
                 unreliable across browsers, so the div mirrors the <g> above. */}
             <div
-              onMouseDown={(e) => handleShapeMouseDown(e, shape)}
+              onPointerDown={(e) => handleShapePointerDown(e, shape)}
               onDoubleClick={(e) => { e.stopPropagation(); beginShapeTextEdit(shape); }}
               onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
               style={{
@@ -1109,7 +1268,7 @@ export default function NodeCanvas({
     }
     return (
       <g key={shape.id}
-        onMouseDown={(e) => handleShapeMouseDown(e, shape)}
+        onPointerDown={(e) => handleShapePointerDown(e, shape)}
         onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
         style={{ cursor: dragShape?.id === shape.id ? 'grabbing' : 'move' }}>
         <g fill={shapeColor} fillOpacity={shape.fillOpacity ?? DEFAULT_SHAPE_FILL_OPACITY} stroke={stroke} strokeWidth={isSelected ? 2.5 : 1.5}>
@@ -1166,10 +1325,15 @@ export default function NodeCanvas({
     return { x, y };
   })();
 
+  // `data-canvas` marks the canvas as the drop area for finger drags out of
+  // the Toolbox (the mouse drop arrives as a native HTML5 drop event).
   return (
-    <div className="relative w-full h-full overflow-hidden" style={{ background: colors.bg }}>
-      <svg ref={svgRef} className="w-full h-full"
-        onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
+    <div className="relative w-full h-full overflow-hidden" data-canvas="true" style={{ background: colors.bg }}>
+      <svg ref={svgRef} className="w-full h-full canvas-surface"
+        onWheel={handleWheel}
+        onPointerDownCapture={handlePointerDownCapture}
+        onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp} onPointerCancel={handlePointerCancel}
         onMouseLeave={() => setHoveredGroupId(null)}
         onContextMenu={handleBackgroundContextMenu}
         onDragOver={handleDragOver} onDrop={handleDrop}
