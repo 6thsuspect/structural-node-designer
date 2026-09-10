@@ -15,6 +15,7 @@ Welcome to the documentation for **Structural Node Designer**, a Grasshopper-ins
 | [CANVAS_FIT.md](./CANVAS_FIT.md) | Zoom to Fit - the Fit button fits all nodes to the window, centered | End Users, Developers |
 | [CANVAS_SHAPES.md](./CANVAS_SHAPES.md) | Canvas Shapes - Shapes category, drag/drop, resize (Ctrl = ratio), freeze, color/opacity, per-item draw order, mixed groups | End Users, Developers |
 | [SNAP_GUIDES.md](./SNAP_GUIDES.md) | Alignment Snap - Snap toggle, edge/center snapping with smart guide lines while dragging nodes | End Users, Developers |
+| [MOBILE_TOUCH.md](./MOBILE_TOUCH.md) | Touchscreen & Mobile Support - touch gestures (pan/pinch/drag/connect/long-press), mobile toolbar, node library & inspector drawers, tap-to-place | End Users, Developers |
 | [TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md) | Technical design - Architecture and implementation details | Developers |
 | [API_REFERENCE.md](./API_REFERENCE.md) | API documentation - Types, functions, components | Developers |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture - Component diagrams and data flow | Developers, Architects |

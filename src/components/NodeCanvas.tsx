@@ -720,10 +720,22 @@ export default function NodeCanvas({
   };
 
   /** Container-relative point for the *menu popovers (they position inside the
-      canvas div, exactly like the right-click menus). */
+      canvas div, exactly like the right-click menus). Long-press menus are
+      clamped so they can never be cut off by the screen edge. */
   const containerPoint = (clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect();
     return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
+  };
+
+  const clampMenuPos = (p: { x: number; y: number }) => {
+    const cw = svgRef.current?.clientWidth ?? window.innerWidth;
+    const ch = svgRef.current?.clientHeight ?? window.innerHeight;
+    const MENU_W = 232;  // widest menu (min-w + padding estimate)
+    const MENU_H = 300;  // tallest menu (group + trace items estimate)
+    return {
+      x: Math.max(4, Math.min(p.x, Math.max(4, cw - MENU_W - 4))),
+      y: Math.max(4, Math.min(p.y, Math.max(4, ch - MENU_H - 4))),
+    };
   };
 
   /** Long-press (≈550 ms, cancelled by movement) → touch equivalent of the
@@ -743,7 +755,7 @@ export default function NodeCanvas({
         setContextMenu({ nodeId: cls.nodeId });
       } else if (cls.kind === 'shape') {
         if (cls.shapeId !== selectedShapeId) onSelectShape?.(cls.shapeId);
-        const p = containerPoint(clientX, clientY);
+        const p = clampMenuPos(containerPoint(clientX, clientY));
         setShapeMenu({ id: cls.shapeId, x: p.x, y: p.y });
       } else if (cls.kind === 'wire') {
         setContextMenu(null);
@@ -752,13 +764,13 @@ export default function NodeCanvas({
         setShapeSizeEditor(null);
         onSelectNode(null);
         setSelectedConnId(cls.connId);
-        const p = containerPoint(clientX, clientY);
+        const p = clampMenuPos(containerPoint(clientX, clientY));
         setConnMenu({ x: p.x, y: p.y, connId: cls.connId });
       } else if (cls.kind === 'empty') {
         const selectionCount = (selectedNodeIds ?? []).length + (selectedShapeIds ?? []).length;
         if (selectionCount > 0) {
           // Selection + long-press on canvas ≙ desktop right-click selection menu.
-          const p = containerPoint(clientX, clientY);
+          const p = clampMenuPos(containerPoint(clientX, clientY));
           setSelMenu({ x: p.x, y: p.y });
         } else {
           // No selection: long-press + drag = marquee (multi-select on touch).
@@ -1857,14 +1869,14 @@ export default function NodeCanvas({
                   <span className="font-mono" style={{ color: colors.sub }}>{currentColor}</span>
                 </label>
                 {conn.color && (
-                  <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                  <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
                     onClick={() => { onUpdateConnectionColor(conn.id, undefined); setConnMenu(null); }}>↩️ Reset to default</button>
                 )}
               </>
             )}
-            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
+            <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
               onClick={() => { onRemoveConnection(conn.id); setSelectedConnId(null); setConnMenu(null); }}>🗑️ Delete Connection</button>
-            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+            <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
               onClick={() => { setConnMenu(null); }}>✕ Cancel</button>
           </div>
         );
@@ -1874,16 +1886,16 @@ export default function NodeCanvas({
       {contextMenu && contextMenuAnchor && (
         <div className="absolute z-50 rounded-xl shadow-2xl overflow-hidden min-w-[200px]"
           style={{ left: contextMenuAnchor.x, top: contextMenuAnchor.y, background: colors.nodeBg, border: `1px solid ${colors.nodeBorder}` }}>
-          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+          <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
             onClick={() => { onEditNodeCode(contextMenu.nodeId); setContextMenu(null); }}>🧮 Edit Node Code</button>
-          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+          <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
             onClick={() => { onEditFormula(contextMenu.nodeId); setContextMenu(null); }}>⚡ Edit Formula &amp; Inputs</button>
           {/* Shapes feature: per-item draw order (front layer) */}
           {onUpdateNodeFront && (() => {
             const n = nodes.find(nn => nn.id === contextMenu.nodeId);
             const front = Boolean(n?.front);
             return (
-              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+              <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
                 onClick={() => { onUpdateNodeFront(n!.id, !front); setContextMenu(null); }}>
                 {front ? '🔽 Send to back' : '🔼 Bring to front'}
               </button>
@@ -1895,11 +1907,11 @@ export default function NodeCanvas({
             <>
               <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
               {menuCanGroup && (
-                <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
                   onClick={() => { onGroupSelection?.(menuNodeIds, menuShapeIds); setContextMenu(null); }}>📦 Group Selection (Ctrl+G)</button>
               )}
               {menuCanUngroup && (
-                <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
                   onClick={() => { onUngroupSelection?.(menuNodeIds, menuShapeIds); setContextMenu(null); }}>📂 Ungroup (Ctrl+Shift+G)</button>
               )}
             </>
@@ -1908,14 +1920,14 @@ export default function NodeCanvas({
           {onViewTrace && (
             <>
               <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
-              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+              <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
                 onClick={() => { onViewTrace(contextMenu.nodeId); setContextMenu(null); }}>🔎 View Calculation Trace</button>
               <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
             </>
           )}
-          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
+          <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
             onClick={() => { onDeleteNode(contextMenu.nodeId); setContextMenu(null); }}>🗑️ Delete Node</button>
-          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
+          <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
             onClick={() => setContextMenu(null)}>✕ Cancel</button>
         </div>
       )}
@@ -1928,14 +1940,14 @@ export default function NodeCanvas({
             📦 Selection ({menuTotal} item{menuTotal === 1 ? '' : 's'})
           </div>
           {menuCanGroup && (
-            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+            <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
               onClick={() => { onGroupSelection?.(menuNodeIds, menuShapeIds); setSelMenu(null); }}>📦 Group Selection (Ctrl+G)</button>
           )}
           {menuCanUngroup && (
-            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+            <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
               onClick={() => { onUngroupSelection?.(menuNodeIds, menuShapeIds); setSelMenu(null); }}>📂 Ungroup (Ctrl+Shift+G)</button>
           )}
-          <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
+          <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
             onClick={() => { onSelectNode(null); onSelectShapes?.([], false); setSelMenu(null); }}>✕ Clear Selection</button>
         </div>
       )}
@@ -1951,13 +1963,13 @@ export default function NodeCanvas({
               {getShapeDefinition(s.type)?.icon || '◼'} {getShapeDefinition(s.type)?.label || s.type}
             </div>
             {onToggleShapeFrozen && (
-              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+              <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
                 onClick={() => { onToggleShapeFrozen(s.id); setShapeMenu(null); }}>
                 {s.frozen ? '❄️ Unfreeze size' : '🧊 Freeze size'}
               </button>
             )}
             {/* Edit exact dimensions (position is kept) */}
-            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+            <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
               onClick={() => {
                 setShapeSizeEditor({
                   id: s.id,
@@ -1970,7 +1982,7 @@ export default function NodeCanvas({
               }}>✏️ Edit dimensions</button>
             {/* Per-item draw order (front layer) */}
             {onUpdateShape && (
-              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+              <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
                 onClick={() => { onUpdateShape(s.id, { front: !s.front }); setShapeMenu(null); }}>
                 {s.front ? '🔽 Send to back' : '🔼 Bring to front'}
               </button>
@@ -1980,20 +1992,20 @@ export default function NodeCanvas({
               <>
                 <div className="my-1 border-t" style={{ borderColor: colors.nodeBorder }} />
                 {menuCanGroup && (
-                  <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                  <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
                     onClick={() => { onGroupSelection?.(menuNodeIds, menuShapeIds); setShapeMenu(null); }}>📦 Group Selection (Ctrl+G)</button>
                 )}
                 {menuCanUngroup && (
-                  <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
+                  <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.text }}
                     onClick={() => { onUngroupSelection?.(menuNodeIds, menuShapeIds); setShapeMenu(null); }}>📂 Ungroup (Ctrl+Shift+G)</button>
                 )}
               </>
             )}
             {onDeleteShape && (
-              <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
+              <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors" style={{ color: '#ef4444' }}
                 onClick={() => { onDeleteShape(s.id); setShapeMenu(null); }}>🗑️ Delete Shape</button>
             )}
-            <button className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
+            <button className="snd-menu-item w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-white/10 transition-colors" style={{ color: colors.sub }}
               onClick={() => setShapeMenu(null)}>✕ Cancel</button>
           </div>
         );

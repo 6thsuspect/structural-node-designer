@@ -53,6 +53,14 @@ body {
   }
 }
 
+/* Canvas context menus: on touch devices the items grow to comfortable
+   finger targets (~44 px). Desktop menu visuals are unchanged. */
+@media (any-pointer: coarse) {
+  .snd-menu-item {
+    min-height: 44px;
+  }
+}
+
 /* Buttons/inputs: keep native double-tap-zoom off controls but allow normal
    interaction; taps on controls fire click as usual. */
 button, select {

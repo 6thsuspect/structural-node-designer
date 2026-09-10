@@ -148,6 +148,30 @@ Stress = M / Z
 
 ---
 
+## 7b. Touch & Mobile
+
+On phones and tablets the same app adapts: the canvas fills the screen with a
+bottom toolbar (Add, Formula, Zoom, Fit, Undo, Redo, Properties, More) and the
+Toolbox / Properties panels open as drawers.
+
+| Touch gesture | Action |
+|---------------|--------|
+| Drag empty canvas | Pan |
+| Pinch / two fingers | Zoom around your fingers (+ pan) |
+| Tap node | Select |
+| Drag node | Move |
+| Tap empty canvas | Clear selection |
+| Drag from a port | Create a connection (preview follows your finger; green rings = valid targets) |
+| Long-press node/shape/wire | Context menu (same as right-click on desktop) |
+| Long-press empty canvas + drag | Rubber-band multi-select |
+| Double-tap a Text box | Edit its text |
+| ＋ Add → tap a node → tap canvas | Place a new node where you tapped |
+
+Deleting works via long-press menus; Save/Open/Report/theme live under the
+⋯ More button. Every engineering feature is identical on desktop and mobile.
+
+---
+
 ## 8. Node Reference
 
 ### Input Nodes (13)

@@ -8,6 +8,17 @@ All notable changes to the Structural Node Designer project will be documented i
 
 ### Added
 
+#### 📱 Full Touchscreen & Mobile Support
+- Unified Pointer Events layer for touch/stylus (mouse paths untouched): one-finger pan, node/shape drag with an 8 px tap threshold, tap select, pinch zoom anchored at the pinch midpoint, combined two-finger pan+zoom
+- Touch connections: drag from a port with a live preview wire; valid target ports ring green, invalid red; release completes or cancels — a tap on a port never creates a connection
+- Enlarged invisible port hit areas for fingers (mouse-only devices unchanged via CSS)
+- Long-press (550 ms) opens the existing context menus — the touch equivalent of right-click; long-press + drag on empty canvas = marquee multi-select; double-tap a Text shape to edit it
+- Responsive layout (<1024 px): slim header, full-bleed canvas, mobile bottom toolbar (same commands as the desktop toolbar), node library drawer and properties inspector drawer (reusing the existing Toolbox/PropertiesPanel)
+- Tap-to-place: pick a node/shape in the library, tap the canvas to insert it at the correct world position
+- All dialogs draggable/resizable with touch (ModalWindow migrated to pointer events); `inputMode="decimal"` on numeric inputs for mobile keyboards
+- Mobile browser hardening: `touch-action: none` scoped to the canvas only, `100dvh` viewport, safe-area insets, no pull-to-refresh/double-tap-zoom on the canvas
+- Pure gesture math unit-tested in `src/features/touch-interactions` (`npm test`); see docs/MOBILE_TOUCH.md
+
 #### 🔗 Wire Selection + Custom Wire Colors
 - Left-click a wire selects ONLY it (nodes/shapes are deselected); the selected wire turns red while selected
 - Right-click during wire selection opens the wire options menu (on the wire or anywhere on the canvas)
