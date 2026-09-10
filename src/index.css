@@ -61,6 +61,13 @@ body {
   }
 }
 
+/* Keep the canvas zoom indicator visible above the mobile toolbar. */
+@media (max-width: 1023px) {
+  .snd-zoom-indicator {
+    bottom: 68px;
+  }
+}
+
 /* Buttons/inputs: keep native double-tap-zoom off controls but allow normal
    interaction; taps on controls fire click as usual. */
 button, select {

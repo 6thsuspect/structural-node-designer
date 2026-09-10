@@ -1821,8 +1821,8 @@ export default function NodeCanvas({
         </g>
       </svg>
 
-      {/* Zoom indicator */}
-      <div className="absolute bottom-3 right-3 px-3 py-1 rounded-lg text-xs font-mono"
+      {/* Zoom indicator (lifted above the mobile toolbar on compact screens via CSS) */}
+      <div className="snd-zoom-indicator absolute bottom-3 right-3 px-3 py-1 rounded-lg text-xs font-mono"
         style={{ background: colors.nodeBg, color: colors.text, border: `1px solid ${colors.nodeBorder}` }}>
         {Math.round(zoom * 100)}% &bull; {nodes.length} nodes &bull; {connections.length} conns{shapes && shapes.length > 0 ? ` &bull; ${shapes.length} shapes` : ''}
       </div>
