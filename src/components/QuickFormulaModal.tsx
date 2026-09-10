@@ -491,6 +491,7 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
                       <div className="flex gap-2">
                         <input
                           type="number"
+                          inputMode="decimal"
                           value={inputDefaults[varName] ?? ''}
                           onChange={(e) => handleUpdateInputDefault(varName, parseFloat(e.target.value) || 0)}
                           placeholder="Default"

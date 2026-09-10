@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { NodeDefinition, Theme } from '../types';
 import { getCategories, getNodesByCategory, CATEGORY_COLORS, CATEGORY_ICONS, getAllNodes } from '../nodeDefinitions';
 import { SHAPE_CATALOG, type ShapeCatalogEntry } from '../features/canvas-shapes';
+import type { ShapeType } from '../types';
 
 interface Props {
   theme: Theme;
@@ -9,6 +10,11 @@ interface Props {
   onSearchChange: (q: string) => void;
   onCreateCustom?: () => void;
   onQuickFormula?: () => void;
+  /* ── Tap-to-place (mobile library drawer) — optional, inert when absent ──
+     When provided, tapping an item selects it for placement (the next canvas
+     tap inserts it). Desktop passes nothing and keeps drag-and-drop only. */
+  onPickNode?: (type: string) => void;
+  onPickShape?: (type: ShapeType) => void;
 }
 
 const themeStyles: Record<Theme, { bg: string; text: string; border: string; hover: string; input: string; accent: string }> = {
@@ -18,7 +24,7 @@ const themeStyles: Record<Theme, { bg: string; text: string; border: string; hov
   autocad: { bg: '#0a0a0a', text: '#ffffff', border: '#222222', hover: '#1a1a1a', input: '#111111', accent: '#00ff00' },
 };
 
-export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCustom, onQuickFormula }: Props) {
+export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCustom, onQuickFormula, onPickNode, onPickShape }: Props) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>('Inputs');
   const colors = themeStyles[theme];
   const categories = getCategories();
@@ -58,15 +64,16 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
       key={shape.type}
       draggable
       onDragStart={(e) => handleShapeDragStart(e, shape)}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-md cursor-grab active:cursor-grabbing transition-all group text-sm"
-      style={{ color: colors.text }}
+      onClick={() => onPickShape?.(shape.type as ShapeType)}
+      className="flex items-center gap-2 px-3 py-2.5 rounded-md cursor-grab active:cursor-grabbing transition-all group text-sm"
+      style={{ color: colors.text, minHeight: 44 }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.hover; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       title={shape.description}
     >
       <span className="text-xs w-5 text-center flex-shrink-0" style={{ color: colors.accent }}>{shape.icon}</span>
       <span className="truncate flex-1">{shape.label}</span>
-      <span className="text-[10px] opacity-40 group-hover:opacity-70 transition-opacity">drag</span>
+      <span className="text-[10px] opacity-40 group-hover:opacity-70 transition-opacity">{onPickShape ? 'tap' : 'drag'}</span>
     </div>
   );
 
@@ -75,8 +82,9 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
       key={nodeDef.type}
       draggable
       onDragStart={(e) => handleDragStart(e, nodeDef)}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-md cursor-grab active:cursor-grabbing transition-all group text-sm"
-      style={{ color: colors.text }}
+      onClick={() => onPickNode?.(nodeDef.type)}
+      className="flex items-center gap-2 px-3 py-2.5 rounded-md cursor-grab active:cursor-grabbing transition-all group text-sm"
+      style={{ color: colors.text, minHeight: 44 }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.background = colors.hover;
       }}
@@ -87,7 +95,7 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
     >
       <span className="text-xs w-5 text-center flex-shrink-0">{nodeDef.icon || '●'}</span>
       <span className="truncate flex-1">{nodeDef.label}</span>
-      <span className="text-[10px] opacity-40 group-hover:opacity-70 transition-opacity">drag</span>
+      <span className="text-[10px] opacity-40 group-hover:opacity-70 transition-opacity">{onPickNode ? 'tap' : 'drag'}</span>
     </div>
   );
 
@@ -213,7 +221,8 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
               <div className="px-1 py-1">
                 {SHAPE_CATALOG.map(renderShapeItem)}
                 <p className="px-3 pt-2 pb-1 text-[10px] leading-relaxed" style={{ color: colors.text, opacity: 0.45 }}>
-                  Drag onto canvas • click to select • drag corners to resize (Ctrl = fixed ratio)
+                  {onPickShape ? 'Tap a shape, then tap the canvas to place it • ' : 'Drag onto canvas • '}
+                  click to select • drag corners to resize (Ctrl = fixed ratio)
                   • right-click to freeze, edit size, or set draw order • double-click Text to edit
                 </p>
               </div>
@@ -228,7 +237,8 @@ export default function Toolbox({ theme, searchQuery, onSearchChange, onCreateCu
         className="px-3 py-2 text-[10px] flex-shrink-0"
         style={{ color: colors.text, opacity: 0.4, borderTop: `1px solid ${colors.border}` }}
       >
-        Drag nodes to canvas • {getAllNodes().length} nodes available
+        {onPickNode ? 'Tap a node, then tap the canvas to place it • ' : 'Drag nodes to canvas • '}
+        {getAllNodes().length} nodes available
       </div>
     </div>
   );

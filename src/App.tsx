@@ -16,6 +16,10 @@ import { registerCustomNode, CATEGORY_COLORS, getNodeDefinition } from './nodeDe
 import { evaluateFormulaNode } from './formulaParser';
 import { generateNodeCode, extractOutputFormulas, buildQuickPrefill, buildCodePrefill } from './nodeCodegen';
 import { Theme, NodeDefinition, CanvasNode, ShapeType } from './types';
+import { useResponsiveLayout } from './hooks/useResponsiveLayout';
+import MobileToolbar from './components/MobileToolbar';
+import MobileSheet from './components/MobileSheet';
+import { SHAPE_CATALOG } from './features/canvas-shapes';
 
 /* ─── theme palette helper ─── */
 const panelColors = (theme: Theme) => {
@@ -116,10 +120,29 @@ function PanelHeader({ title, icon, theme, onToggle }: { title:string; icon:stri
   );
 }
 
+/* ─── Compact (mobile/tablet) top header ───
+   Slim branding bar for compact viewports; every command lives in the
+   MobileToolbar below the canvas. */
+function CompactHeader({ theme }: { theme: Theme }) {
+  const c = panelColors(theme);
+  return (
+    <div className="flex items-center gap-2 px-3 flex-shrink-0 snd-safe-top" style={{ background: c.bg, borderBottom: `1px solid ${c.border}`, paddingBottom: 8, minHeight: 44 }}>
+      <AppLogo size={24} />
+      <div className="text-xs font-bold tracking-tight truncate" style={{ color: c.text }}>
+        Structural Node Designer
+      </div>
+    </div>
+  );
+}
+
 /* ═══ MAIN APP ═══ */
 export default function App() {
   const editor = useNodeEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* Compact viewport (phone/tablet) → drawer-based layout. Viewport-width
+     based, so it also follows rotation, split-screen and window resizes. */
+  const isCompact = useResponsiveLayout();
 
   /* ── panel visibility ── */
   const [toolboxOpen, setToolboxOpen]       = useState(true);
@@ -158,12 +181,28 @@ export default function App() {
     ? null
     : editor.shapes.find(s => s.id === editor.selectedShapeId) || null;
 
+  /* ── Mobile inspector: open when something is selected, close on clear ── */
+  useEffect(() => {
+    if (!isCompact) return;
+    setInspectorOpen(Boolean(selectedNode || selectedShape));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCompact, selectedNode, selectedShape]);
+
   /* ── Zoom to Fit: token per request — NodeCanvas computes & applies the fit ── */
   const [fitSignal, setFitSignal] = useState(0);
 
   /* ── Calculation Trace feature (additive, read-only) ── */
   const [traceNodeId, setTraceNodeId] = useState<string | null>(null);
   const [traceFocus, setTraceFocus] = useState<{ nodeId: string; token: number } | null>(null);
+
+  /* ── Responsive (touch/mobile) layout — additive; desktop (≥1024 px) is
+     pixel-identical to before. Compact viewports get the canvas plus a
+     bottom toolbar and drawer sheets that reuse the same panels. ── */
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  // Tap-to-place: a node/shape picked from the mobile library waiting for a
+  // canvas tap (the canvas converts the tap to world coordinates).
+  const [placeMode, setPlaceMode] = useState<{ nodeType?: string; shapeType?: ShapeType } | null>(null);
 
   /* Opens the trace panel for a node (context menu / properties button). */
   const handleViewTrace = useCallback((nodeId: string) => {
@@ -411,6 +450,14 @@ export default function App() {
   /* ── Shapes feature: drop a shape from the Toolbox "Shapes" tab ── */
   const handleDropShape = useCallback((type: ShapeType, x: number, y: number) => { editor.addShape(type, x, y); setShowSplash(false); }, [editor]);
 
+  /* ── Tap-to-place (mobile): insert the pending node/shape at the tapped
+     canvas position (NodeCanvas converts the tap to world coordinates) ── */
+  const handlePlaceAtWorld = useCallback((x: number, y: number) => {
+    if (placeMode?.nodeType) handleDropNode(placeMode.nodeType, x, y);
+    else if (placeMode?.shapeType) handleDropShape(placeMode.shapeType, x, y);
+    setPlaceMode(null);
+  }, [placeMode, handleDropNode, handleDropShape]);
+
   /* ═══ SPLASH ═══ */
   if (showSplash && editor.nodes.length === 0) {
     const bgColor = editor.theme==='light'?'#f1f5f9':editor.theme==='grasshopper'?'#1a202c':editor.theme==='autocad'?'#000':'#0f172a';
@@ -419,7 +466,7 @@ export default function App() {
     const accentColor = editor.theme==='grasshopper'?'#68d391':editor.theme==='autocad'?'#00ff00':'#3b82f6';
 
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center relative" style={{ background:bgColor }}>
+      <div className="h-full w-full flex flex-col items-center justify-center relative" style={{ background:bgColor }}>
         <div className="text-center space-y-6 max-w-lg">
           <div className="mb-4 flex justify-center"><AppLogo size={72} /></div>
           <h1 className="text-3xl font-bold tracking-tight" style={{ color:textColor }}>Structural Node Designer</h1>
@@ -470,18 +517,118 @@ export default function App() {
   }
 
   /* ═══ MAIN LAYOUT ═══ */
+  /* The canvas is shared by both layouts; place-mode props only activate when
+     the mobile library arms them (desktop stays drag-and-drop only). */
+  const canvas = (
+    <NodeCanvas
+      nodes={editor.nodes} connections={editor.connections} zoom={editor.zoom} panX={editor.panX} panY={editor.panY}
+      connecting={editor.connecting} selectedNodeId={editor.selectedNodeId} theme={editor.theme}
+      onMoveNode={editor.moveNode} onSelectNode={editor.selectNode}
+      onStartConnecting={editor.startConnecting} onUpdateConnecting={editor.updateConnecting} onFinishConnecting={editor.finishConnecting}
+      onDeleteNode={editor.deleteNode} onRemoveConnection={editor.removeConnection} onUpdateConnectionColor={editor.updateConnectionColor}
+      onUpdateInput={editor.updateNodeInput}
+      onEditNodeCode={handleOpenNodeCode} onEditFormula={handleOpenFormula}
+      onZoomChange={editor.setZoom}
+      onPanChange={(x,y) => { editor.setPanX(x); editor.setPanY(y); }} onDropNode={handleDropNode}
+      onViewTrace={handleViewTrace} focusTarget={traceFocus} fitSignal={fitSignal} snapEnabled={snapEnabled}
+      selectedNodeIds={editor.selectedNodeIds} groups={editor.groups}
+      onSelectNodes={editor.selectNodes} onMoveNodes={editor.moveNodesBy}
+      onGroupSelection={editor.groupSelection} onUngroupSelection={editor.ungroupSelection}
+      onUpdateNodeFront={editor.setNodeFront}
+      onMultiDelete={editor.deleteNodes}
+      shapes={editor.shapes} selectedShapeId={editor.selectedShapeId} selectedShapeIds={editor.selectedShapeIds}
+      onSelectShape={editor.selectShape} onSelectShapes={editor.setShapeSelection}
+      onMoveShape={editor.moveShape} onResizeShape={(id, box) => editor.updateShape(id, box)}
+      onUpdateShape={editor.updateShape}
+      onDropShape={handleDropShape} onDeleteShape={editor.deleteShape} onToggleShapeFrozen={editor.toggleShapeFrozen}
+      placeNodeType={placeMode?.nodeType ?? null} placeShapeType={placeMode?.shapeType ?? null}
+      onPlaceAtWorld={handlePlaceAtWorld}
+    />
+  );
+
+  /* Labels for the tap-to-place hint banner */
+  const placeLabel = placeMode?.nodeType
+    ? getNodeDefinition(placeMode.nodeType)?.label ?? placeMode.nodeType
+    : placeMode?.shapeType
+      ? SHAPE_CATALOG.find(s => s.type === placeMode.shapeType)?.label ?? placeMode.shapeType
+      : null;
+
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden select-none relative">
+    <div className="h-full w-full flex flex-col overflow-hidden select-none relative">
       <input ref={fileInputRef} type="file" accept=".json,.snd" className="hidden" onChange={handleFileChange} />
 
-      <Toolbar theme={editor.theme} onThemeChange={editor.setTheme} onSave={handleSaveProject} onLoad={handleLoadFile} onClear={editor.clearAll}
-        onUndo={editor.undo} onRedo={editor.redo} onReport={editor.generateReport}
-        onZoomIn={() => editor.setZoom(Math.min(5, editor.zoom*1.2))} onZoomOut={() => editor.setZoom(Math.max(0.1, editor.zoom*0.8))}
-        onZoomFit={() => setFitSignal(t => t + 1)}
-        onLoadDemo={handleLoadDemo} onCreateCustomNode={() => setShowCustomFormulaModal(true)}
-        onQuickFormula={() => setShowQuickFormulaModal(true)} onSettings={() => setShowSettings(true)}
-        onAbout={() => setShowAbout(true)} snapEnabled={snapEnabled} onToggleSnap={() => setSnapEnabled(v => !v)} />
+      {/* Top bar: slim header on compact viewports, full toolbar on desktop */}
+      {isCompact ? (
+        <CompactHeader theme={editor.theme} />
+      ) : (
+        <Toolbar theme={editor.theme} onThemeChange={editor.setTheme} onSave={handleSaveProject} onLoad={handleLoadFile} onClear={editor.clearAll}
+          onUndo={editor.undo} onRedo={editor.redo} onReport={editor.generateReport}
+          onZoomIn={() => editor.setZoom(Math.min(5, editor.zoom*1.2))} onZoomOut={() => editor.setZoom(Math.max(0.1, editor.zoom*0.8))}
+          onZoomFit={() => setFitSignal(t => t + 1)}
+          onLoadDemo={handleLoadDemo} onCreateCustomNode={() => setShowCustomFormulaModal(true)}
+          onQuickFormula={() => setShowQuickFormulaModal(true)} onSettings={() => setShowSettings(true)}
+          onAbout={() => setShowAbout(true)} snapEnabled={snapEnabled} onToggleSnap={() => setSnapEnabled(v => !v)} />
+      )}
 
+      {isCompact ? (
+        /* ═══ COMPACT LAYOUT (phone / tablet): full-bleed canvas + bottom
+           toolbar + drawer sheets reusing the desktop Toolbox/Properties
+           panels. Gestures are handled inside NodeCanvas. ═══ */
+        <div className="flex-1 relative overflow-hidden min-h-0">
+          {canvas}
+
+          {/* Tap-to-place hint banner */}
+          {placeLabel && (
+            <div className="absolute left-1/2 -translate-x-1/2 top-2 z-20 flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-full shadow-xl text-xs font-medium"
+              style={{ background: panelColors(editor.theme).bg, border: `1px solid ${panelColors(editor.theme).border}`, color: panelColors(editor.theme).text }}>
+              <span>👆 Tap canvas to place <b>{placeLabel}</b></span>
+              <button
+                onClick={() => setPlaceMode(null)}
+                aria-label="Cancel placement"
+                className="w-8 h-8 rounded-full flex items-center justify-center active:bg-white/10"
+                style={{ color: panelColors(editor.theme).text, opacity: 0.7 }}
+              >✕</button>
+            </div>
+          )}
+
+          {/* Mobile toolbar (reuses the desktop commands) */}
+          <MobileToolbar
+            theme={editor.theme} onThemeChange={editor.setTheme}
+            onSave={handleSaveProject} onLoad={handleLoadFile} onClear={editor.clearAll}
+            onUndo={editor.undo} onRedo={editor.redo} onReport={editor.generateReport}
+            onZoomIn={() => editor.setZoom(Math.min(5, editor.zoom*1.2))} onZoomOut={() => editor.setZoom(Math.max(0.1, editor.zoom*0.8))}
+            onZoomFit={() => setFitSignal(t => t + 1)}
+            onLoadDemo={handleLoadDemo} onCreateCustomNode={() => setShowCustomFormulaModal(true)}
+            onQuickFormula={() => setShowQuickFormulaModal(true)} onSettings={() => setShowSettings(true)}
+            onAbout={() => setShowAbout(true)} snapEnabled={snapEnabled} onToggleSnap={() => setSnapEnabled(v => !v)}
+            onOpenLibrary={() => setLibraryOpen(true)}
+            onToggleProperties={() => setInspectorOpen(v => !v)}
+            propertiesOpen={inspectorOpen}
+          />
+
+          {/* Node library drawer (same Toolbox component, tap-to-place enabled) */}
+          <MobileSheet open={libraryOpen} title="Node Library" icon="🧩" theme={editor.theme} onClose={() => setLibraryOpen(false)}>
+            <Toolbox
+              theme={editor.theme} searchQuery={editor.searchQuery} onSearchChange={editor.setSearchQuery}
+              onCreateCustom={() => { setLibraryOpen(false); setShowCustomFormulaModal(true); }}
+              onQuickFormula={() => { setLibraryOpen(false); setShowQuickFormulaModal(true); }}
+              onPickNode={(type) => { setPlaceMode({ nodeType: type }); setLibraryOpen(false); }}
+              onPickShape={(type) => { setPlaceMode({ shapeType: type }); setLibraryOpen(false); }}
+            />
+          </MobileSheet>
+
+          {/* Properties / inspector drawer (same PropertiesPanel component) */}
+          <MobileSheet open={inspectorOpen} title="Properties" icon="📋" theme={editor.theme} onClose={() => setInspectorOpen(false)}>
+            <div className="h-[56dvh] overflow-hidden">
+              <PropertiesPanel node={selectedNode} connections={editor.connections} theme={editor.theme}
+                onUpdateInput={editor.updateNodeInput} onDeleteNode={editor.deleteNode} onDuplicateNode={editor.duplicateNode}
+                onViewTrace={handleViewTrace} onUpdateNodeFront={editor.setNodeFront}
+                shape={selectedShape} onUpdateShape={editor.updateShape} onDeleteShape={editor.deleteShape}
+                onToggleShapeFrozen={editor.toggleShapeFrozen} />
+            </div>
+          </MobileSheet>
+        </div>
+      ) : (
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT: Toolbox */}
         {toolboxOpen ? (
@@ -502,28 +649,7 @@ export default function App() {
 
         {/* CENTER: Canvas — no Excel panel */}
         <div className="flex-1 overflow-hidden min-w-0">
-          <NodeCanvas
-            nodes={editor.nodes} connections={editor.connections} zoom={editor.zoom} panX={editor.panX} panY={editor.panY}
-            connecting={editor.connecting} selectedNodeId={editor.selectedNodeId} theme={editor.theme}
-            onMoveNode={editor.moveNode} onSelectNode={editor.selectNode}
-            onStartConnecting={editor.startConnecting} onUpdateConnecting={editor.updateConnecting} onFinishConnecting={editor.finishConnecting}
-            onDeleteNode={editor.deleteNode} onRemoveConnection={editor.removeConnection} onUpdateConnectionColor={editor.updateConnectionColor}
-            onUpdateInput={editor.updateNodeInput}
-            onEditNodeCode={handleOpenNodeCode} onEditFormula={handleOpenFormula}
-            onZoomChange={editor.setZoom}
-            onPanChange={(x,y) => { editor.setPanX(x); editor.setPanY(y); }} onDropNode={handleDropNode}
-            onViewTrace={handleViewTrace} focusTarget={traceFocus} fitSignal={fitSignal} snapEnabled={snapEnabled}
-            selectedNodeIds={editor.selectedNodeIds} groups={editor.groups}
-            onSelectNodes={editor.selectNodes} onMoveNodes={editor.moveNodesBy}
-            onGroupSelection={editor.groupSelection} onUngroupSelection={editor.ungroupSelection}
-            onUpdateNodeFront={editor.setNodeFront}
-            onMultiDelete={editor.deleteNodes}
-            shapes={editor.shapes} selectedShapeId={editor.selectedShapeId} selectedShapeIds={editor.selectedShapeIds}
-            onSelectShape={editor.selectShape} onSelectShapes={editor.setShapeSelection}
-            onMoveShape={editor.moveShape} onResizeShape={(id, box) => editor.updateShape(id, box)}
-            onUpdateShape={editor.updateShape}
-            onDropShape={handleDropShape} onDeleteShape={editor.deleteShape} onToggleShapeFrozen={editor.toggleShapeFrozen}
-          />
+          {canvas}
         </div>
 
         {/* RIGHT: Properties */}
@@ -547,10 +673,12 @@ export default function App() {
           </div>
         )}
       </div>
+      )}
 
       {/* Floating copyright — fully transparent overlay, bottom center.
-          No background, no border; pointer-events-none so it never blocks canvas/panel interaction. */}
-      <div className="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none" style={{ zIndex: 5 }}>
+          No background, no border; pointer-events-none so it never blocks canvas/panel interaction.
+          Hidden on compact viewports (the mobile toolbar lives there). */}
+      {!isCompact && <div className="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none" style={{ zIndex: 5 }}>
         <span
           className="text-[11px]"
           style={{
@@ -563,7 +691,7 @@ export default function App() {
         >
           © 2026 Arvind Singh Rawat. All Rights Reserved.
         </span>
-      </div>
+      </div>}
 
       {/* Modals */}
       <CustomFormulaModal isOpen={showCustomFormulaModal} theme={editor.theme} onClose={() => setShowCustomFormulaModal(false)} onSave={handleSaveCustomNode} />

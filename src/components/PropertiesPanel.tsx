@@ -43,6 +43,7 @@ export default function PropertiesPanel({
         <label className="text-xs font-medium" style={{ color: colors.label }}>{label}</label>
         <input
           type="number"
+                        inputMode="decimal"
           value={Math.round(value * 10) / 10}
           onChange={(e) => onValue(parseFloat(e.target.value) || 0)}
           disabled={disabled}
@@ -123,7 +124,8 @@ export default function PropertiesPanel({
                   <div>
                     <label className="text-xs font-medium" style={{ color: colors.label }}>Size</label>
                     <input
-                      type="number" min={TEXT_FONT_SIZE_MIN} max={TEXT_FONT_SIZE_MAX} step={1}
+                      type="number"
+                        inputMode="decimal" min={TEXT_FONT_SIZE_MIN} max={TEXT_FONT_SIZE_MAX} step={1}
                       value={shape.fontSize ?? 16}
                       onChange={(e) => {
                         const v = parseFloat(e.target.value);
@@ -337,6 +339,7 @@ export default function PropertiesPanel({
                     {port.type === 'number' ? (
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={port.value ?? 0}
                         onChange={(e) => onUpdateInput(node.id, port.id, parseFloat(e.target.value) || 0)}
                         disabled={isConnected}

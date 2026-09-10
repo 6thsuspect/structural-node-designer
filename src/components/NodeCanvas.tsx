@@ -1308,7 +1308,7 @@ export default function NodeCanvas({
           d={bezierPath(from.x, from.y, to.x, to.y)}
           fill="none"
           stroke="transparent"
-          strokeWidth={16}
+          strokeWidth={Math.max(16, 20 / zoom)}
           className="cursor-pointer"
           data-conn-id={conn.id}
           onMouseDown={(e) => handleConnectionMouseDown(e, conn.id)}
@@ -1327,7 +1327,8 @@ export default function NodeCanvas({
     const from = getPortPosition(fromNode, connecting.fromPortId, connecting.fromIsOutput || false);
     const to = { x: connecting.mouseX, y: connecting.mouseY };
     const path = connecting.fromIsOutput ? bezierPath(from.x, from.y, to.x, to.y) : bezierPath(to.x, to.y, from.x, from.y);
-    return <path d={path} fill="none" stroke={colors.conn} strokeWidth={2} strokeDasharray="6 3" strokeOpacity={0.6} />;
+    // pointerEvents none: the preview must never block the release hit-test.
+    return <path d={path} fill="none" stroke={colors.conn} strokeWidth={2} strokeDasharray="6 3" strokeOpacity={0.6} pointerEvents="none" />;
   };
 
   // ─── Value formatter ───
@@ -1439,7 +1440,7 @@ export default function NodeCanvas({
                   onClick={(e) => { e.stopPropagation(); setEditingPort({ nodeId: node.id, portId: port.id }); }} />
                 {editingPort?.nodeId === node.id && editingPort?.portId === port.id ? (
                   <foreignObject x={VALUE_TEXT_X - 3} y={y - 8} width={node.width - VALUE_TEXT_X - 6} height={16}>
-                    <input type="number" defaultValue={port.value} autoFocus
+                    <input type="number" inputMode="decimal" defaultValue={port.value} autoFocus
                       style={{ width:'100%',height:'100%',background:'transparent',border:'none',color:colors.text,fontSize:'10px',outline:'none',fontFamily:'monospace' }}
                       onBlur={(e) => { onUpdateInput(node.id, port.id, parseFloat(e.target.value) || 0); setEditingPort(null); }}
                       onKeyDown={(e) => { if (e.key==='Enter') { onUpdateInput(node.id, port.id, parseFloat((e.target as HTMLInputElement).value)||0); setEditingPort(null); } }} />
@@ -2021,7 +2022,7 @@ export default function NodeCanvas({
               <label className="text-[10px]" style={{ color: colors.sub }}>
                 Width
                 <input
-                  type="number" min={MIN_SHAPE_SIZE} value={shapeSizeEditor.width} disabled={s.frozen}
+                  type="number" inputMode="decimal" min={MIN_SHAPE_SIZE} value={shapeSizeEditor.width} disabled={s.frozen}
                   onChange={(e) => setShapeSizeEditor(prev => (prev ? { ...prev, width: parseFloat(e.target.value) || 0 } : prev))}
                   className="w-full mt-0.5 px-2 py-1 rounded text-sm outline-none disabled:opacity-50"
                   style={{ background: colors.inputBg, color: colors.text, border: `1px solid ${colors.nodeBorder}`, fontFamily: 'monospace' }} />
@@ -2029,7 +2030,7 @@ export default function NodeCanvas({
               <label className="text-[10px]" style={{ color: colors.sub }}>
                 Height
                 <input
-                  type="number" min={MIN_SHAPE_SIZE} value={shapeSizeEditor.height} disabled={s.frozen}
+                  type="number" inputMode="decimal" min={MIN_SHAPE_SIZE} value={shapeSizeEditor.height} disabled={s.frozen}
                   onChange={(e) => setShapeSizeEditor(prev => (prev ? { ...prev, height: parseFloat(e.target.value) || 0 } : prev))}
                   className="w-full mt-0.5 px-2 py-1 rounded text-sm outline-none disabled:opacity-50"
                   style={{ background: colors.inputBg, color: colors.text, border: `1px solid ${colors.nodeBorder}`, fontFamily: 'monospace' }} />

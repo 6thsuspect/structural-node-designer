@@ -411,6 +411,7 @@ export default function CustomFormulaModal({ isOpen, theme, onClose, onSave, edi
                   />
                   <input
                     type="number"
+                          inputMode="decimal"
                     value={input.defaultValue}
                     onChange={(e) => handleUpdateInput(index, 'defaultValue', parseFloat(e.target.value) || 0)}
                     placeholder="Default"
