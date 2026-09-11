@@ -20,7 +20,42 @@ const themeStyles: Record<Theme, { bg: string; text: string; border: string; inp
 
 export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, onClearAll }: Props) {
   const colors = themeStyles[theme];
-  const [activeTab, setActiveTab] = useState<'general' | 'theme' | 'about'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'touch' | 'theme' | 'about'>('general');
+
+  /* ── Touch Guide: the finger gestures this app supports, grouped by what
+     they do. Guidance only — nothing here changes the application. ── */
+  const touchGuide = [
+    { icon: '👆', title: 'Select & move', items: [
+      'Tap a node, wire or shape — select it (same as a mouse click)',
+      'Tap empty canvas — clear the selection',
+      'Drag a node or shape — move it; it follows your finger',
+      'Drag empty canvas — pan the canvas',
+    ] },
+    { icon: '🔗', title: 'Connections', items: [
+      'Drag from a port to another port — create a connection (the preview follows your finger)',
+      'Release over empty canvas — cancel the connection',
+    ] },
+    { icon: '🔍', title: 'Zoom & view', items: [
+      'Pinch with two fingers — zoom out / zoom in around your fingers',
+      'Move two fingers together — pan without changing the zoom',
+    ] },
+    { icon: '🧲', title: 'Box select & groups', items: [
+      'Hold one finger on empty canvas (≈½ s) — multi-select mode',
+      'Slide the held finger — box-select every node it covers',
+      'While holding, tap nodes with a second finger — add or remove them',
+      'While holding, tap the canvas with a second finger — options menu (Group Selection / Ungroup / Clear Selection)',
+    ] },
+    { icon: '⚙️', title: 'Item options', items: [
+      'Hold a node — its options (Edit Node Code, Edit Formula & Inputs, Trace, Draw order, Group, Delete)',
+      'Hold a shape — its options (Freeze size, Edit dimensions, Draw order, Delete)',
+      'Drag the finger after the hold — the menu closes and the item moves',
+    ] },
+    { icon: '🧩', title: 'Toolbox & windows', items: [
+      'Drag a node or shape out of the Toolbox onto the canvas with one finger',
+      'Double-tap a Text shape — edit its text',
+      'Drag a panel edge to resize the side panels; drag a window title bar or edge to move / resize it',
+    ] },
+  ];
 
   if (!isOpen) return null;
 
@@ -52,11 +87,11 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
       <div className="flex flex-col flex-1 min-h-0">
         {/* Tabs */}
         <div className="flex px-4 pt-2 gap-1 flex-shrink-0" style={{ borderBottom: `1px solid ${colors.border}` }}>
-          {(['general', 'theme', 'about'] as const).map(tab => (
+          {(['general', 'touch', 'theme', 'about'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className="px-4 py-2 text-sm font-medium rounded-t-lg"
               style={{ background: activeTab === tab ? colors.card : 'transparent', color: activeTab === tab ? colors.text : colors.label, borderBottom: activeTab === tab ? `2px solid ${colors.accent}` : '2px solid transparent' }}>
-              {tab === 'general' ? '📋 General' : tab === 'theme' ? '🎨 Theme' : 'ℹ️ About'}
+              {tab === 'general' ? '📋 General' : tab === 'touch' ? '👆 Touch Guide' : tab === 'theme' ? '🎨 Theme' : 'ℹ️ About'}
             </button>
           ))}
         </div>
@@ -98,6 +133,29 @@ export default function SettingsModal({ isOpen, theme, onThemeChange, onClose, o
                   <li>• Hover over nodes for quick value viewing</li>
                 </ul>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'touch' && (
+            <div className="space-y-4">
+              <p className="text-sm" style={{ color: colors.label }}>
+                Use the existing app with your finger — every gesture below performs the same action as its mouse
+                equivalent. Nothing else changes on the desktop.
+              </p>
+              {touchGuide.map(section => (
+                <div key={section.title} className="p-4 rounded-lg" style={{ background: colors.card, border: `1px solid ${colors.border}` }}>
+                  <h3 className="text-sm font-semibold mb-3" style={{ color: colors.accent }}>
+                    {section.icon} {section.title}
+                  </h3>
+                  <ul className="space-y-1 text-xs" style={{ color: colors.label }}>
+                    {section.items.map(item => <li key={item}>• {item}</li>)}
+                  </ul>
+                </div>
+              ))}
+              <p className="text-xs" style={{ color: colors.label, opacity: 0.7 }}>
+                Mouse and keyboard shortcuts keep working on desktop — Right-click and Alt+Drag on the canvas,
+                Shift+click for multi-select, Ctrl+G to group.
+              </p>
             </div>
           )}
 

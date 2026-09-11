@@ -289,6 +289,9 @@ export default function QuickFormulaModal({ isOpen, theme, onClose, onSave, edit
       initialHeight={640}
       minWidth={640}
       minHeight={420}
+      // Editable dialogs close from their own ✕ (and buttons), never by
+      // tapping the dimmed area around them.
+      closeOnOverlayClick={false}
       scrollBody={false}
       persistKey="snd.window.quick"
       footer={

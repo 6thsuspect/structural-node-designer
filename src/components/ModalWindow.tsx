@@ -44,6 +44,10 @@ interface ModalWindowProps {
   resizable?: boolean;
   /** When true, the window height fits its content (up to the viewport height). Defaults to false. */
   autoHeight?: boolean;
+  /** When false, clicking the dimmed area around the window no longer closes
+   *  it — the window can only be closed from its own ✕ button (and its other
+   *  in-window controls). Defaults to true (existing behaviour). */
+  closeOnOverlayClick?: boolean;
   children: ReactNode;
   footer?: ReactNode;
 }
@@ -143,6 +147,7 @@ export default function ModalWindow({
   persistKey,
   resizable = true,
   autoHeight = false,
+  closeOnOverlayClick = true,
   children,
   footer,
 }: ModalWindowProps) {
@@ -246,6 +251,8 @@ export default function ModalWindow({
 
   const handleOverlayClick = (e: ReactMouseEvent) => {
     if (e.target !== e.currentTarget) return;
+    // Windows that opt out can only be closed from their own controls.
+    if (!closeOnOverlayClick) return;
     // Ignore the click that immediately follows a drag/resize release.
     if (Date.now() - lastInteractRef.current < 300) return;
     onClose();

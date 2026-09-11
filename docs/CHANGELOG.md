@@ -24,6 +24,13 @@ All notable changes to the Structural Node Designer project will be documented i
 - Toolbox nodes/shapes can be dragged onto the canvas with a finger (HTML5 drag & drop never fires for touch) and are placed through the same drop handler with the same canvas coordinates
 - No new toolbar, buttons, menus, gestures or mobile layout — the desktop application is unchanged (`npm run build`, `npm test`)
 
+#### 📖 Touch Guide in Settings
+- New **👆 Touch Guide** tab in the existing Settings window: a short, read-only reference to the finger gestures (select & move, connections, zoom, box-select & groups, item options, Toolbox & windows) plus the desktop shortcuts. The other Settings tabs and the window itself are unchanged.
+
+#### 🪟 Editors close only from their own ✕
+- The **Quick Formula Editor**, **Create / Edit Custom Node** and **Edit Node Code** dialogs no longer close when the dimmed area around them is tapped/clicked — they close from the ✕ in the top-right corner (or their existing in-window Cancel / Save buttons). Their other behaviour is unchanged.
+- **Settings** and **About the Author** keep closing on an outside click, exactly as before.
+
 #### 🔗 Wire Selection + Custom Wire Colors
 - Left-click a wire selects ONLY it (nodes/shapes are deselected); the selected wire turns red while selected
 - Right-click during wire selection opens the wire options menu (on the wire or anywhere on the canvas)
