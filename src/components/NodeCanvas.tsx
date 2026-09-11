@@ -453,6 +453,20 @@ export default function NodeCanvas({
     setContextMenu({ nodeId });
   }, [selectedNodeIds, onSelectNode, onSelectShape]);
 
+  /** Show the existing shape options menu (freeze size / edit dimensions /
+   *  draw order / Group / Delete) at a screen point — the same menu a mouse
+   *  right-click opens, also used by the touch long-press on a shape. */
+  const showShapeMenu = useCallback((shapeId: string, clientX: number, clientY: number) => {
+    setContextMenu(null);
+    setConnMenu(null);
+    setSelMenu(null);
+    setShapeSizeEditor(null);
+    // Same selection rule as right-click: the menu always acts on this shape.
+    if (shapeId !== selectedShapeId) onSelectShape?.(shapeId);
+    const rect = svgRef.current?.getBoundingClientRect();
+    setShapeMenu({ id: shapeId, x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) });
+  }, [selectedShapeId, onSelectShape]);
+
   /** A finger has been held still: the existing selection becomes
    *  finger-driven until that finger is lifted.
    *  - Hold on empty canvas -> sliding draws the marquee (box selection).
@@ -460,7 +474,8 @@ export default function NodeCanvas({
    *    keeps running, so a finger can stay on a selected group while the other
    *    hand taps for options. */
   const activateMultiSelect = useCallback((hold: {
-    pointerId: number; nodeId: string | null; marqueeCapable: boolean; pressX: number; pressY: number; pressCanvas: { x: number; y: number };
+    pointerId: number; nodeId: string | null; shapeId: string | null; marqueeCapable: boolean;
+    pressX: number; pressY: number; pressCanvas: { x: number; y: number };
   }) => {
     multiSelectRef.current = {
       holdPointerId: hold.pointerId,
@@ -486,9 +501,11 @@ export default function NodeCanvas({
     setSelMenu(null);
     setShapeMenu(null);
     setShapeSizeEditor(null);
-    // A hold on a node is the touch equivalent of right-click: show its options.
+    // A hold on a node or a shape is the touch equivalent of right-click:
+    // show that item's options.
     if (hold.nodeId) showNodeMenu(hold.nodeId);
-  }, [connecting.isConnecting, onFinishConnecting, showNodeMenu]);
+    else if (hold.shapeId) showShapeMenu(hold.shapeId, hold.pressX, hold.pressY);
+  }, [connecting.isConnecting, onFinishConnecting, showNodeMenu, showShapeMenu]);
 
   /** Watch a freshly pressed finger for the hold that enters multi-select mode. */
   const startLongPressWatch = (e: React.PointerEvent) => {
@@ -500,8 +517,10 @@ export default function NodeCanvas({
     // keeps that item's existing drag alive instead.
     const hold = {
       pointerId: e.pointerId,
-      // A press on a node body (ports returned above) is the touch right-click.
+      // A press on a node body or a shape (ports returned above) is the touch
+      // equivalent of right-click.
       nodeId: target?.closest('[data-node-id]')?.getAttribute('data-node-id') ?? null,
+      shapeId: target?.closest('[data-shape-id]')?.getAttribute('data-shape-id') ?? null,
       marqueeCapable: target === svgRef.current || !!target?.classList.contains('canvas-bg'),
       pressX: e.clientX,
       pressY: e.clientY,
@@ -600,6 +619,7 @@ export default function NodeCanvas({
            opened steps aside — the node is being moved, not configured. */
         if (!isWithinTapThreshold({ x: multi.pressX, y: multi.pressY }, { x: e.clientX, y: e.clientY }, LONG_PRESS_MOVE_TOLERANCE)) {
           setContextMenu(null);
+          setShapeMenu(null);
         }
         return;
       }
@@ -1107,14 +1127,9 @@ export default function NodeCanvas({
   const handleShapeContextMenu = useCallback((e: React.MouseEvent, shapeId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu(null);
-    setConnMenu(null);
-    setSelMenu(null);
-    setShapeSizeEditor(null);
-    if (shapeId !== selectedShapeId) onSelectShape?.(shapeId);
-    const rect = svgRef.current?.getBoundingClientRect();
-    setShapeMenu({ id: shapeId, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
-  }, [selectedShapeId, onSelectShape]);
+    // Same menu, same selection rule as the touch long-press (showShapeMenu).
+    showShapeMenu(shapeId, e.clientX, e.clientY);
+  }, [showShapeMenu]);
 
   const commitShapeTextEdit = useCallback(() => {
     // Escape sets the cancel flag before unmounting; the trailing blur must not commit.
@@ -1499,6 +1514,7 @@ export default function NodeCanvas({
     };
     return (
       <g key={shape.id}
+        data-shape-id={shape.id}
         onPointerDown={(e) => handleShapePointerDown(e, shape)}
         onDoubleClick={(e) => { e.stopPropagation(); beginShapeTextEdit(shape); }}
         onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
@@ -1583,6 +1599,7 @@ export default function NodeCanvas({
     }
     return (
       <g key={shape.id}
+        data-shape-id={shape.id}
         onPointerDown={(e) => handleShapePointerDown(e, shape)}
         onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
         style={{ cursor: dragShape?.id === shape.id ? 'grabbing' : 'move' }}>
