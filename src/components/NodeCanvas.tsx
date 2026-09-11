@@ -453,6 +453,24 @@ export default function NodeCanvas({
     setContextMenu({ nodeId });
   }, [selectedNodeIds, onSelectNode, onSelectShape]);
 
+  /** Show the existing wire options menu (wire color / delete connection) at a
+   *  screen point — the same menu a mouse right-click on a wire opens, also
+   *  used by the touch long-press on a wire. */
+  const showConnMenu = useCallback((connId: string, clientX: number, clientY: number) => {
+    setContextMenu(null);
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
+    // Same rule as right-click: the menu acts on this wire, so it becomes the
+    // selected wire (and the node selection steps aside).
+    if (connId !== selectedConnId) {
+      onSelectNode(null);
+      setSelectedConnId(connId);
+    }
+    const rect = svgRef.current?.getBoundingClientRect();
+    setConnMenu({ x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0), connId });
+  }, [selectedConnId, onSelectNode]);
+
   /** Show the existing shape options menu (freeze size / edit dimensions /
    *  draw order / Group / Delete) at a screen point — the same menu a mouse
    *  right-click opens, also used by the touch long-press on a shape. */
@@ -474,8 +492,8 @@ export default function NodeCanvas({
    *    keeps running, so a finger can stay on a selected group while the other
    *    hand taps for options. */
   const activateMultiSelect = useCallback((hold: {
-    pointerId: number; nodeId: string | null; shapeId: string | null; marqueeCapable: boolean;
-    pressX: number; pressY: number; pressCanvas: { x: number; y: number };
+    pointerId: number; nodeId: string | null; shapeId: string | null; connId: string | null;
+    marqueeCapable: boolean; pressX: number; pressY: number; pressCanvas: { x: number; y: number };
   }) => {
     multiSelectRef.current = {
       holdPointerId: hold.pointerId,
@@ -501,11 +519,12 @@ export default function NodeCanvas({
     setSelMenu(null);
     setShapeMenu(null);
     setShapeSizeEditor(null);
-    // A hold on a node or a shape is the touch equivalent of right-click:
-    // show that item's options.
+    // A hold on a node, a shape or a wire is the touch equivalent of
+    // right-click: show that item's options.
     if (hold.nodeId) showNodeMenu(hold.nodeId);
     else if (hold.shapeId) showShapeMenu(hold.shapeId, hold.pressX, hold.pressY);
-  }, [connecting.isConnecting, onFinishConnecting, showNodeMenu, showShapeMenu]);
+    else if (hold.connId) showConnMenu(hold.connId, hold.pressX, hold.pressY);
+  }, [connecting.isConnecting, onFinishConnecting, showNodeMenu, showShapeMenu, showConnMenu]);
 
   /** Watch a freshly pressed finger for the hold that enters multi-select mode. */
   const startLongPressWatch = (e: React.PointerEvent) => {
@@ -521,6 +540,7 @@ export default function NodeCanvas({
       // equivalent of right-click.
       nodeId: target?.closest('[data-node-id]')?.getAttribute('data-node-id') ?? null,
       shapeId: target?.closest('[data-shape-id]')?.getAttribute('data-shape-id') ?? null,
+      connId: target?.closest('[data-conn-id]')?.getAttribute('data-conn-id') ?? null,
       marqueeCapable: target === svgRef.current || !!target?.classList.contains('canvas-bg'),
       pressX: e.clientX,
       pressY: e.clientY,
@@ -620,6 +640,7 @@ export default function NodeCanvas({
         if (!isWithinTapThreshold({ x: multi.pressX, y: multi.pressY }, { x: e.clientX, y: e.clientY }, LONG_PRESS_MOVE_TOLERANCE)) {
           setContextMenu(null);
           setShapeMenu(null);
+          setConnMenu(null);
         }
         return;
       }
@@ -1017,17 +1038,9 @@ export default function NodeCanvas({
   const handleConnectionContextMenu = useCallback((e: React.MouseEvent, connId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu(null);
-    setSelMenu(null);
-    setShapeMenu(null);
-    setShapeSizeEditor(null);
-    if (connId !== selectedConnId) {
-      onSelectNode(null);
-      setSelectedConnId(connId);
-    }
-    const rect = svgRef.current?.getBoundingClientRect();
-    setConnMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), connId });
-  }, [onSelectNode, selectedConnId]);
+    // Same menu, same selection rule as the touch long-press (showConnMenu).
+    showConnMenu(connId, e.clientX, e.clientY);
+  }, [showConnMenu]);
 
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
@@ -1050,10 +1063,7 @@ export default function NodeCanvas({
     if (current === 0 && selectedConn) {
       e.preventDefault();
       e.stopPropagation();
-      setContextMenu(null);
-      setShapeMenu(null);
-      const rect = svgRef.current?.getBoundingClientRect();
-      setConnMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), connId: selectedConn.id });
+      showConnMenu(selectedConn.id, e.clientX, e.clientY);
       return;
     }
     if (current === 0) return; // keep the native browser menu as before
@@ -1063,7 +1073,7 @@ export default function NodeCanvas({
     setShapeMenu(null);
     const rect = svgRef.current?.getBoundingClientRect();
     setSelMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
-  }, [selectedNodeIds, selectedShapeIds, selectedConn]);
+  }, [selectedNodeIds, selectedShapeIds, selectedConn, showConnMenu]);
 
   /* ── Text annotations: inline edit lifecycle (double-click → textarea) ── */
   const beginShapeTextEdit = useCallback((shape: CanvasShape) => {
@@ -1230,7 +1240,7 @@ export default function NodeCanvas({
     const stroke = isSelected ? SELECTED_WIRE_COLOR : (conn.color ?? colors.conn);
 
     return (
-      <g key={conn.id}>
+      <g key={conn.id} data-conn-id={conn.id}>
         <path
           d={bezierPath(from.x, from.y, to.x, to.y)}
           fill="none"

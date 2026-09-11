@@ -17,6 +17,7 @@ All notable changes to the Structural Node Designer project will be documented i
   - **tap the canvas with a second finger** while the first stays on the selection to open the existing options menu: **Group Selection** for a multi-node selection, or **Ungroup** when the finger is held on an already-grouped selection. Tapping a node with the second finger still adds/removes it (the Shift+click rule).
   - **hold a node** (its body, not a port) to open that node's existing options menu — the same one the mouse reaches with right-click: *Edit Node Code*, *Edit Formula & Inputs*, draw order, *Group* / *Ungroup*, *View Calculation Trace*, *Delete Node*.
   - **hold a shape** to open that shape's existing options menu — the same one right-click opens: *Freeze/Unfreeze size*, *Edit dimensions*, draw order, *Group* / *Ungroup*, *Delete Shape*.
+  - **hold a connection wire** to open its existing options menu — the same one right-click opens: wire colour (presets, custom picker, reset) and *Delete Connection*.
   - Dragging the held finger dismisses the menu and moves the node/shape, so a pause before a drag stays a drag.
   Lifting the held finger leaves the mode. A hold that starts *on* a node keeps that node's normal drag alive, so pausing before dragging is still a drag.
 - Ports and shape resize handles get a larger **invisible** hit area for fingers only (`.touch-hit`, inert for a mouse) — nothing is drawn differently
