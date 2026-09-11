@@ -8,6 +8,7 @@ import {
   hasGroupMembership,
   nodesInBox,
   normalizeMarquee,
+  type BoxRect,
 } from '../features/node-groups';
 import { computeContentBounds, computeFitView } from '../features/canvas-fit';
 import {
@@ -268,6 +269,9 @@ export default function NodeCanvas({
   /* ── Node Groups feature: marquee (rubber-band) selection box ── */
   const [marquee, setMarquee] = useState<SelectionBox | null>(null);
   const marqueeShiftRef = useRef(false);
+  /* Touch support: which finger owns the live marquee — a second finger tapping
+     during multi-select must not drag the selection box. */
+  const marqueeOwnerRef = useRef<number | null>(null);
   // Node context menu is anchored to the node (not a fixed screen point), so it
   // follows the node while the canvas is panned or zoomed.
   const [contextMenu, setContextMenu] = useState<{ nodeId: string } | null>(null);
@@ -298,7 +302,16 @@ export default function NodeCanvas({
      action. Everything is the EXISTING selection state: `onSelectNodes` and
      the existing `selMenu`. */
   const [multiSelectActive, setMultiSelectActive] = useState(false);
-  const multiSelectRef = useRef<{ holdPointerId: number } | null>(null);
+  const multiSelectRef = useRef<{
+    holdPointerId: number;
+    /** True when the hold started on empty canvas -> sliding draws the marquee. */
+    marqueeCapable: boolean;
+    marqueeStarted: boolean;
+    /** Press point in screen pixels, and the same point in canvas units. */
+    pressX: number;
+    pressY: number;
+    pressCanvas: { x: number; y: number };
+  } | null>(null);
   const multiSelectTapRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const longPressRef = useRef<{ pointerId: number; x: number; y: number; timer: number } | null>(null);
   /* ── Touch support: last tap on a Text shape → the existing double-click ── */
@@ -388,6 +401,7 @@ export default function NodeCanvas({
     setShapeResize(null);
     setSnapGuides(null);
     setMarquee(null);
+    marqueeOwnerRef.current = null;
     marqueeShiftRef.current = false;
     touchTapRef.current = null;
     if (connecting.isConnecting) onFinishConnecting(); // cancel the wire, as on pointercancel
@@ -423,38 +437,87 @@ export default function NodeCanvas({
     setMultiSelectActive(false);
   }, []);
 
-  /** A finger has been held still: the existing multi-selection becomes
-   *  finger-driven until that finger is lifted. */
-  const activateMultiSelect = useCallback((pointerId: number) => {
-    multiSelectRef.current = { holdPointerId: pointerId };
+  /** A finger has been held still: the existing selection becomes
+   *  finger-driven until that finger is lifted.
+   *  - Hold on empty canvas -> sliding draws the marquee (box selection).
+   *  - Hold on a node / shape -> its normal drag keeps running, so a finger can
+   *    stay on a selected group while the other hand taps for options. */
+  const activateMultiSelect = useCallback((hold: {
+    pointerId: number; marqueeCapable: boolean; pressX: number; pressY: number; pressCanvas: { x: number; y: number };
+  }) => {
+    multiSelectRef.current = {
+      holdPointerId: hold.pointerId,
+      marqueeCapable: hold.marqueeCapable,
+      marqueeStarted: false,
+      pressX: hold.pressX,
+      pressY: hold.pressY,
+      pressCanvas: hold.pressCanvas,
+    };
     multiSelectTapRef.current = null;
     setMultiSelectActive(true);
-    // The hold is a mode switch, not a pan / node drag / marquee / wire.
-    endSingleFingerGesture();
+    // A pan / marquee / wire started by the press yields to the hold; an
+    // ongoing node or shape drag is deliberately kept alive.
+    setIsPanning(false);
+    setMarquee(null);
+    marqueeOwnerRef.current = null;
+    marqueeShiftRef.current = false;
+    touchTapRef.current = null;
+    if (connecting.isConnecting) onFinishConnecting();
+    // The hold is a mode switch: close any open menu.
     setContextMenu(null);
     setConnMenu(null);
     setSelMenu(null);
     setShapeMenu(null);
     setShapeSizeEditor(null);
-  }, [endSingleFingerGesture]);
+  }, [connecting.isConnecting, onFinishConnecting]);
 
   /** Watch a freshly pressed finger for the hold that enters multi-select mode. */
   const startLongPressWatch = (e: React.PointerEvent) => {
     clearLongPress();
+    const target = e.target as Element | null;
     // A press on a port starts a connection wire — never a mode switch.
-    if ((e.target as Element | null)?.closest('[data-port-id]')) return;
-    const pointerId = e.pointerId;
-    const startX = e.clientX;
-    const startY = e.clientY;
+    if (target?.closest('[data-port-id]')) return;
+    // Empty canvas: the hold will draw a marquee. On a node / shape the hold
+    // keeps that item's existing drag alive instead.
+    const hold = {
+      pointerId: e.pointerId,
+      marqueeCapable: target === svgRef.current || !!target?.classList.contains('canvas-bg'),
+      pressX: e.clientX,
+      pressY: e.clientY,
+      pressCanvas: screenToCanvas(e.clientX, e.clientY),
+    };
     const timer = window.setTimeout(() => {
       longPressRef.current = null;
-      const live = touchPointersRef.current.get(pointerId);
+      const live = touchPointersRef.current.get(hold.pointerId);
       // Still down, and still (almost) where it was pressed?
-      if (!live || !isWithinTapThreshold({ x: startX, y: startY }, live, LONG_PRESS_MOVE_TOLERANCE)) return;
-      activateMultiSelect(pointerId);
+      if (!live || !isWithinTapThreshold({ x: hold.pressX, y: hold.pressY }, live, LONG_PRESS_MOVE_TOLERANCE)) return;
+      activateMultiSelect(hold);
     }, LONG_PRESS_MS);
-    longPressRef.current = { pointerId, x: startX, y: startY, timer };
+    longPressRef.current = { pointerId: hold.pointerId, x: hold.pressX, y: hold.pressY, timer };
   };
+
+  /** Apply a marquee box to the selection — the existing mouse marquee logic,
+   *  shared with the finger-driven marquee (live while sliding + on release). */
+  const applyMarquee = useCallback((box: BoxRect, additive: boolean) => {
+    setSelectedConnId(null);
+    const ids = nodesInBox(nodes, box);
+    // Shapes inside the box join the selection and are highlighted too.
+    const shapeIds = nodesInBox(shapes ?? [], box);
+    onSelectShapes?.(
+      additive ? Array.from(new Set([...(selectedShapeIds ?? []), ...shapeIds])) : shapeIds,
+      false,
+    );
+    if (onSelectNodes) {
+      if (additive) {
+        // Additive: union with the current selection.
+        onSelectNodes(Array.from(new Set([...(selectedNodeIds ?? []), ...ids])));
+      } else {
+        onSelectNodes(ids);
+      }
+    } else if (ids.length === 1) {
+      onSelectNode(ids[0]);
+    }
+  }, [nodes, shapes, onSelectNodes, onSelectShapes, selectedNodeIds, selectedShapeIds, onSelectNode]);
 
   const handlePointerDownCapture = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse') {
@@ -498,8 +561,8 @@ export default function NodeCanvas({
     if (!tracked) return;
     tracked.x = e.clientX;
     tracked.y = e.clientY;
-    /* Multi-select mode: the anchor finger no longer pans, and a selector
-       finger that travels is a drag, not a tap. */
+    /* Multi-select mode: the held finger draws the marquee (empty-canvas
+       holds) while a second finger only taps. */
     const multi = multiSelectRef.current;
     if (multi) {
       if (e.pointerId !== multi.holdPointerId) {
@@ -508,7 +571,26 @@ export default function NodeCanvas({
           multiSelectTapRef.current = null;
         }
         e.stopPropagation();
+        return;
       }
+      // A hold that started on a node / shape keeps its normal drag.
+      if (!multi.marqueeCapable) return;
+      if (!multi.marqueeStarted) {
+        if (isWithinTapThreshold({ x: multi.pressX, y: multi.pressY }, { x: e.clientX, y: e.clientY }, LONG_PRESS_MOVE_TOLERANCE)) {
+          e.stopPropagation();
+          return; // still a hold — the slide has not started yet
+        }
+        multi.marqueeStarted = true;
+        marqueeOwnerRef.current = e.pointerId;
+        setMarquee({ active: true, startX: multi.pressCanvas.x, startY: multi.pressCanvas.y, endX: multi.pressCanvas.x, endY: multi.pressCanvas.y });
+      }
+      /* Sliding the finger over nodes selects them straight away, using the
+         same marquee helpers the mouse uses on release — so the second finger
+         can open the options without lifting the first. */
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      setMarquee(prev => (prev ? { ...prev, endX: pos.x, endY: pos.y } : prev));
+      applyMarquee(normalizeMarquee(multi.pressCanvas.x, multi.pressCanvas.y, pos.x, pos.y), false);
+      e.stopPropagation();
       return;
     }
     /* Touch support: a finger that moves off the press point is a pan / drag,
@@ -559,13 +641,16 @@ export default function NodeCanvas({
       }
       return;
     }
-    // Empty canvas (or a shape) → the existing selection menu, at the tap point.
+    // Empty canvas (or a shape) -> the existing selection menu, at the tap
+    // point. With nothing selected there is nothing to group, so the tap stays
+    // as harmless as it is on the desktop.
+    if ((selectedNodeIds ?? []).length + (selectedShapeIds ?? []).length === 0) return;
     const rect = svgRef.current?.getBoundingClientRect();
     setContextMenu(null);
     setConnMenu(null);
     setShapeMenu(null);
     setSelMenu({ x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) });
-  }, [selectedNodeIds, groups, onSelectNodes, onSelectNode]);
+  }, [selectedNodeIds, selectedShapeIds, groups, onSelectNodes, onSelectNode]);
 
   /* Touch support: a selector finger is released — if it stayed put it was a
      tap, and the mode handles it (no node drag / pan / pinch / deselect). */
@@ -631,6 +716,7 @@ export default function NodeCanvas({
         // clears the selection, preserving the previous click behavior.
         const pos = screenToCanvas(e.clientX, e.clientY);
         marqueeShiftRef.current = e.shiftKey;
+        marqueeOwnerRef.current = e.pointerId;
         setMarquee({ active: true, startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y });
       }
     }
@@ -645,7 +731,7 @@ export default function NodeCanvas({
       if (tap) touchTapRef.current = null;
       onPanChange(e.clientX - panStart.x, e.clientY - panStart.y);
     }
-    if (marquee) {
+    if (marquee && (marqueeOwnerRef.current === null || e.pointerId === marqueeOwnerRef.current)) {
       const pos = screenToCanvas(e.clientX, e.clientY);
       setMarquee(prev => (prev ? { ...prev, endX: pos.x, endY: pos.y } : prev));
     }
@@ -748,28 +834,10 @@ export default function NodeCanvas({
         if (!marqueeShiftRef.current) { onSelectNode(null); onSelectShapes?.([], false); setSelectedConnId(null); }
       } else {
         // A real marquee replaces the selection — a selected wire is dropped too.
-        setSelectedConnId(null);
-        const ids = nodesInBox(nodes, box);
-        // Shapes inside the box join the selection and are highlighted too.
-        const shapeIds = nodesInBox(shapes ?? [], box);
-        onSelectShapes?.(
-          marqueeShiftRef.current
-            ? Array.from(new Set([...(selectedShapeIds ?? []), ...shapeIds]))
-            : shapeIds,
-          false,
-        );
-        if (onSelectNodes) {
-          if (marqueeShiftRef.current) {
-            // Additive: union with the current selection.
-            onSelectNodes(Array.from(new Set([...(selectedNodeIds ?? []), ...ids])));
-          } else {
-            onSelectNodes(ids);
-          }
-        } else if (ids.length === 1) {
-          onSelectNode(ids[0]);
-        }
+        applyMarquee(box, marqueeShiftRef.current);
       }
       marqueeShiftRef.current = false;
+      marqueeOwnerRef.current = null;
       setMarquee(null);
     }
     if (connecting.isConnecting) {
@@ -791,7 +859,7 @@ export default function NodeCanvas({
     if (e.pointerType !== 'mouse' && touchPointerIdRef.current === e.pointerId) {
       touchPointerIdRef.current = null;
     }
-  }, [connecting, marquee, zoom, nodes, shapes, onSelectNodes, selectedNodeIds, selectedShapeIds, onSelectNode, onSelectShapes, onFinishConnecting]);
+  }, [connecting, marquee, zoom, onFinishConnecting, applyMarquee]);
 
   /* ── Touch support: the browser can cancel a pointer mid-gesture (system
      gesture, app switch, phone call). End the interaction cleanly instead of
@@ -803,6 +871,7 @@ export default function NodeCanvas({
     setShapeResize(null);
     setSnapGuides(null);
     setMarquee(null);
+    marqueeOwnerRef.current = null;
     marqueeShiftRef.current = false;
     touchTapRef.current = null;
     if (connecting.isConnecting) onFinishConnecting();
@@ -1624,7 +1693,7 @@ export default function NodeCanvas({
       {multiSelectActive && (
         <div className="absolute bottom-3 left-3 px-3 py-1 rounded-lg text-xs"
           style={{ background: colors.nodeBg, color: colors.text, border: `1px solid ${colors.nodeBorder}`, pointerEvents: 'none' }}>
-          ✋ Multi-select — tap nodes with a second finger
+          ✋ Slide to box-select · tap with a second finger for options
         </div>
       )}
 
