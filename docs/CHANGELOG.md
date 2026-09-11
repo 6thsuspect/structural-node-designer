@@ -11,6 +11,7 @@ All notable changes to the Structural Node Designer project will be documented i
 #### 📱 Touch Support (existing mouse behaviour unchanged)
 - The canvas now runs on Pointer Events, so the existing mouse actions work with a finger/pen: tap to select, drag to move nodes, drag from a port to connect, tap a wire/shape, drag/resize/marquee exactly as before
 - Finger tap on empty canvas = the plain mouse click (clears the selection); finger drag on empty canvas pans the canvas (the pan the mouse reaches with the middle button / Alt+drag)
+- Two-finger pinch zooms in and out around the fingers (same zoom/pan state and same 0.1–5 limits as the mouse wheel; two fingers moving together pan the view)
 - Ports and shape resize handles get a larger **invisible** hit area for fingers only (`.touch-hit`, inert for a mouse) — nothing is drawn differently
 - `touch-action: none` is scoped to the canvas element only; panels, dialogs, forms, menus and text fields keep normal touch scrolling and selection
 - Toolbox nodes/shapes can be dragged onto the canvas with a finger (HTML5 drag & drop never fires for touch) and are placed through the same drop handler with the same canvas coordinates

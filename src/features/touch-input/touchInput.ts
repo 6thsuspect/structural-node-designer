@@ -18,6 +18,10 @@
  *  and follows the finger — same as holding the mouse button down. */
 export const TAP_MOVE_THRESHOLD = 6;
 
+/** Existing view limits (the same 0.1–5 range the mouse wheel zoom uses). */
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 5;
+
 export interface Point {
   x: number;
   y: number;
@@ -34,6 +38,52 @@ export function isWithinTapThreshold(
   threshold: number = TAP_MOVE_THRESHOLD,
 ): boolean {
   return Math.hypot(current.x - start.x, current.y - start.y) <= threshold;
+}
+
+/* ── Two-finger pinch zoom ────────────────────────────────────────────────
+   Pinching changes the SAME view state the mouse wheel changes (zoom + pan),
+   with the same 0.1–5 limits, so it is not a second zoom system: the canvas
+   point under the pinch midpoint stays under the finger, and moving both
+   fingers pans the view (exactly how the wheel keeps the point under the
+   cursor while zooming). */
+
+export interface PinchViewStart {
+  /** View state when the pinch began. */
+  zoom: number;
+  panX: number;
+  panY: number;
+  /** Pinch midpoint then, in viewport (svg-relative) pixels. */
+  midX: number;
+  midY: number;
+}
+
+export interface PinchViewCurrent {
+  /** Pinch midpoint now, in viewport (svg-relative) pixels. */
+  midX: number;
+  midY: number;
+  /** currentDistance / startDistance (> 0). */
+  scale: number;
+}
+
+/**
+ * The view (zoom + pan) for a pinch in progress.
+ * `scale` < 1 = fingers moved together = zoom out; > 1 = zoom in.
+ */
+export function computePinchView(
+  start: PinchViewStart,
+  current: PinchViewCurrent,
+  minZoom: number = MIN_ZOOM,
+  maxZoom: number = MAX_ZOOM,
+): { zoom: number; panX: number; panY: number } {
+  const zoom = Math.max(minZoom, Math.min(maxZoom, start.zoom * current.scale));
+  if (start.zoom <= 0 || !Number.isFinite(zoom)) return { zoom: start.zoom, panX: start.panX, panY: start.panY };
+  const ratio = zoom / start.zoom;
+  // Keep the canvas point that was under the start midpoint under the finger.
+  return {
+    zoom,
+    panX: current.midX - (start.midX - start.panX) * ratio,
+    panY: current.midY - (start.midY - start.panY) * ratio,
+  };
 }
 
 /**

@@ -22,6 +22,9 @@ import {
 } from '../features/canvas-shapes';
 import {
   TOOLBOX_TOUCH_DROP_EVENT,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  computePinchView,
   isWithinTapThreshold,
   type ToolboxTouchDropDetail,
 } from '../features/touch-input';
@@ -280,6 +283,10 @@ export default function NodeCanvas({
      finger that never travels is a tap, the touch equivalent of a click. ── */
   const touchPointerIdRef = useRef<number | null>(null);
   const touchTapRef = useRef<{ x: number; y: number } | null>(null);
+  /* ── Touch support: live finger positions, so a second finger can turn the
+     gesture into a two-finger pinch-zoom of the existing view state. ── */
+  const touchPointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ distance: number; midX: number; midY: number; zoom: number; panX: number; panY: number } | null>(null);
   /* ── Touch support: last tap on a Text shape → the existing double-click ── */
   const lastTapRef = useRef<{ id: string; time: number } | null>(null);
   // ─── Calculation Trace: temporary highlight while panning to a traced node ───
@@ -358,33 +365,103 @@ export default function NodeCanvas({
      added on top: extra fingers are ignored while a gesture runs, and the
      canvas marks itself once a finger is used so the larger invisible hit
      areas switch on (see `.touch-hit` in index.css). */
+  /** End whatever single-finger interaction is running (used when the
+   *  gesture becomes a pinch). */
+  const endSingleFingerGesture = useCallback(() => {
+    setIsPanning(false);
+    setDragNode(null);
+    setDragShape(null);
+    setShapeResize(null);
+    setSnapGuides(null);
+    setMarquee(null);
+    marqueeShiftRef.current = false;
+    touchTapRef.current = null;
+    if (connecting.isConnecting) onFinishConnecting(); // cancel the wire, as on pointercancel
+  }, [connecting.isConnecting, onFinishConnecting]);
+
+  /** Baseline for a pinch, captured from the view state it starts in. */
+  const beginPinch = useCallback(() => {
+    const [a, b] = [...touchPointersRef.current.values()];
+    if (!a || !b) return;
+    const svg = svgRef.current;
+    const rect = svg?.getBoundingClientRect();
+    endSingleFingerGesture();
+    pinchRef.current = {
+      distance: Math.hypot(b.x - a.x, b.y - a.y),
+      midX: (a.x + b.x) / 2 - (rect?.left ?? 0),
+      midY: (a.y + b.y) / 2 - (rect?.top ?? 0),
+      zoom,
+      panX,
+      panY,
+    };
+  }, [zoom, panX, panY, endSingleFingerGesture]);
+
   const handlePointerDownCapture = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse') {
       // Mouse input → back to the unchanged desktop hit areas.
       svgRef.current?.classList.remove('touch-input');
       return;
     }
-    if (touchPointerIdRef.current !== null && touchPointerIdRef.current !== e.pointerId) {
-      e.stopPropagation(); // ignore the extra finger
+    const pointers = touchPointersRef.current;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    svgRef.current?.classList.add('touch-input');
+    if (pointers.size > 1) {
+      /* Touch support: a second finger = two-finger pinch-zoom, i.e. the same
+         zoom+pan change the mouse wheel performs (the single-finger gesture
+         yields to it). Extra fingers beyond the pair are ignored. */
+      if (!pinchRef.current) beginPinch();
+      e.stopPropagation();
       return;
     }
     touchPointerIdRef.current = e.pointerId;
-    svgRef.current?.classList.add('touch-input');
   };
 
-  /* Touch support: release the finger-gesture slot in the capture phase, so a
-     new gesture can always start even if a pointerup is ever swallowed. */
+  /* Touch support: while two fingers are down the canvas follows the pinch
+     (same zoom limits, same "keep the point under the fingers" behaviour as
+     the wheel) — the single-finger handlers stay out of it. */
+  const handlePointerMoveCapture = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    const pointers = touchPointersRef.current;
+    const tracked = pointers.get(e.pointerId);
+    if (!tracked) return;
+    tracked.x = e.clientX;
+    tracked.y = e.clientY;
+    const pinch = pinchRef.current;
+    if (!pinch || pointers.size < 2 || pinch.distance <= 0) return;
+    const [a, b] = [...pointers.values()];
+    const svg = svgRef.current;
+    const rect = svg?.getBoundingClientRect();
+    const view = computePinchView(
+      { zoom: pinch.zoom, panX: pinch.panX, panY: pinch.panY, midX: pinch.midX, midY: pinch.midY },
+      {
+        midX: (a.x + b.x) / 2 - (rect?.left ?? 0),
+        midY: (a.y + b.y) / 2 - (rect?.top ?? 0),
+        scale: Math.hypot(b.x - a.x, b.y - a.y) / pinch.distance,
+      },
+      MIN_ZOOM,
+      MAX_ZOOM,
+    );
+    onZoomChange(view.zoom);
+    onPanChange(view.panX, view.panY);
+    e.stopPropagation();
+  };
+
+  /* Touch support: release the finger slots in the capture phase, so a new
+     gesture can always start even if a pointerup is ever swallowed, and end
+     the pinch as soon as a finger is lifted. */
   useEffect(() => {
-    const endTouchGesture = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse' && touchPointerIdRef.current === e.pointerId) {
-        touchPointerIdRef.current = null;
-      }
+    const endFinger = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') return;
+      const pointers = touchPointersRef.current;
+      if (!pointers.delete(e.pointerId)) return;
+      if (pointers.size < 2) pinchRef.current = null;
+      if (touchPointerIdRef.current === e.pointerId) touchPointerIdRef.current = null;
     };
-    window.addEventListener('pointerup', endTouchGesture, true);
-    window.addEventListener('pointercancel', endTouchGesture, true);
+    window.addEventListener('pointerup', endFinger, true);
+    window.addEventListener('pointercancel', endFinger, true);
     return () => {
-      window.removeEventListener('pointerup', endTouchGesture, true);
-      window.removeEventListener('pointercancel', endTouchGesture, true);
+      window.removeEventListener('pointerup', endFinger, true);
+      window.removeEventListener('pointercancel', endFinger, true);
     };
   }, []);
 
@@ -1332,6 +1409,7 @@ export default function NodeCanvas({
       <svg ref={svgRef} className="w-full h-full canvas-surface"
         onWheel={handleWheel}
         onPointerDownCapture={handlePointerDownCapture}
+        onPointerMoveCapture={handlePointerMoveCapture}
         onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp} onPointerCancel={handlePointerCancel}
         onMouseLeave={() => setHoveredGroupId(null)}
