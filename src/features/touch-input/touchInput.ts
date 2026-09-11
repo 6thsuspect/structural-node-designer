@@ -18,6 +18,15 @@
  *  and follows the finger — same as holding the mouse button down. */
 export const TAP_MOVE_THRESHOLD = 6;
 
+/** How long a finger must be held still before the canvas switches into
+ *  multi-select mode (the touch equivalent of Shift+click, which a finger has
+ *  no way of pressing). */
+export const LONG_PRESS_MS = 500;
+
+/** A held finger is allowed to jitter a little more than a tapping finger
+ *  before the hold is treated as a drag (pan / node move) instead. */
+export const LONG_PRESS_MOVE_TOLERANCE = 10;
+
 /** Existing view limits (the same 0.1–5 range the mouse wheel zoom uses). */
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 5;

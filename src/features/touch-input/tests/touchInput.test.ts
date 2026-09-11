@@ -12,6 +12,8 @@ import assert from 'node:assert/strict';
 
 import {
   TAP_MOVE_THRESHOLD,
+  LONG_PRESS_MS,
+  LONG_PRESS_MOVE_TOLERANCE,
   MAX_ZOOM,
   MIN_ZOOM,
   TOOLBOX_TOUCH_DROP_EVENT,
@@ -108,4 +110,30 @@ test('computePinchView: a degenerate start view is left alone', () => {
   const start = { zoom: 0, panX: 5, panY: 6, midX: 100, midY: 100 };
   const view = computePinchView(start, { midX: 120, midY: 100, scale: 2 });
   assert.deepEqual(view, { zoom: 0, panX: 5, panY: 6 });
+});
+
+/* ── Long-press (multi-select mode) ──────────────────────────────────────
+ * The hold is only a mode switch while the finger stays put: the canvas keeps
+ * watching the finger with this tolerance and cancels the hold as soon as it
+ * travels (that gesture is a pan / node drag instead).
+ * ──────────────────────────────────────────────────────────────────────── */
+
+test('long-press constants: a short hold delay and a slightly looser jitter tolerance', () => {
+  assert.equal(LONG_PRESS_MS, 500);
+  assert.ok(LONG_PRESS_MOVE_TOLERANCE > TAP_MOVE_THRESHOLD, 'a held finger may jitter more than a tapping one');
+});
+
+test('a held finger stays in the hold while it only jitters', () => {
+  const start = { x: 300, y: 400 };
+  assert.equal(isWithinTapThreshold(start, { x: 300, y: 400 }, LONG_PRESS_MOVE_TOLERANCE), true);
+  assert.equal(isWithinTapThreshold(start, { x: 305, y: 404 }, LONG_PRESS_MOVE_TOLERANCE), true);
+  // beyond the tap threshold but still a hold
+  assert.equal(isWithinTapThreshold(start, { x: 308, y: 400 }, LONG_PRESS_MOVE_TOLERANCE), true);
+  assert.equal(isWithinTapThreshold(start, { x: 308, y: 400 }, TAP_MOVE_THRESHOLD), false);
+});
+
+test('a held finger that travels is a drag, not a hold', () => {
+  const start = { x: 300, y: 400 };
+  // distance 20 > 10 tolerance → the canvas treats it as a pan / node drag
+  assert.equal(isWithinTapThreshold(start, { x: 320, y: 400 }, LONG_PRESS_MOVE_TOLERANCE), false);
 });

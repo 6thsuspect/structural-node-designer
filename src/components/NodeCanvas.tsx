@@ -22,6 +22,8 @@ import {
 } from '../features/canvas-shapes';
 import {
   TOOLBOX_TOUCH_DROP_EVENT,
+  LONG_PRESS_MS,
+  LONG_PRESS_MOVE_TOLERANCE,
   MIN_ZOOM,
   MAX_ZOOM,
   computePinchView,
@@ -287,6 +289,18 @@ export default function NodeCanvas({
      gesture into a two-finger pinch-zoom of the existing view state. ── */
   const touchPointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchRef = useRef<{ distance: number; midX: number; midY: number; zoom: number; panX: number; panY: number } | null>(null);
+  /* ── Touch support: multi-select mode ──
+     Hold one finger still on the canvas: after LONG_PRESS_MS the canvas enters
+     multi-select mode and that finger becomes the "anchor". While it stays
+     down, a second finger only taps — a node is added to / removed from the
+     existing selection (the Shift+click behaviour, which a finger cannot
+     reach), and empty canvas opens the existing selection menu with its Group
+     action. Everything is the EXISTING selection state: `onSelectNodes` and
+     the existing `selMenu`. */
+  const [multiSelectActive, setMultiSelectActive] = useState(false);
+  const multiSelectRef = useRef<{ holdPointerId: number } | null>(null);
+  const multiSelectTapRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const longPressRef = useRef<{ pointerId: number; x: number; y: number; timer: number } | null>(null);
   /* ── Touch support: last tap on a Text shape → the existing double-click ── */
   const lastTapRef = useRef<{ id: string; time: number } | null>(null);
   // ─── Calculation Trace: temporary highlight while panning to a traced node ───
@@ -396,6 +410,52 @@ export default function NodeCanvas({
     };
   }, [zoom, panX, panY, endSingleFingerGesture]);
 
+  /** Stop watching a hold (the finger moved, lifted, or a pinch took over). */
+  const clearLongPress = useCallback(() => {
+    const press = longPressRef.current;
+    if (press) window.clearTimeout(press.timer);
+    longPressRef.current = null;
+  }, []);
+
+  const deactivateMultiSelect = useCallback(() => {
+    multiSelectRef.current = null;
+    multiSelectTapRef.current = null;
+    setMultiSelectActive(false);
+  }, []);
+
+  /** A finger has been held still: the existing multi-selection becomes
+   *  finger-driven until that finger is lifted. */
+  const activateMultiSelect = useCallback((pointerId: number) => {
+    multiSelectRef.current = { holdPointerId: pointerId };
+    multiSelectTapRef.current = null;
+    setMultiSelectActive(true);
+    // The hold is a mode switch, not a pan / node drag / marquee / wire.
+    endSingleFingerGesture();
+    setContextMenu(null);
+    setConnMenu(null);
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
+  }, [endSingleFingerGesture]);
+
+  /** Watch a freshly pressed finger for the hold that enters multi-select mode. */
+  const startLongPressWatch = (e: React.PointerEvent) => {
+    clearLongPress();
+    // A press on a port starts a connection wire — never a mode switch.
+    if ((e.target as Element | null)?.closest('[data-port-id]')) return;
+    const pointerId = e.pointerId;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const timer = window.setTimeout(() => {
+      longPressRef.current = null;
+      const live = touchPointersRef.current.get(pointerId);
+      // Still down, and still (almost) where it was pressed?
+      if (!live || !isWithinTapThreshold({ x: startX, y: startY }, live, LONG_PRESS_MOVE_TOLERANCE)) return;
+      activateMultiSelect(pointerId);
+    }, LONG_PRESS_MS);
+    longPressRef.current = { pointerId, x: startX, y: startY, timer };
+  };
+
   const handlePointerDownCapture = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse') {
       // Mouse input → back to the unchanged desktop hit areas.
@@ -405,15 +465,27 @@ export default function NodeCanvas({
     const pointers = touchPointersRef.current;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     svgRef.current?.classList.add('touch-input');
+    /* Multi-select mode: every finger except the anchor only taps (the tap is
+       completed on pointerup, see handlePointerUpCapture). */
+    const multi = multiSelectRef.current;
+    if (multi) {
+      if (e.pointerId !== multi.holdPointerId) {
+        multiSelectTapRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+      }
+      e.stopPropagation();
+      return;
+    }
     if (pointers.size > 1) {
       /* Touch support: a second finger = two-finger pinch-zoom, i.e. the same
          zoom+pan change the mouse wheel performs (the single-finger gesture
          yields to it). Extra fingers beyond the pair are ignored. */
+      clearLongPress();
       if (!pinchRef.current) beginPinch();
       e.stopPropagation();
       return;
     }
     touchPointerIdRef.current = e.pointerId;
+    startLongPressWatch(e);
   };
 
   /* Touch support: while two fingers are down the canvas follows the pinch
@@ -426,6 +498,26 @@ export default function NodeCanvas({
     if (!tracked) return;
     tracked.x = e.clientX;
     tracked.y = e.clientY;
+    /* Multi-select mode: the anchor finger no longer pans, and a selector
+       finger that travels is a drag, not a tap. */
+    const multi = multiSelectRef.current;
+    if (multi) {
+      if (e.pointerId !== multi.holdPointerId) {
+        const tap = multiSelectTapRef.current;
+        if (tap && tap.pointerId === e.pointerId && !isWithinTapThreshold(tap, { x: e.clientX, y: e.clientY })) {
+          multiSelectTapRef.current = null;
+        }
+        e.stopPropagation();
+      }
+      return;
+    }
+    /* Touch support: a finger that moves off the press point is a pan / drag,
+       so it can no longer start the multi-select hold. */
+    const press = longPressRef.current;
+    if (press && press.pointerId === e.pointerId
+      && !isWithinTapThreshold({ x: press.x, y: press.y }, { x: e.clientX, y: e.clientY }, LONG_PRESS_MOVE_TOLERANCE)) {
+      clearLongPress();
+    }
     const pinch = pinchRef.current;
     if (!pinch || pointers.size < 2 || pinch.distance <= 0) return;
     const [a, b] = [...pointers.values()];
@@ -446,6 +538,48 @@ export default function NodeCanvas({
     e.stopPropagation();
   };
 
+  /* Touch support: while the anchor finger is held, a tap from another finger
+     either adds the tapped node to the current selection (the existing
+     selection state — Shift+click for fingers) or, on empty canvas, opens the
+     existing selection menu (Group / Ungroup / Clear Selection). */
+  const handleMultiSelectTap = useCallback((clientX: number, clientY: number) => {
+    const target = document.elementFromPoint(clientX, clientY);
+    const nodeId = target?.closest('[data-node-id]')?.getAttribute('data-node-id') ?? '';
+    if (nodeId) {
+      setSelectedConnId(null); // a tapped node replaces any wire selection
+      if (!onSelectNodes) { onSelectNode(nodeId); return; }
+      // Same toggle rule as Shift+click: a node's whole group joins/leaves.
+      const current = selectedNodeIds ?? [];
+      const members = groupMemberIds(groups ?? [], nodeId);
+      const memberSet = new Set(members);
+      if (members.every(id => current.includes(id))) {
+        onSelectNodes(current.filter(id => !memberSet.has(id)));
+      } else {
+        onSelectNodes(Array.from(new Set([...current, ...members])));
+      }
+      return;
+    }
+    // Empty canvas (or a shape) → the existing selection menu, at the tap point.
+    const rect = svgRef.current?.getBoundingClientRect();
+    setContextMenu(null);
+    setConnMenu(null);
+    setShapeMenu(null);
+    setSelMenu({ x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) });
+  }, [selectedNodeIds, groups, onSelectNodes, onSelectNode]);
+
+  /* Touch support: a selector finger is released — if it stayed put it was a
+     tap, and the mode handles it (no node drag / pan / pinch / deselect). */
+  const handlePointerUpCapture = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    const tap = multiSelectTapRef.current;
+    const multi = multiSelectRef.current;
+    if (!multi || !tap || tap.pointerId !== e.pointerId) return;
+    multiSelectTapRef.current = null;
+    e.stopPropagation();
+    if (!isWithinTapThreshold(tap, { x: e.clientX, y: e.clientY })) return; // travelled: not a tap
+    handleMultiSelectTap(e.clientX, e.clientY);
+  };
+
   /* Touch support: release the finger slots in the capture phase, so a new
      gesture can always start even if a pointerup is ever swallowed, and end
      the pinch as soon as a finger is lifted. */
@@ -456,14 +590,18 @@ export default function NodeCanvas({
       if (!pointers.delete(e.pointerId)) return;
       if (pointers.size < 2) pinchRef.current = null;
       if (touchPointerIdRef.current === e.pointerId) touchPointerIdRef.current = null;
+      if (longPressRef.current?.pointerId === e.pointerId) clearLongPress();
+      // Multi-select mode lasts exactly as long as its anchor finger is down.
+      if (multiSelectRef.current?.holdPointerId === e.pointerId) deactivateMultiSelect();
     };
     window.addEventListener('pointerup', endFinger, true);
     window.addEventListener('pointercancel', endFinger, true);
     return () => {
       window.removeEventListener('pointerup', endFinger, true);
       window.removeEventListener('pointercancel', endFinger, true);
+      clearLongPress();
     };
-  }, []);
+  }, [clearLongPress, deactivateMultiSelect]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     setContextMenu(null);
@@ -789,6 +927,13 @@ export default function NodeCanvas({
   // Right-click on empty canvas with a selection (nodes and/or shapes) → menu.
   const handleBackgroundContextMenu = useCallback((e: React.MouseEvent) => {
     const current = (selectedNodeIds ?? []).length + (selectedShapeIds ?? []).length;
+    /* Touch multi-select: the browser's own long-press menu must not replace
+       the selection menu the second finger opens. */
+    if (multiSelectRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     // Right-click during wire selection shows the WIRE options (no node/shape menu).
     if (current === 0 && selectedConn) {
       e.preventDefault();
@@ -1174,6 +1319,7 @@ export default function NodeCanvas({
 
     return (
       <g key={node.id} transform={`translate(${node.x}, ${node.y})`}
+        data-node-id={node.id}
         onPointerDown={(e) => handleNodePointerDown(e, node.id)}
         onContextMenu={(e) => handleNodeContextMenu(e, node.id)}
         onMouseEnter={() => setHoveredNodeId(node.id)}
@@ -1410,6 +1556,7 @@ export default function NodeCanvas({
         onWheel={handleWheel}
         onPointerDownCapture={handlePointerDownCapture}
         onPointerMoveCapture={handlePointerMoveCapture}
+        onPointerUpCapture={handlePointerUpCapture}
         onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp} onPointerCancel={handlePointerCancel}
         onMouseLeave={() => setHoveredGroupId(null)}
@@ -1471,6 +1618,15 @@ export default function NodeCanvas({
           ))}
         </g>
       </svg>
+
+      {/* Touch multi-select hint — shown only while a finger holds the canvas
+          (same styling as the existing zoom indicator; never intercepts input) */}
+      {multiSelectActive && (
+        <div className="absolute bottom-3 left-3 px-3 py-1 rounded-lg text-xs"
+          style={{ background: colors.nodeBg, color: colors.text, border: `1px solid ${colors.nodeBorder}`, pointerEvents: 'none' }}>
+          ✋ Multi-select — tap nodes with a second finger
+        </div>
+      )}
 
       {/* Zoom indicator */}
       <div className="absolute bottom-3 right-3 px-3 py-1 rounded-lg text-xs font-mono"

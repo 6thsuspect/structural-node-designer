@@ -2,6 +2,8 @@
 
 export {
   TAP_MOVE_THRESHOLD,
+  LONG_PRESS_MS,
+  LONG_PRESS_MOVE_TOLERANCE,
   MIN_ZOOM,
   MAX_ZOOM,
   isWithinTapThreshold,
