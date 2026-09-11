@@ -360,6 +360,9 @@ export default function NodeCodeModal({ isOpen, theme, node, existingCode, initi
       initialHeight={580}
       minWidth={420}
       minHeight={320}
+      // Editable dialogs close from their own ✕ (and buttons), never by
+      // tapping the dimmed area around them.
+      closeOnOverlayClick={false}
       persistKey="snd.window.code"
       footer={
         <div className="px-6 py-4 flex items-center justify-between" style={{ borderTop: `1px solid ${colors.border}` }}>

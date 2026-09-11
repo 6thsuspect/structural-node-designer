@@ -15,6 +15,7 @@
     "src/features/calculation-trace/tests/**/*.ts",
     "src/features/node-groups/tests/**/*.ts",
     "src/features/canvas-fit/tests/**/*.ts",
-    "src/features/canvas-shapes/tests/**/*.ts"
+    "src/features/canvas-shapes/tests/**/*.ts",
+    "src/features/touch-input/tests/**/*.ts"
   ]
 }

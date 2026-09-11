@@ -8,6 +8,7 @@ import {
   hasGroupMembership,
   nodesInBox,
   normalizeMarquee,
+  type BoxRect,
 } from '../features/node-groups';
 import { computeContentBounds, computeFitView } from '../features/canvas-fit';
 import {
@@ -20,10 +21,29 @@ import {
   shapeResizeBox,
   type ShapeResizeHandle,
 } from '../features/canvas-shapes';
+import {
+  TOOLBOX_TOUCH_DROP_EVENT,
+  LONG_PRESS_MS,
+  LONG_PRESS_MOVE_TOLERANCE,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  computePinchView,
+  isWithinTapThreshold,
+  type ToolboxTouchDropDetail,
+} from '../features/touch-input';
 
 const PORT_RADIUS = 7;
 const PORT_HEIGHT = 28;
 const HEADER_HEIGHT = 36;
+
+/* ─── Touch support ───
+   Fingers are far less precise than a mouse cursor, so the ports and the shape
+   resize handles get a larger INVISIBLE hit area (see `.touch-hit` in
+   index.css). Nothing is drawn differently, and the areas are inert for a
+   mouse, so the desktop hit areas stay exactly as they are. */
+const TOUCH_PORT_RADIUS = 13;      // vs the 7px visible port circle
+const TOUCH_HANDLE_PAD = 8;        // extra canvas units around a resize handle
+const TOUCH_DOUBLE_TAP_MS = 350;   // finger double-tap → existing double-click
 
 /* ─── Port row layout constants (node width is fixed at 200) ─── */
 const LABEL_X = 16;             // input label left edge
@@ -249,6 +269,9 @@ export default function NodeCanvas({
   /* ── Node Groups feature: marquee (rubber-band) selection box ── */
   const [marquee, setMarquee] = useState<SelectionBox | null>(null);
   const marqueeShiftRef = useRef(false);
+  /* Touch support: which finger owns the live marquee — a second finger tapping
+     during multi-select must not drag the selection box. */
+  const marqueeOwnerRef = useRef<number | null>(null);
   // Node context menu is anchored to the node (not a fixed screen point), so it
   // follows the node while the canvas is panned or zoomed.
   const [contextMenu, setContextMenu] = useState<{ nodeId: string } | null>(null);
@@ -261,6 +284,38 @@ export default function NodeCanvas({
   const [selMenu, setSelMenu] = useState<{ x: number; y: number } | null>(null);
   // ─── NEW: hovered node for visual feedback (no blink) ───
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  /* ── Touch support: only the first finger drives a touch gesture (extra
+     fingers are ignored — no new multi-touch gestures are introduced), and a
+     finger that never travels is a tap, the touch equivalent of a click. ── */
+  const touchPointerIdRef = useRef<number | null>(null);
+  const touchTapRef = useRef<{ x: number; y: number } | null>(null);
+  /* ── Touch support: live finger positions, so a second finger can turn the
+     gesture into a two-finger pinch-zoom of the existing view state. ── */
+  const touchPointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ distance: number; midX: number; midY: number; zoom: number; panX: number; panY: number } | null>(null);
+  /* ── Touch support: multi-select mode ──
+     Hold one finger still on the canvas: after LONG_PRESS_MS the canvas enters
+     multi-select mode and that finger becomes the "anchor". While it stays
+     down, a second finger only taps — a node is added to / removed from the
+     existing selection (the Shift+click behaviour, which a finger cannot
+     reach), and empty canvas opens the existing selection menu with its Group
+     action. Everything is the EXISTING selection state: `onSelectNodes` and
+     the existing `selMenu`. */
+  const [multiSelectActive, setMultiSelectActive] = useState(false);
+  const multiSelectRef = useRef<{
+    holdPointerId: number;
+    /** True when the hold started on empty canvas -> sliding draws the marquee. */
+    marqueeCapable: boolean;
+    marqueeStarted: boolean;
+    /** Press point in screen pixels, and the same point in canvas units. */
+    pressX: number;
+    pressY: number;
+    pressCanvas: { x: number; y: number };
+  } | null>(null);
+  const multiSelectTapRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const longPressRef = useRef<{ pointerId: number; x: number; y: number; timer: number } | null>(null);
+  /* ── Touch support: last tap on a Text shape → the existing double-click ── */
+  const lastTapRef = useRef<{ id: string; time: number } | null>(null);
   // ─── Calculation Trace: temporary highlight while panning to a traced node ───
   const [traceHighlightId, setTraceHighlightId] = useState<string | null>(null);
   /* ── Alignment snap: live smart guides while a node is dragged (canvas coords) ── */
@@ -330,7 +385,379 @@ export default function NodeCanvas({
     onPanChange(mx - (mx - panX) * (newZoom / zoom), my - (my - panY) * (newZoom / zoom));
   }, [zoom, panX, panY]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  /* ── Touch support ──
+     Every canvas interaction now runs on Pointer Events, which carry mouse,
+     finger and pen input through the same handlers — the existing actions,
+     coordinates and state are unchanged. Two small finger-specific bits are
+     added on top: extra fingers are ignored while a gesture runs, and the
+     canvas marks itself once a finger is used so the larger invisible hit
+     areas switch on (see `.touch-hit` in index.css). */
+  /** End whatever single-finger interaction is running (used when the
+   *  gesture becomes a pinch). */
+  const endSingleFingerGesture = useCallback(() => {
+    setIsPanning(false);
+    setDragNode(null);
+    setDragShape(null);
+    setShapeResize(null);
+    setSnapGuides(null);
+    setMarquee(null);
+    marqueeOwnerRef.current = null;
+    marqueeShiftRef.current = false;
+    touchTapRef.current = null;
+    if (connecting.isConnecting) onFinishConnecting(); // cancel the wire, as on pointercancel
+  }, [connecting.isConnecting, onFinishConnecting]);
+
+  /** Baseline for a pinch, captured from the view state it starts in. */
+  const beginPinch = useCallback(() => {
+    const [a, b] = [...touchPointersRef.current.values()];
+    if (!a || !b) return;
+    const svg = svgRef.current;
+    const rect = svg?.getBoundingClientRect();
+    endSingleFingerGesture();
+    pinchRef.current = {
+      distance: Math.hypot(b.x - a.x, b.y - a.y),
+      midX: (a.x + b.x) / 2 - (rect?.left ?? 0),
+      midY: (a.y + b.y) / 2 - (rect?.top ?? 0),
+      zoom,
+      panX,
+      panY,
+    };
+  }, [zoom, panX, panY, endSingleFingerGesture]);
+
+  /** Stop watching a hold (the finger moved, lifted, or a pinch took over). */
+  const clearLongPress = useCallback(() => {
+    const press = longPressRef.current;
+    if (press) window.clearTimeout(press.timer);
+    longPressRef.current = null;
+  }, []);
+
+  const deactivateMultiSelect = useCallback(() => {
+    multiSelectRef.current = null;
+    multiSelectTapRef.current = null;
+    setMultiSelectActive(false);
+  }, []);
+
+  /** Show the existing node options menu for a node — the very same menu a
+   *  mouse right-click opens (Edit Node Code / Edit Formula & Inputs / draw
+   *  order / Group / Ungroup / Calculation Trace / Delete). Used by the mouse
+   *  right-click and by the touch long-press on a node. */
+  const showNodeMenu = useCallback((nodeId: string) => {
+    setConnMenu(null);
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
+    // Selecting an unselected node (group-aware) gives the menu's Group /
+    // Ungroup actions a well-defined target — exactly like right-click.
+    if (!(selectedNodeIds ?? []).includes(nodeId)) onSelectNode(nodeId);
+    onSelectShape?.(null);
+    setContextMenu({ nodeId });
+  }, [selectedNodeIds, onSelectNode, onSelectShape]);
+
+  /** Show the existing wire options menu (wire color / delete connection) at a
+   *  screen point — the same menu a mouse right-click on a wire opens, also
+   *  used by the touch long-press on a wire. */
+  const showConnMenu = useCallback((connId: string, clientX: number, clientY: number) => {
+    setContextMenu(null);
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
+    // Same rule as right-click: the menu acts on this wire, so it becomes the
+    // selected wire (and the node selection steps aside).
+    if (connId !== selectedConnId) {
+      onSelectNode(null);
+      setSelectedConnId(connId);
+    }
+    const rect = svgRef.current?.getBoundingClientRect();
+    setConnMenu({ x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0), connId });
+  }, [selectedConnId, onSelectNode]);
+
+  /** Show the existing shape options menu (freeze size / edit dimensions /
+   *  draw order / Group / Delete) at a screen point — the same menu a mouse
+   *  right-click opens, also used by the touch long-press on a shape. */
+  const showShapeMenu = useCallback((shapeId: string, clientX: number, clientY: number) => {
+    setContextMenu(null);
+    setConnMenu(null);
+    setSelMenu(null);
+    setShapeSizeEditor(null);
+    // Same selection rule as right-click: the menu always acts on this shape.
+    if (shapeId !== selectedShapeId) onSelectShape?.(shapeId);
+    const rect = svgRef.current?.getBoundingClientRect();
+    setShapeMenu({ id: shapeId, x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) });
+  }, [selectedShapeId, onSelectShape]);
+
+  /** A finger has been held still: the existing selection becomes
+   *  finger-driven until that finger is lifted.
+   *  - Hold on empty canvas -> sliding draws the marquee (box selection).
+   *  - Hold on a node -> its existing options menu opens, and its normal drag
+   *    keeps running, so a finger can stay on a selected group while the other
+   *    hand taps for options. */
+  const activateMultiSelect = useCallback((hold: {
+    pointerId: number; nodeId: string | null; shapeId: string | null; connId: string | null;
+    marqueeCapable: boolean; pressX: number; pressY: number; pressCanvas: { x: number; y: number };
+  }) => {
+    multiSelectRef.current = {
+      holdPointerId: hold.pointerId,
+      marqueeCapable: hold.marqueeCapable,
+      marqueeStarted: false,
+      pressX: hold.pressX,
+      pressY: hold.pressY,
+      pressCanvas: hold.pressCanvas,
+    };
+    multiSelectTapRef.current = null;
+    setMultiSelectActive(true);
+    // A pan / marquee / wire started by the press yields to the hold; an
+    // ongoing node or shape drag is deliberately kept alive.
+    setIsPanning(false);
+    setMarquee(null);
+    marqueeOwnerRef.current = null;
+    marqueeShiftRef.current = false;
+    touchTapRef.current = null;
+    if (connecting.isConnecting) onFinishConnecting();
+    // The hold is a mode switch: close any open menu.
+    setContextMenu(null);
+    setConnMenu(null);
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
+    // A hold on a node, a shape or a wire is the touch equivalent of
+    // right-click: show that item's options.
+    if (hold.nodeId) showNodeMenu(hold.nodeId);
+    else if (hold.shapeId) showShapeMenu(hold.shapeId, hold.pressX, hold.pressY);
+    else if (hold.connId) showConnMenu(hold.connId, hold.pressX, hold.pressY);
+  }, [connecting.isConnecting, onFinishConnecting, showNodeMenu, showShapeMenu, showConnMenu]);
+
+  /** Watch a freshly pressed finger for the hold that enters multi-select mode. */
+  const startLongPressWatch = (e: React.PointerEvent) => {
+    clearLongPress();
+    const target = e.target as Element | null;
+    // A press on a port starts a connection wire — never a mode switch.
+    if (target?.closest('[data-port-id]')) return;
+    // Empty canvas: the hold will draw a marquee. On a node / shape the hold
+    // keeps that item's existing drag alive instead.
+    const hold = {
+      pointerId: e.pointerId,
+      // A press on a node body or a shape (ports returned above) is the touch
+      // equivalent of right-click.
+      nodeId: target?.closest('[data-node-id]')?.getAttribute('data-node-id') ?? null,
+      shapeId: target?.closest('[data-shape-id]')?.getAttribute('data-shape-id') ?? null,
+      connId: target?.closest('[data-conn-id]')?.getAttribute('data-conn-id') ?? null,
+      marqueeCapable: target === svgRef.current || !!target?.classList.contains('canvas-bg'),
+      pressX: e.clientX,
+      pressY: e.clientY,
+      pressCanvas: screenToCanvas(e.clientX, e.clientY),
+    };
+    const timer = window.setTimeout(() => {
+      longPressRef.current = null;
+      const live = touchPointersRef.current.get(hold.pointerId);
+      // Still down, and still (almost) where it was pressed?
+      if (!live || !isWithinTapThreshold({ x: hold.pressX, y: hold.pressY }, live, LONG_PRESS_MOVE_TOLERANCE)) return;
+      activateMultiSelect(hold);
+    }, LONG_PRESS_MS);
+    longPressRef.current = { pointerId: hold.pointerId, x: hold.pressX, y: hold.pressY, timer };
+  };
+
+  /** Apply a marquee box to the selection — the existing mouse marquee logic,
+   *  shared with the finger-driven marquee (live while sliding + on release). */
+  const applyMarquee = useCallback((box: BoxRect, additive: boolean) => {
+    setSelectedConnId(null);
+    const ids = nodesInBox(nodes, box);
+    // Shapes inside the box join the selection and are highlighted too.
+    const shapeIds = nodesInBox(shapes ?? [], box);
+    onSelectShapes?.(
+      additive ? Array.from(new Set([...(selectedShapeIds ?? []), ...shapeIds])) : shapeIds,
+      false,
+    );
+    if (onSelectNodes) {
+      if (additive) {
+        // Additive: union with the current selection.
+        onSelectNodes(Array.from(new Set([...(selectedNodeIds ?? []), ...ids])));
+      } else {
+        onSelectNodes(ids);
+      }
+    } else if (ids.length === 1) {
+      onSelectNode(ids[0]);
+    }
+  }, [nodes, shapes, onSelectNodes, onSelectShapes, selectedNodeIds, selectedShapeIds, onSelectNode]);
+
+  const handlePointerDownCapture = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') {
+      // Mouse input → back to the unchanged desktop hit areas.
+      svgRef.current?.classList.remove('touch-input');
+      return;
+    }
+    const pointers = touchPointersRef.current;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    svgRef.current?.classList.add('touch-input');
+    /* Multi-select mode: every finger except the anchor only taps (the tap is
+       completed on pointerup, see handlePointerUpCapture). */
+    const multi = multiSelectRef.current;
+    if (multi) {
+      if (e.pointerId !== multi.holdPointerId) {
+        multiSelectTapRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+      }
+      e.stopPropagation();
+      return;
+    }
+    if (pointers.size > 1) {
+      /* Touch support: a second finger = two-finger pinch-zoom, i.e. the same
+         zoom+pan change the mouse wheel performs (the single-finger gesture
+         yields to it). Extra fingers beyond the pair are ignored. */
+      clearLongPress();
+      if (!pinchRef.current) beginPinch();
+      e.stopPropagation();
+      return;
+    }
+    touchPointerIdRef.current = e.pointerId;
+    startLongPressWatch(e);
+  };
+
+  /* Touch support: while two fingers are down the canvas follows the pinch
+     (same zoom limits, same "keep the point under the fingers" behaviour as
+     the wheel) — the single-finger handlers stay out of it. */
+  const handlePointerMoveCapture = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    const pointers = touchPointersRef.current;
+    const tracked = pointers.get(e.pointerId);
+    if (!tracked) return;
+    tracked.x = e.clientX;
+    tracked.y = e.clientY;
+    /* Multi-select mode: the held finger draws the marquee (empty-canvas
+       holds) while a second finger only taps. */
+    const multi = multiSelectRef.current;
+    if (multi) {
+      if (e.pointerId !== multi.holdPointerId) {
+        const tap = multiSelectTapRef.current;
+        if (tap && tap.pointerId === e.pointerId && !isWithinTapThreshold(tap, { x: e.clientX, y: e.clientY })) {
+          multiSelectTapRef.current = null;
+        }
+        e.stopPropagation();
+        return;
+      }
+      // A hold that started on a node / shape keeps its normal drag.
+      if (!multi.marqueeCapable) {
+        /* Moving the held finger resumes the drag, so the options menu the hold
+           opened steps aside — the node is being moved, not configured. */
+        if (!isWithinTapThreshold({ x: multi.pressX, y: multi.pressY }, { x: e.clientX, y: e.clientY }, LONG_PRESS_MOVE_TOLERANCE)) {
+          setContextMenu(null);
+          setShapeMenu(null);
+          setConnMenu(null);
+        }
+        return;
+      }
+      if (!multi.marqueeStarted) {
+        if (isWithinTapThreshold({ x: multi.pressX, y: multi.pressY }, { x: e.clientX, y: e.clientY }, LONG_PRESS_MOVE_TOLERANCE)) {
+          e.stopPropagation();
+          return; // still a hold — the slide has not started yet
+        }
+        multi.marqueeStarted = true;
+        marqueeOwnerRef.current = e.pointerId;
+        setMarquee({ active: true, startX: multi.pressCanvas.x, startY: multi.pressCanvas.y, endX: multi.pressCanvas.x, endY: multi.pressCanvas.y });
+      }
+      /* Sliding the finger over nodes selects them straight away, using the
+         same marquee helpers the mouse uses on release — so the second finger
+         can open the options without lifting the first. */
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      setMarquee(prev => (prev ? { ...prev, endX: pos.x, endY: pos.y } : prev));
+      applyMarquee(normalizeMarquee(multi.pressCanvas.x, multi.pressCanvas.y, pos.x, pos.y), false);
+      e.stopPropagation();
+      return;
+    }
+    /* Touch support: a finger that moves off the press point is a pan / drag,
+       so it can no longer start the multi-select hold. */
+    const press = longPressRef.current;
+    if (press && press.pointerId === e.pointerId
+      && !isWithinTapThreshold({ x: press.x, y: press.y }, { x: e.clientX, y: e.clientY }, LONG_PRESS_MOVE_TOLERANCE)) {
+      clearLongPress();
+    }
+    const pinch = pinchRef.current;
+    if (!pinch || pointers.size < 2 || pinch.distance <= 0) return;
+    const [a, b] = [...pointers.values()];
+    const svg = svgRef.current;
+    const rect = svg?.getBoundingClientRect();
+    const view = computePinchView(
+      { zoom: pinch.zoom, panX: pinch.panX, panY: pinch.panY, midX: pinch.midX, midY: pinch.midY },
+      {
+        midX: (a.x + b.x) / 2 - (rect?.left ?? 0),
+        midY: (a.y + b.y) / 2 - (rect?.top ?? 0),
+        scale: Math.hypot(b.x - a.x, b.y - a.y) / pinch.distance,
+      },
+      MIN_ZOOM,
+      MAX_ZOOM,
+    );
+    onZoomChange(view.zoom);
+    onPanChange(view.panX, view.panY);
+    e.stopPropagation();
+  };
+
+  /* Touch support: while the anchor finger is held, a tap from another finger
+     either adds the tapped node to the current selection (the existing
+     selection state — Shift+click for fingers) or, on empty canvas, opens the
+     existing selection menu (Group / Ungroup / Clear Selection). */
+  const handleMultiSelectTap = useCallback((clientX: number, clientY: number) => {
+    const target = document.elementFromPoint(clientX, clientY);
+    const nodeId = target?.closest('[data-node-id]')?.getAttribute('data-node-id') ?? '';
+    if (nodeId) {
+      setSelectedConnId(null); // a tapped node replaces any wire selection
+      if (!onSelectNodes) { onSelectNode(nodeId); return; }
+      // Same toggle rule as Shift+click: a node's whole group joins/leaves.
+      const current = selectedNodeIds ?? [];
+      const members = groupMemberIds(groups ?? [], nodeId);
+      const memberSet = new Set(members);
+      if (members.every(id => current.includes(id))) {
+        onSelectNodes(current.filter(id => !memberSet.has(id)));
+      } else {
+        onSelectNodes(Array.from(new Set([...current, ...members])));
+      }
+      return;
+    }
+    // Empty canvas (or a shape) -> the existing selection menu, at the tap
+    // point. With nothing selected there is nothing to group, so the tap stays
+    // as harmless as it is on the desktop.
+    if ((selectedNodeIds ?? []).length + (selectedShapeIds ?? []).length === 0) return;
+    const rect = svgRef.current?.getBoundingClientRect();
+    setContextMenu(null);
+    setConnMenu(null);
+    setShapeMenu(null);
+    setSelMenu({ x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) });
+  }, [selectedNodeIds, selectedShapeIds, groups, onSelectNodes, onSelectNode]);
+
+  /* Touch support: a selector finger is released — if it stayed put it was a
+     tap, and the mode handles it (no node drag / pan / pinch / deselect). */
+  const handlePointerUpCapture = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    const tap = multiSelectTapRef.current;
+    const multi = multiSelectRef.current;
+    if (!multi || !tap || tap.pointerId !== e.pointerId) return;
+    multiSelectTapRef.current = null;
+    e.stopPropagation();
+    if (!isWithinTapThreshold(tap, { x: e.clientX, y: e.clientY })) return; // travelled: not a tap
+    handleMultiSelectTap(e.clientX, e.clientY);
+  };
+
+  /* Touch support: release the finger slots in the capture phase, so a new
+     gesture can always start even if a pointerup is ever swallowed, and end
+     the pinch as soon as a finger is lifted. */
+  useEffect(() => {
+    const endFinger = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') return;
+      const pointers = touchPointersRef.current;
+      if (!pointers.delete(e.pointerId)) return;
+      if (pointers.size < 2) pinchRef.current = null;
+      if (touchPointerIdRef.current === e.pointerId) touchPointerIdRef.current = null;
+      if (longPressRef.current?.pointerId === e.pointerId) clearLongPress();
+      // Multi-select mode lasts exactly as long as its anchor finger is down.
+      if (multiSelectRef.current?.holdPointerId === e.pointerId) deactivateMultiSelect();
+    };
+    window.addEventListener('pointerup', endFinger, true);
+    window.addEventListener('pointercancel', endFinger, true);
+    return () => {
+      window.removeEventListener('pointerup', endFinger, true);
+      window.removeEventListener('pointercancel', endFinger, true);
+      clearLongPress();
+    };
+  }, [clearLongPress, deactivateMultiSelect]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
     setContextMenu(null);
     setConnMenu(null);
     setSelMenu(null);
@@ -344,18 +771,36 @@ export default function NodeCanvas({
       const target = e.target as SVGElement;
       if (target === svgRef.current || target.classList.contains('canvas-bg')) {
         if (connecting.isConnecting) return; // a wire is being dragged
+        /* Touch support: a finger dragged on the empty canvas pans it — the
+           same pan action the mouse reaches with the middle button or
+           Alt+drag (a touchscreen has neither). A finger that does not travel
+           is a tap and still clears the selection on release, like a click. */
+        if (e.pointerType !== 'mouse') {
+          setIsPanning(true);
+          setPanStart({ x: e.clientX - panX, y: e.clientY - panY });
+          touchTapRef.current = { x: e.clientX, y: e.clientY };
+          return;
+        }
         // Marquee selection starts here; a tiny marquee (plain click) still
         // clears the selection, preserving the previous click behavior.
         const pos = screenToCanvas(e.clientX, e.clientY);
         marqueeShiftRef.current = e.shiftKey;
+        marqueeOwnerRef.current = e.pointerId;
         setMarquee({ active: true, startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y });
       }
     }
   }, [panX, panY, connecting.isConnecting, screenToCanvas]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning) onPanChange(e.clientX - panStart.x, e.clientY - panStart.y);
-    if (marquee) {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (isPanning) {
+      /* Touch support: pan only once the finger has travelled past the tap
+         threshold — below that the gesture is still a tap (a click). */
+      const tap = touchTapRef.current;
+      if (tap && isWithinTapThreshold(tap, { x: e.clientX, y: e.clientY })) return;
+      if (tap) touchTapRef.current = null;
+      onPanChange(e.clientX - panStart.x, e.clientY - panStart.y);
+    }
+    if (marquee && (marqueeOwnerRef.current === null || e.pointerId === marqueeOwnerRef.current)) {
       const pos = screenToCanvas(e.clientX, e.clientY);
       setMarquee(prev => (prev ? { ...prev, endX: pos.x, endY: pos.y } : prev));
     }
@@ -434,12 +879,20 @@ export default function NodeCanvas({
   }, [isPanning, panStart, dragNode, marquee, nodes, groups, connecting, screenToCanvas, onMoveNodes,
       dragShape, onMoveShape, shapeResize, onResizeShape, shapes, snapEnabled]);
 
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
     setIsPanning(false);
     setDragNode(null);
     setDragShape(null);
     setShapeResize(null);
     setSnapGuides(null);
+    /* Touch support: a finger that never travelled is a tap, i.e. exactly the
+       mouse's plain click on the empty canvas — it clears the selection. */
+    if (touchTapRef.current) {
+      touchTapRef.current = null;
+      onSelectNode(null);
+      onSelectShapes?.([], false);
+      setSelectedConnId(null);
+    }
     // Finish the marquee selection (if one was in progress).
     if (marquee) {
       const box = normalizeMarquee(marquee.startX, marquee.startY, marquee.endX, marquee.endY);
@@ -450,42 +903,53 @@ export default function NodeCanvas({
         if (!marqueeShiftRef.current) { onSelectNode(null); onSelectShapes?.([], false); setSelectedConnId(null); }
       } else {
         // A real marquee replaces the selection — a selected wire is dropped too.
-        setSelectedConnId(null);
-        const ids = nodesInBox(nodes, box);
-        // Shapes inside the box join the selection and are highlighted too.
-        const shapeIds = nodesInBox(shapes ?? [], box);
-        onSelectShapes?.(
-          marqueeShiftRef.current
-            ? Array.from(new Set([...(selectedShapeIds ?? []), ...shapeIds]))
-            : shapeIds,
-          false,
-        );
-        if (onSelectNodes) {
-          if (marqueeShiftRef.current) {
-            // Additive: union with the current selection.
-            onSelectNodes(Array.from(new Set([...(selectedNodeIds ?? []), ...ids])));
-          } else {
-            onSelectNodes(ids);
-          }
-        } else if (ids.length === 1) {
-          onSelectNode(ids[0]);
-        }
+        applyMarquee(box, marqueeShiftRef.current);
       }
       marqueeShiftRef.current = false;
+      marqueeOwnerRef.current = null;
       setMarquee(null);
     }
     if (connecting.isConnecting) {
-      const target = e.target as SVGElement;
-      const portData = target.closest('[data-port-id]');
+      /* Touch support: the browser captures a touch pointer to the element the
+         finger started on, so the event target is not the element under the
+         finger — resolve the released-on port by position instead (same hit
+         areas, same connection logic, same preview). */
+      const target = (e.pointerType === 'mouse'
+        ? e.target
+        : document.elementFromPoint(e.clientX, e.clientY)) as Element | null;
+      const portData = target?.closest('[data-port-id]');
       if (portData) {
         onFinishConnecting(portData.getAttribute('data-node-id') || '', portData.getAttribute('data-port-id') || '');
       } else {
         onFinishConnecting();
       }
     }
-  }, [connecting, marquee, zoom, nodes, shapes, onSelectNodes, selectedNodeIds, selectedShapeIds, onSelectNode, onSelectShapes]);
+    /* Touch support: free the finger-gesture slot so a new gesture can start. */
+    if (e.pointerType !== 'mouse' && touchPointerIdRef.current === e.pointerId) {
+      touchPointerIdRef.current = null;
+    }
+  }, [connecting, marquee, zoom, onFinishConnecting, applyMarquee]);
 
-  const handleNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
+  /* ── Touch support: the browser can cancel a pointer mid-gesture (system
+     gesture, app switch, phone call). End the interaction cleanly instead of
+     leaving a node or a connection wire stuck to the finger. ── */
+  const handlePointerCancel = useCallback((e: React.PointerEvent) => {
+    setIsPanning(false);
+    setDragNode(null);
+    setDragShape(null);
+    setShapeResize(null);
+    setSnapGuides(null);
+    setMarquee(null);
+    marqueeOwnerRef.current = null;
+    marqueeShiftRef.current = false;
+    touchTapRef.current = null;
+    if (connecting.isConnecting) onFinishConnecting();
+    if (e.pointerType !== 'mouse' && touchPointerIdRef.current === e.pointerId) {
+      touchPointerIdRef.current = null;
+    }
+  }, [connecting.isConnecting, onFinishConnecting]);
+
+  const handleNodePointerDown = useCallback((e: React.PointerEvent, nodeId: string) => {
     e.stopPropagation();
     // Left button only: right-click selection is handled in onContextMenu, so a
     // right-press must not alter the selection here.
@@ -533,7 +997,7 @@ export default function NodeCanvas({
     }
   }, [nodes, screenToCanvas, onSelectNode, groups, onMoveNodes, onSelectNodes, selectedNodeIds]);
 
-  const handlePortMouseDown = useCallback((e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => {
+  const handlePortPointerDown = useCallback((e: React.PointerEvent, nodeId: string, portId: string, isOutput: boolean) => {
     e.stopPropagation();
     // Left button only: right-clicking a port must not start a connection wire
     // (right-clicks select via the node's onContextMenu instead).
@@ -544,14 +1008,19 @@ export default function NodeCanvas({
     onStartConnecting(nodeId, portId, isOutput, pos.x, pos.y);
   }, [screenToCanvas]);
 
-  const handlePortMouseUp = useCallback((e: React.MouseEvent, nodeId: string, portId: string) => {
+  const handlePortPointerUp = useCallback((e: React.PointerEvent, nodeId: string, portId: string) => {
+    /* Touch support: the browser captures a touch pointer to the element the
+       finger started on, so this handler would always see the SOURCE port.
+       Finger releases are resolved by position in the canvas-level pointerup
+       (document.elementFromPoint) and run through the same onFinishConnecting. */
+    if (e.pointerType !== 'mouse') return;
     e.stopPropagation();
     if (connecting.isConnecting) onFinishConnecting(nodeId, portId);
   }, [connecting]);
 
   /* ── Left-click a wire: select ONLY it (any node/shape selection is dropped).
      The menu no longer opens here — right-click shows the wire options. ── */
-  const handleConnectionMouseDown = useCallback((e: React.MouseEvent, connId: string) => {
+  const handleConnectionPointerDown = useCallback((e: React.PointerEvent, connId: string) => {
     e.stopPropagation();
     // Left button only: right-clicks open the wire menu instead.
     if (e.button !== 0) return;
@@ -569,41 +1038,32 @@ export default function NodeCanvas({
   const handleConnectionContextMenu = useCallback((e: React.MouseEvent, connId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu(null);
-    setSelMenu(null);
-    setShapeMenu(null);
-    setShapeSizeEditor(null);
-    if (connId !== selectedConnId) {
-      onSelectNode(null);
-      setSelectedConnId(connId);
-    }
-    const rect = svgRef.current?.getBoundingClientRect();
-    setConnMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), connId });
-  }, [onSelectNode, selectedConnId]);
+    // Same menu, same selection rule as the touch long-press (showConnMenu).
+    showConnMenu(connId, e.clientX, e.clientY);
+  }, [showConnMenu]);
 
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setConnMenu(null);
-    setSelMenu(null);
-    // Right-clicking an unselected node selects it (group-aware) so the
-    // menu's Group/Ungroup actions have a well-defined target.
-    if (!(selectedNodeIds ?? []).includes(nodeId)) onSelectNode(nodeId);
-    onSelectShape?.(null);
-    setContextMenu({ nodeId });
-  }, [selectedNodeIds, onSelectNode, onSelectShape]);
+    // Same menu, same selection rule as the touch long-press (showNodeMenu).
+    showNodeMenu(nodeId);
+  }, [showNodeMenu]);
 
   // Right-click on empty canvas with a selection (nodes and/or shapes) → menu.
   const handleBackgroundContextMenu = useCallback((e: React.MouseEvent) => {
     const current = (selectedNodeIds ?? []).length + (selectedShapeIds ?? []).length;
+    /* Touch multi-select: the browser's own long-press menu must not replace
+       the selection menu the second finger opens. */
+    if (multiSelectRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     // Right-click during wire selection shows the WIRE options (no node/shape menu).
     if (current === 0 && selectedConn) {
       e.preventDefault();
       e.stopPropagation();
-      setContextMenu(null);
-      setShapeMenu(null);
-      const rect = svgRef.current?.getBoundingClientRect();
-      setConnMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), connId: selectedConn.id });
+      showConnMenu(selectedConn.id, e.clientX, e.clientY);
       return;
     }
     if (current === 0) return; // keep the native browser menu as before
@@ -613,15 +1073,37 @@ export default function NodeCanvas({
     setShapeMenu(null);
     const rect = svgRef.current?.getBoundingClientRect();
     setSelMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
-  }, [selectedNodeIds, selectedShapeIds, selectedConn]);
+  }, [selectedNodeIds, selectedShapeIds, selectedConn, showConnMenu]);
+
+  /* ── Text annotations: inline edit lifecycle (double-click → textarea) ── */
+  const beginShapeTextEdit = useCallback((shape: CanvasShape) => {
+    textEditCancelRef.current = false;
+    setEditingTextValue(shape.text ?? '');
+    setEditingShapeText(shape.id);
+    setSelectedConnId(null);
+    if (shape.id !== selectedShapeId) onSelectShape?.(shape.id);
+  }, [selectedShapeId, onSelectShape]);
 
   /* ── Shapes feature: shape body drag (select + move; grouped shapes move
      their whole group — nodes and shapes — with them) ── */
-  const handleShapeMouseDown = useCallback((e: React.MouseEvent, shape: CanvasShape) => {
+  const handleShapePointerDown = useCallback((e: React.PointerEvent, shape: CanvasShape) => {
     e.stopPropagation();
     // Left button only: right-click selection is handled in onContextMenu, so a
     // right-press must not alter the selection here.
     if (e.button !== 0) return;
+    /* Touch support: touchscreens do not reliably emit the double-click that
+       opens the inline editor on a Text shape, so two quick finger taps do the
+       same thing (the first tap still behaves exactly like a single click). */
+    if (e.pointerType !== 'mouse' && shape.type === 'text') {
+      const now = Date.now();
+      const lastTap = lastTapRef.current;
+      if (lastTap && lastTap.id === shape.id && now - lastTap.time < TOUCH_DOUBLE_TAP_MS) {
+        lastTapRef.current = null;
+        beginShapeTextEdit(shape);
+        return; // the second tap opens the editor instead of starting a drag
+      }
+      lastTapRef.current = { id: shape.id, time: now };
+    }
     setContextMenu(null);
     setConnMenu(null);
     setSelMenu(null);
@@ -638,12 +1120,12 @@ export default function NodeCanvas({
       memberNodeIds: g ? [...g.nodeIds] : [],
       memberShapeIds: g ? [...(g.shapeIds ?? [shape.id])] : [shape.id],
     });
-  }, [screenToCanvas, onSelectShape, groups]);
+  }, [screenToCanvas, onSelectShape, groups, beginShapeTextEdit]);
 
   /* ── Shapes feature: begin a corner-handle resize (only rendered when
      selected AND not frozen, so the guard is belt-and-braces). The aspect
      ratio is captured now so Ctrl can lock it for the whole drag. ── */
-  const handleShapeHandleMouseDown = useCallback((e: React.MouseEvent, shape: CanvasShape, handle: ShapeResizeHandle) => {
+  const handleShapeHandlePointerDown = useCallback((e: React.PointerEvent, shape: CanvasShape, handle: ShapeResizeHandle) => {
     e.stopPropagation();
     // Left button only: right-clicks open the shape menu instead of resizing.
     if (e.button !== 0) return;
@@ -655,23 +1137,9 @@ export default function NodeCanvas({
   const handleShapeContextMenu = useCallback((e: React.MouseEvent, shapeId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu(null);
-    setConnMenu(null);
-    setSelMenu(null);
-    setShapeSizeEditor(null);
-    if (shapeId !== selectedShapeId) onSelectShape?.(shapeId);
-    const rect = svgRef.current?.getBoundingClientRect();
-    setShapeMenu({ id: shapeId, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
-  }, [selectedShapeId, onSelectShape]);
-
-  /* ── Text annotations: inline edit lifecycle (double-click → textarea) ── */
-  const beginShapeTextEdit = useCallback((shape: CanvasShape) => {
-    textEditCancelRef.current = false;
-    setEditingTextValue(shape.text ?? '');
-    setEditingShapeText(shape.id);
-    setSelectedConnId(null);
-    if (shape.id !== selectedShapeId) onSelectShape?.(shape.id);
-  }, [selectedShapeId, onSelectShape]);
+    // Same menu, same selection rule as the touch long-press (showShapeMenu).
+    showShapeMenu(shapeId, e.clientX, e.clientY);
+  }, [showShapeMenu]);
 
   const commitShapeTextEdit = useCallback(() => {
     // Escape sets the cancel flag before unmounting; the trailing blur must not commit.
@@ -695,6 +1163,22 @@ export default function NodeCanvas({
     const type = e.dataTransfer.getData('nodeType');
     if (type) onDropNode(type, pos.x, pos.y);
   }, [screenToCanvas, onDropShape]);
+
+  /* ── Touch support: HTML5 drag & drop (what a mouse drag out of the Toolbox
+     uses) never fires for a finger. The Toolbox forwards finger drops as a
+     lightweight event which runs the SAME drop handlers as the mouse above, so
+     the node/shape is placed with the same canvas coordinate conversion. ── */
+  useEffect(() => {
+    const onToolboxTouchDrop = (ev: Event) => {
+      const detail = (ev as CustomEvent<ToolboxTouchDropDetail>).detail;
+      if (!detail) return;
+      const pos = screenToCanvas(detail.clientX, detail.clientY);
+      if (detail.shapeType && onDropShape) { onDropShape(detail.shapeType as ShapeType, pos.x, pos.y); return; }
+      if (detail.nodeType) onDropNode(detail.nodeType, pos.x, pos.y);
+    };
+    window.addEventListener(TOOLBOX_TOUCH_DROP_EVENT, onToolboxTouchDrop);
+    return () => window.removeEventListener(TOOLBOX_TOUCH_DROP_EVENT, onToolboxTouchDrop);
+  }, [screenToCanvas, onDropShape, onDropNode]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -756,7 +1240,7 @@ export default function NodeCanvas({
     const stroke = isSelected ? SELECTED_WIRE_COLOR : (conn.color ?? colors.conn);
 
     return (
-      <g key={conn.id}>
+      <g key={conn.id} data-conn-id={conn.id}>
         <path
           d={bezierPath(from.x, from.y, to.x, to.y)}
           fill="none"
@@ -771,7 +1255,7 @@ export default function NodeCanvas({
           stroke="transparent"
           strokeWidth={16}
           className="cursor-pointer"
-          onMouseDown={(e) => handleConnectionMouseDown(e, conn.id)}
+          onPointerDown={(e) => handleConnectionPointerDown(e, conn.id)}
           onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
         >
           <title>{`${fromNode.label} → ${toNode.label}`}</title>
@@ -837,9 +1321,13 @@ export default function NodeCanvas({
         data-port-id={port.id}
         data-is-output={isOutput}
         className="cursor-crosshair"
-        onMouseDown={(e) => handlePortMouseDown(e, node.id, port.id, isOutput)}
-        onMouseUp={(e) => handlePortMouseUp(e, node.id, port.id)}
+        onPointerDown={(e) => handlePortPointerDown(e, node.id, port.id, isOutput)}
+        onPointerUp={(e) => handlePortPointerUp(e, node.id, port.id)}
       >
+        {/* Touch support: invisible finger-sized hit area around the visible
+            port circle. It draws nothing and is inert for a mouse, so the
+            desktop hit area is unchanged. */}
+        <circle className="touch-hit" cx={x} cy={y} r={TOUCH_PORT_RADIUS} fill="transparent" />
         {/* Port circle — FIX #2: transform-box fill-box so scale works on SVG circles */}
         <circle cx={x} cy={y} r={PORT_RADIUS}
           fill={connected ? portColor : colors.portBg}
@@ -948,7 +1436,8 @@ export default function NodeCanvas({
 
     return (
       <g key={node.id} transform={`translate(${node.x}, ${node.y})`}
-        onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+        data-node-id={node.id}
+        onPointerDown={(e) => handleNodePointerDown(e, node.id)}
         onContextMenu={(e) => handleNodeContextMenu(e, node.id)}
         onMouseEnter={() => setHoveredNodeId(node.id)}
         onMouseLeave={() => setHoveredNodeId(null)}>
@@ -999,11 +1488,21 @@ export default function NodeCanvas({
       ['se', shape.x + shape.width, shape.y + shape.height, 'nwse-resize'],
     ];
     return corners.map(([h, hx, hy, cursor]) => (
-      <rect key={h}
-        x={hx - hs / 2} y={hy - hs / 2} width={hs} height={hs} rx={1.5 / zoom}
-        fill={colors.nodeBg} stroke={colors.selected} strokeWidth={1.5 / zoom}
-        style={{ cursor }}
-        onMouseDown={(e) => handleShapeHandleMouseDown(e, shape, h)} />
+      <g key={h}>
+        {/* Touch support: invisible finger-sized grab area — same handler,
+            nothing drawn, inert for a mouse. */}
+        <rect
+          className="touch-hit"
+          x={hx - (hs + TOUCH_HANDLE_PAD) / 2} y={hy - (hs + TOUCH_HANDLE_PAD) / 2}
+          width={hs + TOUCH_HANDLE_PAD} height={hs + TOUCH_HANDLE_PAD}
+          fill="transparent"
+          onPointerDown={(e) => handleShapeHandlePointerDown(e, shape, h)} />
+        <rect
+          x={hx - hs / 2} y={hy - hs / 2} width={hs} height={hs} rx={1.5 / zoom}
+          fill={colors.nodeBg} stroke={colors.selected} strokeWidth={1.5 / zoom}
+          style={{ cursor }}
+          onPointerDown={(e) => handleShapeHandlePointerDown(e, shape, h)} />
+      </g>
     ));
   };
 
@@ -1025,7 +1524,8 @@ export default function NodeCanvas({
     };
     return (
       <g key={shape.id}
-        onMouseDown={(e) => handleShapeMouseDown(e, shape)}
+        data-shape-id={shape.id}
+        onPointerDown={(e) => handleShapePointerDown(e, shape)}
         onDoubleClick={(e) => { e.stopPropagation(); beginShapeTextEdit(shape); }}
         onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
         style={{ cursor: dragShape?.id === shape.id ? 'grabbing' : 'move' }}>
@@ -1043,7 +1543,7 @@ export default function NodeCanvas({
               autoFocus
               onChange={(e) => setEditingTextValue(e.target.value)}
               onBlur={commitShapeTextEdit}
-              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') cancelShapeTextEdit();
@@ -1063,7 +1563,7 @@ export default function NodeCanvas({
             {/* Handlers are attached directly: HTML-in-SVG event bubbling is
                 unreliable across browsers, so the div mirrors the <g> above. */}
             <div
-              onMouseDown={(e) => handleShapeMouseDown(e, shape)}
+              onPointerDown={(e) => handleShapePointerDown(e, shape)}
               onDoubleClick={(e) => { e.stopPropagation(); beginShapeTextEdit(shape); }}
               onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
               style={{
@@ -1109,7 +1609,8 @@ export default function NodeCanvas({
     }
     return (
       <g key={shape.id}
-        onMouseDown={(e) => handleShapeMouseDown(e, shape)}
+        data-shape-id={shape.id}
+        onPointerDown={(e) => handleShapePointerDown(e, shape)}
         onContextMenu={(e) => handleShapeContextMenu(e, shape.id)}
         style={{ cursor: dragShape?.id === shape.id ? 'grabbing' : 'move' }}>
         <g fill={shapeColor} fillOpacity={shape.fillOpacity ?? DEFAULT_SHAPE_FILL_OPACITY} stroke={stroke} strokeWidth={isSelected ? 2.5 : 1.5}>
@@ -1166,10 +1667,17 @@ export default function NodeCanvas({
     return { x, y };
   })();
 
+  // `data-canvas` marks the canvas as the drop area for finger drags out of
+  // the Toolbox (the mouse drop arrives as a native HTML5 drop event).
   return (
-    <div className="relative w-full h-full overflow-hidden" style={{ background: colors.bg }}>
-      <svg ref={svgRef} className="w-full h-full"
-        onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
+    <div className="relative w-full h-full overflow-hidden" data-canvas="true" style={{ background: colors.bg }}>
+      <svg ref={svgRef} className="w-full h-full canvas-surface"
+        onWheel={handleWheel}
+        onPointerDownCapture={handlePointerDownCapture}
+        onPointerMoveCapture={handlePointerMoveCapture}
+        onPointerUpCapture={handlePointerUpCapture}
+        onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp} onPointerCancel={handlePointerCancel}
         onMouseLeave={() => setHoveredGroupId(null)}
         onContextMenu={handleBackgroundContextMenu}
         onDragOver={handleDragOver} onDrop={handleDrop}
@@ -1229,6 +1737,15 @@ export default function NodeCanvas({
           ))}
         </g>
       </svg>
+
+      {/* Touch multi-select hint — shown only while a finger holds the canvas
+          (same styling as the existing zoom indicator; never intercepts input) */}
+      {multiSelectActive && (
+        <div className="absolute bottom-3 left-3 px-3 py-1 rounded-lg text-xs"
+          style={{ background: colors.nodeBg, color: colors.text, border: `1px solid ${colors.nodeBorder}`, pointerEvents: 'none' }}>
+          ✋ Hold for options · slide to box-select
+        </div>
+      )}
 
       {/* Zoom indicator */}
       <div className="absolute bottom-3 right-3 px-3 py-1 rounded-lg text-xs font-mono"

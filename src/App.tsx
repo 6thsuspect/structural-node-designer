@@ -85,12 +85,16 @@ function CollapsedTab({ side, label, icon, theme, onClick }: { side:'left'|'righ
   );
 }
 
-/* ─── Resize grip ─── */
-function ResizeGrip({ theme, side, onMouseDown }: { theme:Theme; side:'left'|'right'; onMouseDown:(e:React.MouseEvent)=>void }) {
+/* ─── Resize grip ───
+   Pointer Events so the grip can be dragged with a mouse OR a finger; the
+   drag itself is unchanged. `touchAction: none` keeps the browser from
+   treating the finger drag as a scroll gesture (the .resize-grip rule in
+   index.css only widens the hit area for coarse pointers). */
+function ResizeGrip({ theme, side, onPointerDown }: { theme:Theme; side:'left'|'right'; onPointerDown:(e:React.PointerEvent)=>void }) {
   const c = panelColors(theme);
   return (
-    <div className="flex-shrink-0 flex flex-col items-center justify-center cursor-col-resize group"
-      style={{ width:6, background:c.border }} onMouseDown={onMouseDown} title={`Resize ${side} panel`}>
+    <div className="flex-shrink-0 flex flex-col items-center justify-center cursor-col-resize group resize-grip"
+      style={{ width:6, background:c.border, touchAction:'none' }} onPointerDown={onPointerDown} title={`Resize ${side} panel`}>
       <div className="space-y-1 opacity-50 group-hover:opacity-100 transition-opacity">
         <div className="w-[3px] h-[3px] rounded-full" style={{ background:c.grip }}/>
         <div className="w-[3px] h-[3px] rounded-full" style={{ background:c.grip }}/>
@@ -357,7 +361,7 @@ export default function App() {
   /* ── resize handler ── */
   useEffect(() => {
     if (!resizing) return;
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       const dx = e.clientX - resizeStart.current.x;
       if (resizing === 'toolbox') setToolboxWidth(Math.max(180, Math.min(500, resizeStart.current.size + dx)));
       else if (resizing === 'properties') setPropertiesWidth(Math.max(200, Math.min(500, resizeStart.current.size - dx)));
@@ -365,12 +369,12 @@ export default function App() {
     const onUp = () => setResizing(null);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { document.body.style.cursor=''; document.body.style.userSelect=''; window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => { document.body.style.cursor=''; document.body.style.userSelect=''; window.removeEventListener('pointermove',onMove); window.removeEventListener('pointerup',onUp); };
   }, [resizing]);
 
-  const startResize = (which: 'toolbox'|'properties', e: React.MouseEvent) => {
+  const startResize = (which: 'toolbox'|'properties', e: React.PointerEvent) => {
     resizeStart.current = { x:e.clientX, y:e.clientY, size: which==='toolbox' ? toolboxWidth : propertiesWidth };
     setResizing(which);
   };
@@ -491,7 +495,7 @@ export default function App() {
                 <Toolbox theme={editor.theme} searchQuery={editor.searchQuery} onSearchChange={editor.setSearchQuery} onCreateCustom={() => setShowCustomFormulaModal(true)} onQuickFormula={() => setShowQuickFormulaModal(true)} />
               </div>
             </div>
-            <ResizeGrip theme={editor.theme} side="left" onMouseDown={(e) => startResize('toolbox',e)} />
+            <ResizeGrip theme={editor.theme} side="left" onPointerDown={(e) => startResize('toolbox',e)} />
           </>
         ) : (
           <div className="flex items-start pt-2 flex-shrink-0">
@@ -528,7 +532,7 @@ export default function App() {
         {/* RIGHT: Properties */}
         {propertiesOpen ? (
           <>
-            <ResizeGrip theme={editor.theme} side="right" onMouseDown={(e) => startResize('properties',e)} />
+            <ResizeGrip theme={editor.theme} side="right" onPointerDown={(e) => startResize('properties',e)} />
             <div className="flex flex-col h-full overflow-hidden" style={{ width:propertiesWidth, flexShrink:0 }}>
               <PanelHeader title="Properties" icon="📋" theme={editor.theme} onToggle={() => setPropertiesOpen(false)} />
               <div className="flex-1 overflow-hidden">

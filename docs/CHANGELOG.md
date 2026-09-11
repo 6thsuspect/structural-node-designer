@@ -8,6 +8,30 @@ All notable changes to the Structural Node Designer project will be documented i
 
 ### Added
 
+#### 📱 Touch Support (existing mouse behaviour unchanged)
+- The canvas now runs on Pointer Events, so the existing mouse actions work with a finger/pen: tap to select, drag to move nodes, drag from a port to connect, tap a wire/shape, drag/resize/marquee exactly as before
+- Finger tap on empty canvas = the plain mouse click (clears the selection); finger drag on empty canvas pans the canvas (the pan the mouse reaches with the middle button / Alt+drag)
+- Two-finger pinch zooms in and out around the fingers (same zoom/pan state and same 0.1–5 limits as the mouse wheel; two fingers moving together pan the view)
+- **Long-press multi-select, marquee selection & grouping:** hold one finger still on the canvas (~0.5 s) to enter multi-select mode (a small hint appears at the bottom-left), then:
+  - **slide the held finger to draw a marquee** over the nodes — the nodes it sweeps are selected live (the same marquee helpers the mouse uses), and
+  - **tap the canvas with a second finger** while the first stays on the selection to open the existing options menu: **Group Selection** for a multi-node selection, or **Ungroup** when the finger is held on an already-grouped selection. Tapping a node with the second finger still adds/removes it (the Shift+click rule).
+  - **hold a node** (its body, not a port) to open that node's existing options menu — the same one the mouse reaches with right-click: *Edit Node Code*, *Edit Formula & Inputs*, draw order, *Group* / *Ungroup*, *View Calculation Trace*, *Delete Node*.
+  - **hold a shape** to open that shape's existing options menu — the same one right-click opens: *Freeze/Unfreeze size*, *Edit dimensions*, draw order, *Group* / *Ungroup*, *Delete Shape*.
+  - **hold a connection wire** to open its existing options menu — the same one right-click opens: wire colour (presets, custom picker, reset) and *Delete Connection*.
+  - Dragging the held finger dismisses the menu and moves the node/shape, so a pause before a drag stays a drag.
+  Lifting the held finger leaves the mode. A hold that starts *on* a node keeps that node's normal drag alive, so pausing before dragging is still a drag.
+- Ports and shape resize handles get a larger **invisible** hit area for fingers only (`.touch-hit`, inert for a mouse) — nothing is drawn differently
+- `touch-action: none` is scoped to the canvas element only; panels, dialogs, forms, menus and text fields keep normal touch scrolling and selection
+- Toolbox nodes/shapes can be dragged onto the canvas with a finger (HTML5 drag & drop never fires for touch) and are placed through the same drop handler with the same canvas coordinates
+- No new toolbar, buttons, menus, gestures or mobile layout — the desktop application is unchanged (`npm run build`, `npm test`)
+
+#### 📖 Touch Guide in Settings
+- New **👆 Touch Guide** tab in the existing Settings window: a short, read-only reference to the finger gestures (select & move, connections, zoom, box-select & groups, item options, Toolbox & windows) plus the desktop shortcuts. The other Settings tabs and the window itself are unchanged.
+
+#### 🪟 Editors close only from their own ✕
+- The **Quick Formula Editor**, **Create / Edit Custom Node** and **Edit Node Code** dialogs no longer close when the dimmed area around them is tapped/clicked — they close from the ✕ in the top-right corner (or their existing in-window Cancel / Save buttons). Their other behaviour is unchanged.
+- **Settings** and **About the Author** keep closing on an outside click, exactly as before.
+
 #### 🔗 Wire Selection + Custom Wire Colors
 - Left-click a wire selects ONLY it (nodes/shapes are deselected); the selected wire turns red while selected
 - Right-click during wire selection opens the wire options menu (on the wire or anywhere on the canvas)

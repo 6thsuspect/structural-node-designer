@@ -216,6 +216,9 @@ export default function CustomFormulaModal({ isOpen, theme, onClose, onSave, edi
       initialHeight={640}
       minWidth={480}
       minHeight={360}
+      // Editable dialogs close from their own ✕ (and buttons), never by
+      // tapping the dimmed area around them.
+      closeOnOverlayClick={false}
       scrollBody={false}
       persistKey="snd.window.custom"
       footer={
