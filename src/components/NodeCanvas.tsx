@@ -437,13 +437,30 @@ export default function NodeCanvas({
     setMultiSelectActive(false);
   }, []);
 
+  /** Show the existing node options menu for a node — the very same menu a
+   *  mouse right-click opens (Edit Node Code / Edit Formula & Inputs / draw
+   *  order / Group / Ungroup / Calculation Trace / Delete). Used by the mouse
+   *  right-click and by the touch long-press on a node. */
+  const showNodeMenu = useCallback((nodeId: string) => {
+    setConnMenu(null);
+    setSelMenu(null);
+    setShapeMenu(null);
+    setShapeSizeEditor(null);
+    // Selecting an unselected node (group-aware) gives the menu's Group /
+    // Ungroup actions a well-defined target — exactly like right-click.
+    if (!(selectedNodeIds ?? []).includes(nodeId)) onSelectNode(nodeId);
+    onSelectShape?.(null);
+    setContextMenu({ nodeId });
+  }, [selectedNodeIds, onSelectNode, onSelectShape]);
+
   /** A finger has been held still: the existing selection becomes
    *  finger-driven until that finger is lifted.
    *  - Hold on empty canvas -> sliding draws the marquee (box selection).
-   *  - Hold on a node / shape -> its normal drag keeps running, so a finger can
-   *    stay on a selected group while the other hand taps for options. */
+   *  - Hold on a node -> its existing options menu opens, and its normal drag
+   *    keeps running, so a finger can stay on a selected group while the other
+   *    hand taps for options. */
   const activateMultiSelect = useCallback((hold: {
-    pointerId: number; marqueeCapable: boolean; pressX: number; pressY: number; pressCanvas: { x: number; y: number };
+    pointerId: number; nodeId: string | null; marqueeCapable: boolean; pressX: number; pressY: number; pressCanvas: { x: number; y: number };
   }) => {
     multiSelectRef.current = {
       holdPointerId: hold.pointerId,
@@ -469,7 +486,9 @@ export default function NodeCanvas({
     setSelMenu(null);
     setShapeMenu(null);
     setShapeSizeEditor(null);
-  }, [connecting.isConnecting, onFinishConnecting]);
+    // A hold on a node is the touch equivalent of right-click: show its options.
+    if (hold.nodeId) showNodeMenu(hold.nodeId);
+  }, [connecting.isConnecting, onFinishConnecting, showNodeMenu]);
 
   /** Watch a freshly pressed finger for the hold that enters multi-select mode. */
   const startLongPressWatch = (e: React.PointerEvent) => {
@@ -481,6 +500,8 @@ export default function NodeCanvas({
     // keeps that item's existing drag alive instead.
     const hold = {
       pointerId: e.pointerId,
+      // A press on a node body (ports returned above) is the touch right-click.
+      nodeId: target?.closest('[data-node-id]')?.getAttribute('data-node-id') ?? null,
       marqueeCapable: target === svgRef.current || !!target?.classList.contains('canvas-bg'),
       pressX: e.clientX,
       pressY: e.clientY,
@@ -574,7 +595,14 @@ export default function NodeCanvas({
         return;
       }
       // A hold that started on a node / shape keeps its normal drag.
-      if (!multi.marqueeCapable) return;
+      if (!multi.marqueeCapable) {
+        /* Moving the held finger resumes the drag, so the options menu the hold
+           opened steps aside — the node is being moved, not configured. */
+        if (!isWithinTapThreshold({ x: multi.pressX, y: multi.pressY }, { x: e.clientX, y: e.clientY }, LONG_PRESS_MOVE_TOLERANCE)) {
+          setContextMenu(null);
+        }
+        return;
+      }
       if (!multi.marqueeStarted) {
         if (isWithinTapThreshold({ x: multi.pressX, y: multi.pressY }, { x: e.clientX, y: e.clientY }, LONG_PRESS_MOVE_TOLERANCE)) {
           e.stopPropagation();
@@ -984,14 +1012,9 @@ export default function NodeCanvas({
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setConnMenu(null);
-    setSelMenu(null);
-    // Right-clicking an unselected node selects it (group-aware) so the
-    // menu's Group/Ungroup actions have a well-defined target.
-    if (!(selectedNodeIds ?? []).includes(nodeId)) onSelectNode(nodeId);
-    onSelectShape?.(null);
-    setContextMenu({ nodeId });
-  }, [selectedNodeIds, onSelectNode, onSelectShape]);
+    // Same menu, same selection rule as the touch long-press (showNodeMenu).
+    showNodeMenu(nodeId);
+  }, [showNodeMenu]);
 
   // Right-click on empty canvas with a selection (nodes and/or shapes) → menu.
   const handleBackgroundContextMenu = useCallback((e: React.MouseEvent) => {
@@ -1693,7 +1716,7 @@ export default function NodeCanvas({
       {multiSelectActive && (
         <div className="absolute bottom-3 left-3 px-3 py-1 rounded-lg text-xs"
           style={{ background: colors.nodeBg, color: colors.text, border: `1px solid ${colors.nodeBorder}`, pointerEvents: 'none' }}>
-          ✋ Slide to box-select · tap with a second finger for options
+          ✋ Hold for options · slide to box-select
         </div>
       )}
 
